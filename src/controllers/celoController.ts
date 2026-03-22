@@ -1,6 +1,7 @@
 import { Router, Request, Response, NextFunction } from 'express';
 import { validationError } from '../utils/errors';
 import { logger } from '../utils/logger';
+import { mandateService } from '../services/mandateService';
 
 const router = Router();
 
@@ -67,7 +68,7 @@ router.get('/tx/:txHash', async (req: Request, res: Response, next: NextFunction
 // Transfer tokens
 router.post('/transfer', async (req: Request, res: Response, next: NextFunction) => {
   try {
-    const { to, amount, currency = 'cUSD' } = req.body;
+    const { to, amount, currency = 'cUSD', reason } = req.body;
 
     if (!to || !to.startsWith('0x') || to.length !== 42) {
       throw validationError('Invalid recipient address');
@@ -76,6 +77,32 @@ router.post('/transfer', async (req: Request, res: Response, next: NextFunction)
     if (!amount || isNaN(parseFloat(amount)) || parseFloat(amount) <= 0) {
       throw validationError('Invalid amount');
     }
+
+    // MANDATE POLICY CHECK - validate before transfer
+    const transferReason = reason || `Transfer ${amount} ${currency} to ${to}`;
+    const validation = await mandateService.validateTransfer({
+      action: 'transfer',
+      reason: transferReason,
+      amount: parseFloat(amount),
+      to,
+      token: currency,
+    });
+
+    if (!validation.allowed) {
+      const message = mandateService.formatValidationMessage(validation, amount, currency, to);
+      logger.error(message);
+      return res.status(403).json({
+        success: false,
+        error: {
+          code: 'MANDATE_BLOCKED',
+          message: message,
+          blockReason: validation.blockReason,
+        },
+        timestamp: new Date().toISOString(),
+      });
+    }
+
+    logger.info(mandateService.formatValidationMessage(validation, amount, currency, to));
 
     // Mock transfer response
     const transfer = {
@@ -86,9 +113,11 @@ router.post('/transfer', async (req: Request, res: Response, next: NextFunction)
       currency,
       status: 'pending',
       estimatedConfirmation: '~5 seconds',
+      mandateIntentId: validation.intentId,
     };
 
     logger.info('Transfer initiated', { txHash: transfer.txHash, to, amount, currency });
+    logger.info(`Transfer confirmed: ${transfer.txHash}`);
 
     res.status(201).json({
       success: true,
