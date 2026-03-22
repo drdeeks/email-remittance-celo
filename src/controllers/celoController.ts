@@ -2,6 +2,7 @@ import { Router, Request, Response, NextFunction } from 'express';
 import { validationError } from '../utils/errors';
 import { logger } from '../utils/logger';
 import { mandateService } from '../services/mandateService';
+import { celoService } from '../services/celoService';
 
 const router = Router();
 
@@ -14,13 +15,12 @@ router.get('/balance/:address', async (req: Request, res: Response, next: NextFu
       throw validationError('Invalid Celo address');
     }
 
-    // Mock balance response
+    const balanceCelo = await celoService.getBalance(address);
+
     const balance = {
       address,
-      nativeBalance: '1000000000000000000', // 1 CELO in wei
-      stableBalance: '100000000000000000000', // 100 cUSD
-      nativeFormatted: '1.0 CELO',
-      stableFormatted: '100.0 cUSD',
+      nativeBalance: balanceCelo,
+      nativeFormatted: `${balanceCelo} CELO`,
     };
 
     res.json({
@@ -42,17 +42,16 @@ router.get('/tx/:txHash', async (req: Request, res: Response, next: NextFunction
       throw validationError('Invalid transaction hash');
     }
 
-    // Mock transaction response
+    const receipt = await celoService.getTransactionReceipt(txHash);
+
     const tx = {
       hash: txHash,
-      from: '0x' + '1'.repeat(40),
-      to: '0x' + '2'.repeat(40),
-      value: '100000000000000000000',
-      gasUsed: 21000,
-      gasPrice: '5000000000',
-      status: 'confirmed',
-      blockNumber: 12345678,
-      timestamp: new Date().toISOString(),
+      from: receipt.from,
+      to: receipt.to,
+      status: receipt.status,
+      blockNumber: Number(receipt.blockNumber),
+      gasUsed: receipt.gasUsed.toString(),
+      effectiveGasPrice: receipt.effectiveGasPrice.toString(),
     };
 
     res.json({
@@ -65,10 +64,10 @@ router.get('/tx/:txHash', async (req: Request, res: Response, next: NextFunction
   }
 });
 
-// Transfer tokens
-router.post('/transfer', async (req: Request, res: Response, next: NextFunction) => {
+// Transfer CELO directly
+router.post('/send', async (req: Request, res: Response, next: NextFunction) => {
   try {
-    const { to, amount, currency = 'cUSD', reason } = req.body;
+    const { to, amount, reason } = req.body;
 
     if (!to || !to.startsWith('0x') || to.length !== 42) {
       throw validationError('Invalid recipient address');
@@ -79,17 +78,16 @@ router.post('/transfer', async (req: Request, res: Response, next: NextFunction)
     }
 
     // MANDATE POLICY CHECK - validate before transfer
-    const transferReason = reason || `Transfer ${amount} ${currency} to ${to}`;
+    const transferReason = reason || `Direct send ${amount} CELO to ${to}`;
     const validation = await mandateService.validateTransfer({
       action: 'transfer',
       reason: transferReason,
-      amount: parseFloat(amount),
+      amount: parseFloat(amount) * 0.50, // Rough CELO to USD
       to,
-      token: currency,
     });
 
     if (!validation.allowed) {
-      const message = mandateService.formatValidationMessage(validation, amount, currency, to);
+      const message = mandateService.formatValidationMessage(validation, amount, 'CELO', to);
       logger.error(message);
       return res.status(403).json({
         success: false,
@@ -102,22 +100,23 @@ router.post('/transfer', async (req: Request, res: Response, next: NextFunction)
       });
     }
 
-    logger.info(mandateService.formatValidationMessage(validation, amount, currency, to));
+    logger.info(mandateService.formatValidationMessage(validation, amount, 'CELO', to));
 
-    // Mock transfer response
+    // Execute transfer
+    const txHash = await celoService.sendCelo(to, parseFloat(amount));
+
     const transfer = {
-      txHash: '0x' + Array(64).fill(0).map(() => Math.floor(Math.random() * 16).toString(16)).join(''),
-      from: '0x' + '1'.repeat(40), // Service wallet
+      txHash,
+      from: celoService.getWalletAddress(),
       to,
       amount,
-      currency,
-      status: 'pending',
-      estimatedConfirmation: '~5 seconds',
+      currency: 'CELO',
+      status: 'confirmed',
       mandateIntentId: validation.intentId,
+      explorerUrl: `https://explorer.celo.org/mainnet/tx/${txHash}`,
     };
 
-    logger.info('Transfer initiated', { txHash: transfer.txHash, to, amount, currency });
-    logger.info(`Transfer confirmed: ${transfer.txHash}`);
+    logger.info('Transfer completed', { txHash, to, amount });
 
     res.status(201).json({
       success: true,
@@ -133,15 +132,11 @@ router.post('/transfer', async (req: Request, res: Response, next: NextFunction)
 router.get('/network', async (req: Request, res: Response, next: NextFunction) => {
   try {
     const network = {
-      name: 'Celo Alfajores Testnet',
-      chainId: 44787,
-      rpcUrl: 'https://alfajores-forno.celo-testnet.org',
-      explorerUrl: 'https://alfajores.celoscan.io',
-      stablecoin: {
-        symbol: 'cUSD',
-        address: '0x874069Fa1Eb16D44d622F2e0Ca25eeA172369bC1',
-        decimals: 18,
-      },
+      name: 'Celo Mainnet',
+      chainId: 42220,
+      rpcUrl: process.env.CELO_RPC_URL || 'https://forno.celo.org',
+      explorerUrl: 'https://explorer.celo.org/mainnet',
+      serviceWallet: celoService.getWalletAddress(),
       blockTime: '~5 seconds',
     };
 
@@ -158,19 +153,17 @@ router.get('/network', async (req: Request, res: Response, next: NextFunction) =
 // Generate new wallet (for recipients)
 router.post('/wallet/generate', async (req: Request, res: Response, next: NextFunction) => {
   try {
-    // In production, this would create a real wallet
-    // For demo, return mock wallet
-    const wallet = {
-      address: '0x' + Array(40).fill(0).map(() => Math.floor(Math.random() * 16).toString(16)).join(''),
-      // Never expose private key in production!
-      message: 'Wallet generated successfully. Private key secured server-side.',
-    };
+    const wallet = celoService.generateClaimWallet();
 
     logger.info('Wallet generated', { address: wallet.address });
 
     res.status(201).json({
       success: true,
-      data: wallet,
+      data: {
+        address: wallet.address,
+        privateKey: wallet.privateKey,
+        warning: 'SAVE YOUR PRIVATE KEY! This will only be shown once.',
+      },
       timestamp: new Date().toISOString(),
     });
   } catch (error) {
