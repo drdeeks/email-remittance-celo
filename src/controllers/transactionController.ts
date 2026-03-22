@@ -4,13 +4,14 @@ import { logger } from '../utils/logger';
 import { remittanceService } from '../services/remittanceService';
 import { detectChain, chainService, type SupportedChain } from '../services/celoService';
 import { uniswapService } from '../services/uniswapService';
+import { feeService, type FeeModel } from '../services/feeService';
 
 const router = Router();
 
 // Create a new remittance transaction
 router.post('/send', async (req: Request, res: Response, next: NextFunction) => {
   try {
-    const { senderEmail, recipientEmail, amount, message, chain, currency, requireAuth } = req.body;
+    const { senderEmail, recipientEmail, amount, message, chain, currency, requireAuth, feeModel, senderWallet } = req.body;
 
     // Validate inputs
     if (!senderEmail || !recipientEmail) {
@@ -20,8 +21,12 @@ router.post('/send', async (req: Request, res: Response, next: NextFunction) => 
     validateEmail(recipientEmail);
     validateAmount(amount);
 
-    const amountCelo = parseFloat(amount);
-    const resolvedChain = detectChain(currency, chain); // auto-detects: 'celo' | 'base' | 'monad'
+    const amountCelo     = parseFloat(amount);
+    const resolvedChain  = detectChain(currency, chain) as SupportedChain;
+    const resolvedFeeModel: FeeModel = feeModel === 'premium' ? 'premium' : 'standard';
+
+    // Get fee quote + generate per-remittance escrow address
+    const feeQuote = await feeService.getFeeQuote(amountCelo, resolvedChain, resolvedFeeModel);
 
     const result = await remittanceService.createRemittance({
       senderEmail,
@@ -30,6 +35,11 @@ router.post('/send', async (req: Request, res: Response, next: NextFunction) => 
       message,
       chain: resolvedChain,
       requireAuth: requireAuth === true || requireAuth === 'true',
+      feeModel: resolvedFeeModel,
+      escrowAddress: feeQuote.escrowAddress,
+      escrowPrivateKey: feeQuote.escrowPrivateKey,
+      senderWallet: senderWallet || '',
+      feeAmount: feeQuote.feeAmount,
     });
 
     logger.info('Remittance created', {
@@ -38,7 +48,8 @@ router.post('/send', async (req: Request, res: Response, next: NextFunction) => 
       recipientEmail,
       amount: amountCelo,
       chain: resolvedChain,
-      requireAuth: !!requireAuth,
+      feeModel: resolvedFeeModel,
+      escrowAddress: feeQuote.escrowAddress,
     });
 
     res.status(201).json({
@@ -48,9 +59,15 @@ router.post('/send', async (req: Request, res: Response, next: NextFunction) => 
         claimToken: result.claimToken,
         txHash: result.txHash,
         expiresAt: new Date(result.expiresAt * 1000).toISOString(),
-        claimUrl: `${process.env.BASE_URL}/api/remittance/claim/${result.claimToken}`,
+        claimUrl: `${process.env.FRONTEND_URL || process.env.BASE_URL}/claim/${result.claimToken}`,
         chain: resolvedChain,
-        requireAuth: requireAuth === true || requireAuth === 'true',
+        feeModel: resolvedFeeModel,
+        // Sender needs to transfer funds here — frontend handles the wallet TX
+        escrowAddress: feeQuote.escrowAddress,
+        sendAmount: feeQuote.sendAmount,
+        recipientReceives: feeQuote.recipientAmount,
+        feeAmount: feeQuote.feeAmount,
+        feeDescription: feeService.getFeeModelDescription(resolvedFeeModel, resolvedChain),
       },
       timestamp: new Date().toISOString(),
     });
@@ -170,6 +187,36 @@ router.post('/demo', async (req: Request, res: Response, next: NextFunction) => 
         claimUrl: `${process.env.BASE_URL}/api/remittance/claim/${result.claimToken}`,
       },
       timestamp: new Date().toISOString(),
+    });
+  } catch (error) {
+    next(error);
+  }
+});
+
+// GET /api/remittance/fee-quote — get fee breakdown before sending
+router.get('/fee-quote', async (req: Request, res: Response, next: NextFunction) => {
+  try {
+    const { amount, chain, feeModel } = req.query;
+    if (!amount) throw validationError('amount is required');
+
+    const resolvedChain  = detectChain(undefined, chain as string) as SupportedChain;
+    const resolvedFeeModel: FeeModel = feeModel === 'premium' ? 'premium' : 'standard';
+    const amountNum = parseFloat(amount as string);
+
+    const quote = await feeService.getFeeQuote(amountNum, resolvedChain, resolvedFeeModel);
+    const description = feeService.getFeeModelDescription(resolvedFeeModel, resolvedChain);
+
+    res.json({
+      success: true,
+      data: {
+        ...quote,
+        escrowPrivateKey: undefined, // never expose to client
+        description,
+        bothOptions: {
+          standard: feeService.getFeeModelDescription('standard', resolvedChain),
+          premium:  feeService.getFeeModelDescription('premium',  resolvedChain),
+        },
+      },
     });
   } catch (error) {
     next(error);
