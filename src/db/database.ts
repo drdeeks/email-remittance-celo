@@ -69,4 +69,4 @@ class DatabaseManager {
 }
 
 export const database = DatabaseManager.getInstance();
-export const db = database.getDb();
+export const db: Database.Database = database.getDb();

@@ -83,7 +83,6 @@ class EmailService {
         to: [recipientEmail],
         subject: `You received ${amountCelo} CELO from ${senderEmail}`,
         html: emailHtml,
-        idempotencyKey: `remittance/${claimToken}`,
       });
 
       logger.info(`Claim email sent to ${recipientEmail} for token ${claimToken}`);
@@ -149,7 +148,6 @@ class EmailService {
         to: [recipientEmail],
         subject: `Claim confirmed: ${amountCelo} CELO received`,
         html: emailHtml,
-        idempotencyKey: `confirmation/${txHash}`,
       });
 
       logger.info(`Confirmation email sent to ${recipientEmail} for tx ${txHash}`);
