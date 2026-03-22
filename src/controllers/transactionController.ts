@@ -19,9 +19,8 @@ router.post('/send', async (req: Request, res: Response, next: NextFunction) => 
     }
     validateEmail(senderEmail);
     validateEmail(recipientEmail);
-    validateAmount(amount);
-
-    const amountCelo     = parseFloat(amount);
+    const amountCelo = parseFloat(amount); // parse first so validateAmount gets a number
+    validateAmount(amountCelo);
     const resolvedChain  = detectChain(currency, chain) as SupportedChain;
     const resolvedFeeModel: FeeModel = feeModel === 'premium' ? 'premium' : 'standard';
 
@@ -61,6 +60,7 @@ router.post('/send', async (req: Request, res: Response, next: NextFunction) => 
         expiresAt: new Date(result.expiresAt * 1000).toISOString(),
         claimUrl: `${process.env.FRONTEND_URL || process.env.BASE_URL}/claim/${result.claimToken}`,
         chain: resolvedChain,
+        requireAuth: requireAuth === true || requireAuth === 'true',
         feeModel: resolvedFeeModel,
         // Sender needs to transfer funds here — frontend handles the wallet TX
         escrowAddress: feeQuote.escrowAddress,

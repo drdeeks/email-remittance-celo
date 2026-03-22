@@ -88,6 +88,28 @@ jest.mock('../src/services/uniswapService', () => ({
   },
 }));
 
+jest.mock('../src/services/feeService', () => ({
+  feeService: {
+    getFeeQuote: jest.fn(async (amount: number, chain: string, feeModel: string) => ({
+      feeModel,
+      sendAmount: amount.toFixed(8),
+      recipientAmount: (amount - 0.0005).toFixed(8),
+      feeAmount: feeModel === 'premium' ? '1.0' : '0',
+      gasEstimate: '0.0005',
+      gasLabel: '~$0.001',
+      premiumFeeNative: '1.0',
+      escrowAddress: '0xEscrow1234567890123456789012345678901234',
+      escrowPrivateKey: '0x' + 'a'.repeat(64),
+      serverProfit: '0.9',
+    })),
+    getFeeModelDescription: jest.fn((feeModel: string, chain: string) => ({
+      title: feeModel === 'premium' ? '⚡ Premium — $1 flat' : '🔵 Standard',
+      description: 'Test description',
+      cost: feeModel === 'premium' ? '$1' : 'Gas only',
+    })),
+  },
+}));
+
 // Create test app
 const createTestApp = () => {
   const app = express();
@@ -280,6 +302,6 @@ describe('Remittance Auth Enforcement', () => {
     expect(statusRes.status).toBe(200);
     expect(statusRes.body.data.requireAuth).toBe(true);
     expect(statusRes.body.data.selfVerified).toBe(false);
-    expect(statusRes.body.data.chain).toBe('celo'); // Mock returns celo, actual would be base
+    expect(statusRes.body.data.chain).toBe('base'); // chain: 'base' was passed in the send request
   });
 });
