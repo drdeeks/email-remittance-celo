@@ -369,12 +369,13 @@ class ChainService {
 
     logger.info(`Forwarding ${amount} ${config.nativeCurrency} from escrow ${account.address} to ${toAddress}`);
 
-    const hash = await walletClient.sendTransaction({
+    const txParams: any = {
       account,
       to: toAddress as `0x${string}`,
       value: parseEther(amount.toString()),
       chain: config.chain,
-    });
+    };
+    const hash = await walletClient.sendTransaction(txParams);
 
     const receipt = await publicClient.waitForTransactionReceipt({ hash });
     if (receipt.status === 'reverted') throw new Error('Escrow forward transaction reverted');
