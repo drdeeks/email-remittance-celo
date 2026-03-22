@@ -1,7 +1,7 @@
 import { Router, Request, Response } from 'express';
 import { chainService } from '../services/celoService';
 import { selfVerificationService } from '../services/selfVerification.service';
-import { mandateService } from '../services/mandateService';
+import { uniswapService } from '../services/uniswapService';
 
 const router = Router();
 
@@ -67,6 +67,18 @@ router.get('/integrations', async (req: Request, res: Response) => {
         walletAddress: chainService.getWalletAddress('celo'),
         balances,
         bridgeRoutes: chainService.getSupportedBridgeRoutes(),
+      },
+
+      // ── Uniswap (Agentic Finance) ────────────────────────────────────────────
+      uniswap: {
+        track: 'Agentic Finance (Best Uniswap API Integration) — $2,500',
+        ...uniswapService.getStatus(),
+        endpoints: [
+          'POST /api/remittance/uniswap/quote',
+          'POST /api/remittance/uniswap/swap',
+          'POST /api/remittance/uniswap/bridge',
+          'GET  /api/remittance/uniswap/status',
+        ],
       },
 
       // ── ERC-8004 ─────────────────────────────────────────────────────────────

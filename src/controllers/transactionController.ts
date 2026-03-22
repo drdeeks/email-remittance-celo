@@ -3,6 +3,7 @@ import { validationError, validateEmail, validateAmount } from '../utils/errors'
 import { logger } from '../utils/logger';
 import { remittanceService } from '../services/remittanceService';
 import { detectChain, chainService, type SupportedChain } from '../services/celoService';
+import { uniswapService } from '../services/uniswapService';
 
 const router = Router();
 
@@ -224,6 +225,82 @@ router.post('/bridge', async (req: Request, res: Response, next: NextFunction) =
       success: true,
       message: `Bridge initiated: ${from} → ${to}. Funds arrive in 2-5 minutes.`,
       data: result,
+      timestamp: new Date().toISOString(),
+    });
+  } catch (error) {
+    next(error);
+  }
+});
+
+// ─── Uniswap Routes (Agentic Finance Track) ────────────────────────────────────
+
+// GET /api/remittance/uniswap/status
+router.get('/uniswap/status', (req: Request, res: Response) => {
+  res.json({ success: true, data: uniswapService.getStatus() });
+});
+
+// POST /api/remittance/uniswap/quote — get a Uniswap swap quote
+router.post('/uniswap/quote', async (req: Request, res: Response, next: NextFunction) => {
+  try {
+    const { chain, tokenIn = 'NATIVE', tokenOut, amountIn } = req.body;
+    if (!tokenOut || !amountIn) throw validationError('tokenOut and amountIn required');
+
+    const resolvedChain = detectChain(undefined, chain || 'celo') as SupportedChain;
+    const swapper = chainService.getWalletAddress(resolvedChain);
+
+    const quote = await uniswapService.getSwapQuote({
+      chain: resolvedChain,
+      tokenIn,
+      tokenOut,
+      amountIn: amountIn.toString(),
+      swapper,
+    });
+
+    res.json({ success: true, data: quote });
+  } catch (error) {
+    next(error);
+  }
+});
+
+// POST /api/remittance/uniswap/swap — execute a Uniswap swap
+router.post('/uniswap/swap', async (req: Request, res: Response, next: NextFunction) => {
+  try {
+    const { chain, tokenIn = 'NATIVE', tokenOut, amountIn, slippage } = req.body;
+    if (!tokenOut || !amountIn) throw validationError('tokenOut and amountIn required');
+
+    const resolvedChain = detectChain(undefined, chain || 'celo') as SupportedChain;
+
+    const result = await uniswapService.executeSwap({
+      chain: resolvedChain,
+      tokenIn,
+      tokenOut,
+      amountIn: amountIn.toString(),
+      slippage: slippage ? parseFloat(slippage) : undefined,
+    });
+
+    logger.info('Uniswap swap executed', result);
+    res.json({ success: true, data: result, timestamp: new Date().toISOString() });
+  } catch (error) {
+    next(error);
+  }
+});
+
+// POST /api/remittance/uniswap/bridge — cross-chain via Uniswap
+router.post('/uniswap/bridge', async (req: Request, res: Response, next: NextFunction) => {
+  try {
+    const { fromChain, toChain, amount } = req.body;
+    if (!fromChain || !toChain || !amount) throw validationError('fromChain, toChain, amount required');
+
+    const from = detectChain(undefined, fromChain) as SupportedChain;
+    const to   = detectChain(undefined, toChain)   as SupportedChain;
+    if (from === to) throw validationError('fromChain and toChain must differ');
+
+    const quote = await uniswapService.getBridgeQuote(from, to, amount.toString());
+
+    res.json({
+      success: true,
+      data: quote,
+      note: 'Set UNISWAP_API_KEY in .env to execute this bridge. Quote shows estimated output.',
       timestamp: new Date().toISOString(),
     });
   } catch (error) {
