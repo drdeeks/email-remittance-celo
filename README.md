@@ -135,6 +135,23 @@ npm install
 npm run build
 ```
 
+### Auto-Detection Behaviour
+
+Every integration is **opt-in via environment variable**. The server starts and runs without any optional keys — each service detects what's available and degrades gracefully:
+
+| Integration | Env Var(s) | Without Key | With Key |
+|------------|-----------|-------------|---------|
+| Email delivery | `RESEND_API_KEY` | **Server won't start** (required) | Live email delivery |
+| Wallet / chain | `WALLET_PRIVATE_KEY` | **Server won't start** (required) | Signs + sends transactions |
+| Mandate policy | `MANDATE_RUNTIME_KEY` | Permissive fallback policy | Real $100/tx, $1000/day limits |
+| Venice AI fraud | `VENICE_API_KEY` | Fraud analysis skipped | Private inference, zero retention |
+| Self Protocol ZK | `SELF_APP_ID` + `SELF_APP_SECRET` | Demo mode (always passes) | Real ZK verification |
+| Uniswap swaps | `UNISWAP_API_KEY` | Quote-only mode | Live swap execution |
+| Base chain | `BASE_RPC_URL` | Uses `https://mainnet.base.org` | Custom/paid RPC |
+| Monad chain | `MONAD_RPC_URL` | Uses `https://rpc.monad.xyz` | Custom/paid RPC |
+
+---
+
 ### Configuration
 
 ```bash
@@ -326,6 +343,194 @@ BASE_RPC_URL=https://mainnet.base.org   # or your own Alchemy/Infura URL
 ```
 
 The same wallet private key works on both chains (EVM-compatible). Make sure your wallet has funds on whichever chain you're sending from.
+
+---
+
+## 🔑 Integration Setup Guide
+
+Step-by-step instructions for every integration. All optional except Resend + Wallet.
+
+---
+
+### 1. Resend — Email Delivery (REQUIRED)
+
+Resend delivers the claim emails to recipients.
+
+1. Sign up free at **https://resend.com** (3,000 emails/month free, no credit card)
+2. Go to **API Keys** → **Create API Key**
+3. Name it (e.g. `remittance-prod`), set permission: **Sending access**
+4. Copy the key — it starts with `re_`
+5. **(Recommended for production)** Add and verify your sending domain:
+   - Go to **Domains** → **Add Domain**
+   - Add the DNS records Resend gives you to your domain registrar
+   - Verified domain avoids spam filters on claim emails
+
+```env
+RESEND_API_KEY=re_xxxxxxxxxxxxxxxx
+```
+
+---
+
+### 2. Celo Wallet — Sending Wallet (REQUIRED)
+
+The agent needs a funded wallet to send CELO/ETH/MON on-chain.
+
+**Option A — New dedicated wallet (recommended):**
+```bash
+# Generate via cast (Foundry)
+cast wallet new
+
+# Or via Node.js
+node -e "const {generatePrivateKey,privateKeyToAccount} = require('viem/accounts'); const pk = generatePrivateKey(); console.log('Private key:', pk); console.log('Address:', privateKeyToAccount(pk).address)"
+```
+
+**Option B — Export from MetaMask:**
+- MetaMask → Account → Three dots → **Account Details** → **Show private key**
+
+**Fund the wallet:**
+- **Celo:** Buy CELO on Coinbase/Binance, send to your wallet address. Or use [Celo faucet](https://faucet.celo.org) for testnet.
+- **Base:** Bridge ETH via [bridge.base.org](https://bridge.base.org) or buy directly on Coinbase.
+- **Monad:** Get MON from [monad.xyz/faucet](https://monad.xyz/faucet) or buy on exchange.
+
+```env
+WALLET_PRIVATE_KEY=0x_your_private_key_here
+```
+
+> ⚠️ Keep this private. Never commit it to git. `.env` is in `.gitignore`.
+
+---
+
+### 3. Mandate — Policy Engine (Optional, recommended)
+
+Mandate enforces transaction policies — prevents the agent from being drained.
+
+1. Go to **https://mandate.md** and sign up
+2. Dashboard → **Agents** → **New Agent**
+3. Set policies:
+   - Max per transaction: `$100`
+   - Max per day: `$1,000`
+   - Allowed actions: `crypto_transfer`, `email_remittance`
+4. Copy your **Runtime Key** and **Agent ID**
+
+```env
+MANDATE_RUNTIME_KEY=mndt_live_xxxxxxxxxxxxxxxx
+MANDATE_AGENT_ID=xxxxxxxx-xxxx-xxxx-xxxx-xxxxxxxxxxxx
+```
+
+Without these, a permissive fallback policy is used (transactions always allowed). **Set limits before going to production.**
+
+---
+
+### 4. Venice AI — Private Inference (Optional)
+
+Venice analyzes each transaction for fraud risk using private inference — no data retention, nothing stored on Venice servers.
+
+1. Sign up at **https://venice.ai**
+2. Go to **Settings → API**: [venice.ai/settings/api](https://venice.ai/settings/api)
+3. Click **Create API Key**
+4. Copy the key — format: `VENICE_INFERENCE_KEY_xxxxxxxx`
+
+```env
+VENICE_API_KEY=VENICE_INFERENCE_KEY_xxxxxxxxxxxxxxxx
+```
+
+Venice is auto-detected. If the key is present, every remittance gets a fraud risk score before execution. If absent, fraud analysis is skipped.
+
+---
+
+### 5. Self Protocol — ZK Identity (Optional)
+
+Self Protocol lets users prove their identity (age, nationality, sanctions check) without revealing passport numbers or personal data. Zero-knowledge proofs generated on the user's device.
+
+1. Register at **https://developer.self.xyz**
+2. Click **New App**
+3. Configure your app:
+   - Name: `Email Remittance`
+   - Callback URL: `https://your-domain.com/api/verifications/callback/:id`
+   - Attributes: `minimumAge`, `nationality`, `ofacCheck`
+4. Copy your **App ID** and **App Secret**
+
+```env
+SELF_APP_ID=xxxxxxxx-xxxx-xxxx-xxxx-xxxxxxxxxxxx
+SELF_APP_SECRET=your-self-app-secret
+```
+
+**How the verification flow works:**
+```bash
+# 1. Request a ZK verification for a user
+POST /api/verifications/request
+{ "email": "user@example.com", "remittanceId": "..." }
+
+# 2. Response includes QR code URL + deep link
+# User scans with Self mobile app (iOS/Android: search "Self Protocol")
+# ZK proof generated ON-DEVICE — no PII ever transmitted
+
+# 3. Check result
+GET /api/verifications/{verificationId}
+# Returns: { verified: true, nullifier: "...", disclosedFields: { minimumAge: "true", sanctionsCheck: "passed" } }
+```
+
+Without Self keys, the service runs in demo mode (verifications auto-pass). Fine for hackathon; not for production handling real money.
+
+---
+
+### 6. Uniswap — Autonomous Swaps (Optional)
+
+Enables the agent to autonomously execute token swaps and cross-chain bridges on Celo, Base, and Monad.
+
+1. Go to **https://app.uniswap.org/developer**
+2. Sign in with your wallet
+3. Create a project → copy your **API Key**
+
+```env
+UNISWAP_API_KEY=your-uniswap-developer-api-key
+```
+
+**Deployed Universal Router addresses (mainnet):**
+
+| Chain | Chain ID | Universal Router |
+|-------|---------|-----------------|
+| Celo | 42220 | `0x5302086A3a25d473aAbBc0eC8586573516cF2099` |
+| Base | 8453 | `0x2626664c2603336E57B271c5C0b26F421741e481` |
+| Monad | 143 | `0x182a927119d56008d921126764bf884221b10f59` |
+
+Without the API key, the `/uniswap/quote` endpoint returns quotes but `/uniswap/swap` and `/uniswap/bridge` require the key for execution.
+
+---
+
+### 7. Database
+
+**SQLite (default — zero config):**
+```env
+DB_PATH=./remittance.db
+```
+SQLite is created automatically on first run. Fine for personal use and demos.
+
+**PostgreSQL (production, high volume):**
+```bash
+# Install pg driver
+npm install pg
+
+# Update .env
+DATABASE_URL=postgresql://user:password@host:5432/remittance_db
+
+# Common providers:
+# Supabase (free): https://supabase.com — PostgreSQL + dashboard
+# Railway (free tier): https://railway.app — managed Postgres
+# Neon (free serverless): https://neon.tech
+```
+
+---
+
+### 8. RPC Endpoints
+
+Public RPCs work fine for demos. For production, use paid nodes to avoid rate limiting:
+
+| Chain | Free | Paid |
+|-------|------|------|
+| Celo | `https://forno.celo.org` | [QuickNode](https://quicknode.com) / [Alchemy](https://alchemy.com) |
+| Base | `https://mainnet.base.org` | [Alchemy Base](https://alchemy.com/base) / [QuickNode](https://quicknode.com) |
+| Monad | `https://rpc.monad.xyz` | `https://rpc1.monad.xyz` / `https://rpc2.monad.xyz` (rotation) |
 
 ---
 
