@@ -52,7 +52,7 @@ Content-Type: application/json
 - Expires: 2026-03-23T18:03:38Z (24h window)
 - Stored in: SQLite (`remittance.db`)
 
-### Step 5: Email Sent via Resend
+### Step 5: Email Sent via Resend ✅ CONFIRMED DELIVERED
 - API: `https://api.resend.com/emails`
 - From: `Titan Remittance <onboarding@resend.dev>`
 - To: `drdeeks@outlook.com`
@@ -63,6 +63,9 @@ Content-Type: application/json
   - Message: "First real remittance test — Synthesis Hackathon demo 🔪"
   - Claim link: `http://localhost:3001/api/remittance/claim/fc820475-7dab-48b1-b616-aa67b8178287`
   - Expiry: 24 hours
+- **PROOF:** Email received by drdeeks@outlook.com at 11:03 AM MST 2026-03-22
+- **PDF proof:** `proof/email-claim-drdeeks-outlook.pdf` (in repo)
+- **GitHub:** https://github.com/drdeeks/email-remittance-celo/blob/main/proof/email-claim-drdeeks-outlook.pdf
 
 ### Step 6: Claim Flow (recipient)
 ```
