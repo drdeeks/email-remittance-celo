@@ -11,9 +11,13 @@ import { emailRoutes } from './controllers/emailController';
 import { celoRoutes } from './controllers/celoController';
 import { healthRoutes } from './controllers/healthController';
 import { logger } from './utils/logger';
+import { database } from './db/database';
 
 // Load environment variables
 dotenv.config();
+
+// Initialize database
+database;
 
 const app = express();
 const PORT = process.env.PORT || 3000;
@@ -58,7 +62,8 @@ app.use(rateLimiter);
 app.use('/health', healthRoutes);
 
 // Public API routes
-app.use('/api/transactions', transactionRoutes);
+app.use('/api/remittance', transactionRoutes);
+app.use('/api/transactions', transactionRoutes); // Alias for backwards compat
 app.use('/api/verifications', verificationRoutes);
 app.use('/api/webhooks', webhookRoutes);
 app.use('/api/emails', emailRoutes);
