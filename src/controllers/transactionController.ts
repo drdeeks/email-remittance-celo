@@ -2,6 +2,7 @@ import { Router, Request, Response, NextFunction } from 'express';
 import { v4 as uuidv4 } from 'uuid';
 import { validationError, validateEmail, validateAmount, validateCurrency } from '../utils/errors';
 import { logger } from '../utils/logger';
+import { mandateService } from '../services/mandateService';
 
 const router = Router();
 
@@ -135,6 +136,43 @@ router.post('/:id/claim', async (req: Request, res: Response, next: NextFunction
       });
     }
 
+    // MANDATE POLICY CHECK - validate before fund release
+    const validation = await mandateService.validateTransfer({
+      action: 'claim',
+      reason: `Email remittance from ${transaction.senderEmail} to ${transaction.recipientEmail} for ${transaction.amount} ${transaction.currency} on Celo`,
+      amount: parseFloat(transaction.amount),
+      to: recipientAddress,
+      token: transaction.currency,
+    });
+
+    if (!validation.allowed) {
+      const message = mandateService.formatValidationMessage(
+        validation,
+        transaction.amount,
+        transaction.currency,
+        transaction.recipientEmail,
+        transaction.senderEmail,
+      );
+      logger.error(message);
+      return res.status(403).json({
+        success: false,
+        error: {
+          code: 'MANDATE_BLOCKED',
+          message: message,
+          blockReason: validation.blockReason,
+        },
+        timestamp: new Date().toISOString(),
+      });
+    }
+
+    logger.info(mandateService.formatValidationMessage(
+      validation,
+      transaction.amount,
+      transaction.currency,
+      transaction.recipientEmail,
+      transaction.senderEmail,
+    ));
+
     // In production, this would:
     // 1. Verify claimToken
     // 2. Check Self protocol verification
@@ -143,8 +181,10 @@ router.post('/:id/claim', async (req: Request, res: Response, next: NextFunction
     transaction.recipientAddress = recipientAddress;
     transaction.completedAt = new Date();
     transaction.disbursementTxHash = '0x' + 'a'.repeat(64); // Mock tx hash
+    transaction.mandateIntentId = validation.intentId;
 
     logger.info('Transaction claimed', { transactionId: id, recipientAddress });
+    logger.info(`Transfer confirmed: ${transaction.disbursementTxHash}`);
 
     res.json({
       success: true,
