@@ -1,8 +1,8 @@
-# Email-Native Crypto Remittance on Celo
+# Email Remittance Pro
 
 > **Real email. Real CELO. Real proof.** Not a demo. Not a mock. Mainnet transactions + delivered email.
 
-[![Built by Titan Agent](https://img.shields.io/badge/Built%20by-Titan%20Agent-blue)](https://github.com/drdeeks/email-remittance-celo)
+[![Built by Titan Agent](https://img.shields.io/badge/Built%20by-Titan%20Agent-blue)](https://github.com/drdeeks/email-remittance-pro)
 [![Celo Mainnet](https://img.shields.io/badge/Network-Celo%20Mainnet-FCFF52)](https://celo.org)
 [![Tests](https://img.shields.io/badge/Tests-16%20passing-green)](./package.json)
 [![Venice AI](https://img.shields.io/badge/Privacy-Venice%20AI-purple)](https://venice.ai)
@@ -129,8 +129,8 @@ Agent ID: 019d14f2-2363-7146-907f-3deb184c0e31
 ### Installation
 
 ```bash
-git clone https://github.com/drdeeks/email-remittance-celo.git
-cd email-remittance-celo
+git clone https://github.com/drdeeks/email-remittance-pro.git
+cd email-remittance-pro
 npm install
 npm run build
 ```
@@ -660,8 +660,8 @@ For production remittance infrastructure handling real volume:
 
 ```bash
 # On your VPS
-git clone https://github.com/drdeeks/email-remittance-celo.git
-cd email-remittance-celo
+git clone https://github.com/drdeeks/email-remittance-pro.git
+cd email-remittance-pro
 npm install && npm run build
 
 # Set up as a systemd service
@@ -673,8 +673,8 @@ After=network.target
 [Service]
 Type=simple
 User=ubuntu
-WorkingDirectory=/home/ubuntu/email-remittance-celo
-EnvironmentFile=/home/ubuntu/email-remittance-celo/.env
+WorkingDirectory=/home/ubuntu/email-remittance-pro
+EnvironmentFile=/home/ubuntu/email-remittance-pro/.env
 ExecStart=/usr/bin/node dist/index.js
 Restart=always
 RestartSec=10
@@ -756,7 +756,7 @@ curl http://localhost:3001/api/remittance/list
 ## 📁 Project Structure
 
 ```
-email-remittance-celo/
+email-remittance-pro/
 ├── src/
 │   ├── controllers/        # Route handlers
 │   │   ├── transactionController.ts

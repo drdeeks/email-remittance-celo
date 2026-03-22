@@ -1,94 +1,136 @@
-# Email Remittance — Frontend
+# Email Remittance Pro — Frontend
 
 Send crypto to any email. Recipient claims with zero wallet setup.
-Supports Celo · Base · Monad. Self Protocol ZK auth optional.
+Supports Celo · Base · Monad. Optional Self Protocol ZK verification.
 
 ---
 
-## Local Setup (3 commands)
+## The Backend URL Problem (and the fix)
+
+The frontend calls a backend API. If that backend is running on `localhost` or a temporary Cloudflare tunnel, **the URL changes every restart** — breaking all claim links in delivered emails.
+
+**The fix: deploy the backend to a permanent host.** Once deployed, you get a URL like `https://email-remittance-pro.up.railway.app` that never changes. Set it once, forget it.
+
+---
+
+## Option A — Railway (Recommended, ~$5/month)
+
+Railway gives you a permanent `*.up.railway.app` URL, auto-restarts on crash, and zero server management.
+
+**Deploy in 3 steps:**
+
+1. Go to [railway.app](https://railway.app) → New Project → Deploy from GitHub repo
+2. Select `drdeeks/email-remittance-pro` (root directory, not `frontend/`)
+3. Add environment variables in Railway dashboard:
+
+   | Variable | Value |
+   |----------|-------|
+   | `WALLET_PRIVATE_KEY` | Your wallet private key |
+   | `RESEND_API_KEY` | From resend.com |
+   | `CELO_RPC_URL` | `https://forno.celo.org` |
+   | `BASE_URL` | *(leave blank — Railway sets this automatically)* |
+   | `DB_PATH` | `./remittance.db` |
+
+4. Railway assigns a permanent URL. Copy it.
+
+Then configure the frontend:
+```bash
+cd frontend
+API_URL=https://your-app.up.railway.app node setup.js
+```
+Redeploy the Vercel frontend. Done — permanent URL, never changes.
+
+---
+
+## Option B — Render (Free tier available)
+
+1. Go to [render.com](https://render.com) → New Web Service
+2. Connect `drdeeks/email-remittance-pro`
+3. Set:
+   - Build Command: `npm run build`
+   - Start Command: `npm start`
+4. Add the same environment variables as above
+5. Render assigns a permanent `*.onrender.com` URL
+
+```bash
+cd frontend
+API_URL=https://your-app.onrender.com node setup.js
+```
+
+> **Note:** Free tier spins down after 15 min of inactivity. Paid tier stays always-on.
+
+---
+
+## Option C — Fly.io (Free tier, global low-latency)
+
+```bash
+npm install -g flyctl
+cd ..  # root of email-remittance-pro
+fly launch
+fly secrets set WALLET_PRIVATE_KEY=0x... RESEND_API_KEY=re_...
+fly deploy
+```
+Fly assigns a permanent `*.fly.dev` URL.
+
+---
+
+## Local Setup (no permanent URL — for testing only)
 
 ```bash
 cd frontend
 echo "API_URL=http://localhost:3001" > .env
 node setup.js
 ```
+Open `public/index.html`. Backend must be running on port 3001.
 
-Then open `public/index.html` in your browser.
-Make sure the backend is running on port 3001 first (`npm start` from the root).
+**To share temporarily** (claim links will break when tunnel restarts):
+```bash
+# Terminal 1
+cd ..  && npm start
+
+# Terminal 2
+cloudflared tunnel --url http://localhost:3001 --no-autoupdate
+# Gives you: https://xxxx-xxxx.trycloudflare.com
+
+# Terminal 3
+cd frontend
+API_URL=https://xxxx-xxxx.trycloudflare.com node setup.js
+```
 
 ---
 
-## Deploy to Vercel
+## Deploy Frontend to Vercel
 
-**Step 1 — Import the repo**
-
-1. Go to [vercel.com/new](https://vercel.com/new)
-2. Import `github.com/drdeeks/email-remittance-celo`
-3. Set these in the Vercel project settings:
+1. [vercel.com/new](https://vercel.com/new) → Import `drdeeks/email-remittance-pro`
+2. Settings:
    - **Root Directory:** `frontend`
    - **Build Command:** `node setup.js`
    - **Output Directory:** `public`
+3. Environment Variables:
+   ```
+   API_URL = https://your-permanent-backend-url.up.railway.app
+   ```
+4. Deploy.
 
-**Step 2 — Add one environment variable**
-
-In Vercel → Settings → Environment Variables:
-
-| Key | Value |
-|-----|-------|
-| `API_URL` | Your backend URL (e.g. `https://your-app.up.railway.app`) |
-
-**Step 3 — Deploy**
-
-Vercel runs `node setup.js` automatically on every deploy.
-It reads `API_URL`, generates `public/config.js` and `vercel.json`, done.
-
-**When your backend URL changes:** update `API_URL` in Vercel dashboard → Redeploy. Nothing else to touch.
+**When backend URL changes:** update `API_URL` in Vercel → Redeploy. Nothing else.
 
 ---
 
 ## How setup.js works
 
-`node setup.js` reads environment variables and generates two files:
+One script, generates everything:
 
-- `public/config.js` — runtime config loaded by the HTML pages
-- `vercel.json` — Vercel rewrite rules pointing `/api/*` at your backend
-
-Both files are in `.gitignore` (environment-specific, never committed).
-
-Reads from (in order of priority):
-1. Shell environment: `API_URL=https://... node setup.js`
-2. `.env` file in the frontend directory
-3. Vercel's injected `VERCEL_URL` environment variable
-
----
-
-## Backend Hosting Options
-
-The frontend is a static site. It needs a running backend to call.
-
-| Option | Cost | Setup time |
-|--------|------|-----------|
-| **Local + Cloudflare tunnel** | Free | 2 min |
-| **Railway** | ~$5/mo | 5 min |
-| **Render** | Free tier | 5 min |
-| **Fly.io** | Free tier | 10 min |
-
-**Quickest (local + public tunnel):**
 ```bash
-# Terminal 1 — start backend
-cd ..  # root of email-remittance-celo
-npm start
-
-# Terminal 2 — expose it publicly
-cloudflared tunnel --url http://localhost:3001 --no-autoupdate
-# Copy the URL it gives you, e.g. https://xxxx.trycloudflare.com
-
-# Terminal 3 — configure frontend
-cd frontend
-API_URL=https://xxxx.trycloudflare.com node setup.js
+node setup.js                                    # reads from .env
+API_URL=https://myapp.up.railway.app node setup.js  # from shell
 ```
 
-Then redeploy Vercel with that URL as `API_URL`.
+Generates:
+- `public/config.js` — runtime config loaded by all HTML pages
+- `vercel.json` — Vercel rewrite rules with correct backend URL
+- `.env.local` — local dev reference
+
+Both `config.js` and `.env.local` are gitignored — environment-specific, never committed to the repo. Every deployer runs `node setup.js` once with their own URL.
 
 ---
 
@@ -96,8 +138,8 @@ Then redeploy Vercel with that URL as `API_URL`.
 
 | Path | What it does |
 |------|-------------|
-| `/` | Send form — wallet connect, chain picker, email input, auth toggle |
-| `/claim/:token` | Claim page — shows amount, wallet input or auto-generate, TX confirmation |
+| `/` | Send form — wallet connect, chain picker, email, auth toggle |
+| `/claim/:token` | Claim — shows amount, wallet input or auto-generate, TX confirmation |
 
 ---
 
