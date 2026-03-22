@@ -39,7 +39,12 @@ class DatabaseManager {
         recipient_wallet TEXT,
         created_at INTEGER DEFAULT (unixepoch()),
         expires_at INTEGER NOT NULL,
-        claimed_at INTEGER
+        claimed_at INTEGER,
+        require_auth INTEGER DEFAULT 0,
+        chain TEXT DEFAULT 'celo',
+        self_verification_id TEXT,
+        self_verified INTEGER DEFAULT 0,
+        email_sent INTEGER DEFAULT 0
       );
 
       CREATE INDEX IF NOT EXISTS idx_claim_token ON remittances(claim_token);
@@ -49,10 +54,37 @@ class DatabaseManager {
 
     try {
       this.db.exec(schema);
+      this.runMigrations();
       logger.info('Database schema initialized successfully');
     } catch (error) {
       logger.error('Failed to initialize database schema', error);
       throw error;
+    }
+  }
+
+  private runMigrations() {
+    // Add new columns to existing databases (SQLite doesn't support IF NOT EXISTS for columns)
+    const migrations = [
+      { column: 'require_auth', sql: 'ALTER TABLE remittances ADD COLUMN require_auth INTEGER DEFAULT 0' },
+      { column: 'chain', sql: 'ALTER TABLE remittances ADD COLUMN chain TEXT DEFAULT \'celo\'' },
+      { column: 'self_verification_id', sql: 'ALTER TABLE remittances ADD COLUMN self_verification_id TEXT' },
+      { column: 'self_verified', sql: 'ALTER TABLE remittances ADD COLUMN self_verified INTEGER DEFAULT 0' },
+      { column: 'email_sent', sql: 'ALTER TABLE remittances ADD COLUMN email_sent INTEGER DEFAULT 0' },
+    ];
+
+    for (const migration of migrations) {
+      try {
+        // Check if column exists by querying table info
+        const columns = this.db.prepare('PRAGMA table_info(remittances)').all() as { name: string }[];
+        const hasColumn = columns.some(c => c.name === migration.column);
+        if (!hasColumn) {
+          this.db.exec(migration.sql);
+          logger.info(`Migration: added column ${migration.column}`);
+        }
+      } catch (error) {
+        // Column likely already exists, ignore
+        logger.debug(`Migration skipped for ${migration.column}: ${error}`);
+      }
     }
   }
 

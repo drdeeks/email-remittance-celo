@@ -10,7 +10,7 @@ const router = Router();
 // Create a new remittance transaction
 router.post('/send', async (req: Request, res: Response, next: NextFunction) => {
   try {
-    const { senderEmail, recipientEmail, amount, message, chain, currency } = req.body;
+    const { senderEmail, recipientEmail, amount, message, chain, currency, requireAuth } = req.body;
 
     // Validate inputs
     if (!senderEmail || !recipientEmail) {
@@ -21,7 +21,7 @@ router.post('/send', async (req: Request, res: Response, next: NextFunction) => 
     validateAmount(amount);
 
     const amountCelo = parseFloat(amount);
-    const resolvedChain = detectChain(currency, chain); // auto-detects: 'celo' | 'base'
+    const resolvedChain = detectChain(currency, chain); // auto-detects: 'celo' | 'base' | 'monad'
 
     const result = await remittanceService.createRemittance({
       senderEmail,
@@ -29,6 +29,7 @@ router.post('/send', async (req: Request, res: Response, next: NextFunction) => 
       amountCelo,
       message,
       chain: resolvedChain,
+      requireAuth: requireAuth === true || requireAuth === 'true',
     });
 
     logger.info('Remittance created', {
@@ -36,6 +37,8 @@ router.post('/send', async (req: Request, res: Response, next: NextFunction) => 
       senderEmail,
       recipientEmail,
       amount: amountCelo,
+      chain: resolvedChain,
+      requireAuth: !!requireAuth,
     });
 
     res.status(201).json({
@@ -46,6 +49,8 @@ router.post('/send', async (req: Request, res: Response, next: NextFunction) => 
         txHash: result.txHash,
         expiresAt: new Date(result.expiresAt * 1000).toISOString(),
         claimUrl: `${process.env.BASE_URL}/api/remittance/claim/${result.claimToken}`,
+        chain: resolvedChain,
+        requireAuth: requireAuth === true || requireAuth === 'true',
       },
       timestamp: new Date().toISOString(),
     });
@@ -88,7 +93,19 @@ router.get('/claim/:token', async (req: Request, res: Response, next: NextFuncti
     }
 
     res.json(response);
-  } catch (error) {
+  } catch (error: any) {
+    // Special handling for VERIFICATION_REQUIRED error
+    if (error.code === 'VERIFICATION_REQUIRED') {
+      return res.status(403).json({
+        success: false,
+        error: {
+          code: 'VERIFICATION_REQUIRED',
+          message: error.message,
+          verificationRequired: true,
+        },
+        timestamp: new Date().toISOString(),
+      });
+    }
     next(error);
   }
 });
@@ -171,11 +188,58 @@ router.get('/status/:token', async (req: Request, res: Response, next: NextFunct
       success: true,
       data: {
         amount_celo: remittance.amount_celo,
-        currency: 'CELO',
+        currency: remittance.chain === 'base' ? 'ETH' : remittance.chain === 'monad' ? 'MON' : 'CELO',
         sender_email: remittance.sender_email,
         status: remittance.status,
         expires_at: new Date(remittance.expires_at * 1000).toISOString(),
+        requireAuth: remittance.require_auth === 1,
+        chain: remittance.chain || 'celo',
+        selfVerified: remittance.self_verified === 1,
       },
+    });
+  } catch (error) {
+    next(error);
+  }
+});
+
+// POST /api/remittance/verify/:token — mark as Self-verified after callback
+router.post('/verify/:token', async (req: Request, res: Response, next: NextFunction) => {
+  try {
+    const { token } = req.params;
+    const { verificationId } = req.body;
+
+    if (!verificationId) {
+      throw validationError('verificationId is required');
+    }
+
+    const result = remittanceService.verifyRemittance(token, verificationId);
+
+    logger.info('Remittance verified via Self Protocol', { token, verificationId });
+
+    res.json({
+      success: true,
+      data: result,
+      message: 'Identity verification confirmed. You can now claim the remittance.',
+      timestamp: new Date().toISOString(),
+    });
+  } catch (error) {
+    next(error);
+  }
+});
+
+// POST /api/remittance/recover/:id — re-send claim email for pending remittance
+router.post('/recover/:id', async (req: Request, res: Response, next: NextFunction) => {
+  try {
+    const { id } = req.params;
+    const result = await remittanceService.recoverRemittance(id);
+
+    logger.info('Remittance recovered', { id, claimToken: result.claimToken });
+
+    res.json({
+      success: true,
+      data: result,
+      message: 'Recovery email sent successfully.',
+      timestamp: new Date().toISOString(),
     });
   } catch (error) {
     next(error);

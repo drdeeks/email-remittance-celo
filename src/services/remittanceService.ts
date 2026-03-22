@@ -12,6 +12,7 @@ interface CreateRemittanceParams {
   amountCelo: number;
   message?: string;
   chain?: SupportedChain;
+  requireAuth?: boolean;
 }
 
 interface CreateRemittanceResult {
@@ -42,6 +43,11 @@ interface Remittance {
   created_at: number;
   expires_at: number;
   claimed_at: number | null;
+  require_auth: number;
+  chain: string;
+  self_verification_id: string | null;
+  self_verified: number;
+  email_sent: number;
 }
 
 class RemittanceService {
@@ -49,7 +55,7 @@ class RemittanceService {
    * Create a new remittance
    */
   async createRemittance(params: CreateRemittanceParams): Promise<CreateRemittanceResult> {
-    const { senderEmail, recipientEmail, amountCelo, message, chain = 'celo' } = params;
+    const { senderEmail, recipientEmail, amountCelo, message, chain = 'celo', requireAuth = false } = params;
 
     logger.info(`Creating remittance: ${amountCelo} CELO from ${senderEmail} to ${recipientEmail}`);
 
@@ -108,8 +114,8 @@ class RemittanceService {
       const stmt = db.prepare(`
         INSERT INTO remittances (
           id, claim_token, sender_email, recipient_email, amount_celo,
-          message, status, escrow_tx_hash, expires_at
-        ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)
+          message, status, escrow_tx_hash, expires_at, require_auth, chain
+        ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
       `);
 
       stmt.run(
@@ -121,7 +127,9 @@ class RemittanceService {
         message || null,
         'pending',
         txHash,
-        expiresAt
+        expiresAt,
+        requireAuth ? 1 : 0,
+        chain
       );
 
       logger.info(`Remittance stored in database: ${remittanceId}`);
@@ -131,6 +139,7 @@ class RemittanceService {
     }
 
     // Send claim email
+    let emailSent = false;
     try {
       await emailService.sendClaimEmail(
         recipientEmail,
@@ -139,12 +148,17 @@ class RemittanceService {
         claimToken,
         message
       );
+      emailSent = true;
+
+      // Mark email as sent
+      db.prepare('UPDATE remittances SET email_sent = 1 WHERE id = ?').run(remittanceId);
 
       logger.info(`Claim email sent to ${recipientEmail}`);
     } catch (error) {
-      logger.error('Failed to send claim email', error);
+      logger.error('Failed to send claim email', { error, remittanceId, claimToken, recipientEmail });
       // Don't fail the whole operation if email fails
-      // The claim can still happen via the token
+      // The claim can still happen via the token — log the token for recovery
+      logger.warn(`⚠️ CLAIM TOKEN FOR RECOVERY: ${claimToken} — email delivery failed but remittance ${remittanceId} is pending`);
     }
 
     return {
@@ -180,6 +194,14 @@ class RemittanceService {
       throw new Error('Claim link has expired');
     }
 
+    // Check if identity verification is required but not completed
+    if (remittance.require_auth === 1 && remittance.self_verified !== 1) {
+      const error = new Error('Identity verification required before claiming. Complete Self Protocol verification first.');
+      (error as any).code = 'VERIFICATION_REQUIRED';
+      (error as any).verificationRequired = true;
+      throw error;
+    }
+
     const amount = parseFloat(remittance.amount_celo);
 
     // Determine recipient wallet
@@ -197,15 +219,15 @@ class RemittanceService {
       logger.info(`Generated new wallet for recipient: ${targetWallet}`);
     }
 
-    // Send the CELO
+    // Send the native token on the correct chain
     let claimTxHash: string;
     try {
-      const remittanceChain: SupportedChain = 'celo'; // stored remittances default celo; future: store chain in DB
+      const remittanceChain = (remittance.chain || 'celo') as SupportedChain;
       const sendResult = await chainService.sendNative(targetWallet, amount, remittanceChain);
       claimTxHash = sendResult.txHash;
-      logger.info(`CELO transferred: ${claimTxHash}`);
+      logger.info(`${remittanceChain.toUpperCase()} transferred: ${claimTxHash}`);
     } catch (error) {
-      logger.error('Failed to transfer CELO', error);
+      logger.error('Failed to transfer funds', error);
       throw error;
     }
 
@@ -274,6 +296,59 @@ class RemittanceService {
   getRemittancesByRecipient(recipientEmail: string): Remittance[] {
     const stmt = db.prepare('SELECT * FROM remittances WHERE recipient_email = ? ORDER BY created_at DESC');
     return stmt.all(recipientEmail) as Remittance[];
+  }
+
+  /**
+   * Mark a remittance as Self-verified
+   */
+  verifyRemittance(claimToken: string, verificationId: string): { success: boolean; remittanceId: string } {
+    const remittance = this.getRemittanceByToken(claimToken);
+    if (!remittance) {
+      throw new Error('Remittance not found');
+    }
+
+    const stmt = db.prepare(`
+      UPDATE remittances
+      SET self_verified = 1, self_verification_id = ?
+      WHERE claim_token = ?
+    `);
+    stmt.run(verificationId, claimToken);
+
+    logger.info(`Remittance ${remittance.id} marked as Self-verified: ${verificationId}`);
+    return { success: true, remittanceId: remittance.id };
+  }
+
+  /**
+   * Recover a remittance by re-sending the claim email
+   * Use when email_sent=0 but status='pending'
+   */
+  async recoverRemittance(remittanceId: string): Promise<{ success: boolean; claimToken: string }> {
+    const remittance = this.getRemittanceStatus(remittanceId);
+    if (!remittance) {
+      throw new Error('Remittance not found');
+    }
+
+    if (remittance.status !== 'pending') {
+      throw new Error(`Cannot recover remittance with status: ${remittance.status}`);
+    }
+
+    try {
+      await emailService.sendClaimEmail(
+        remittance.recipient_email,
+        remittance.sender_email,
+        parseFloat(remittance.amount_celo),
+        remittance.claim_token,
+        remittance.message || undefined
+      );
+
+      db.prepare('UPDATE remittances SET email_sent = 1 WHERE id = ?').run(remittanceId);
+      logger.info(`Recovery email sent for remittance ${remittanceId}`);
+
+      return { success: true, claimToken: remittance.claim_token };
+    } catch (error) {
+      logger.error('Failed to send recovery email', { error, remittanceId });
+      throw error;
+    }
   }
 }
 

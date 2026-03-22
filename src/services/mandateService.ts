@@ -21,7 +21,7 @@ export interface ValidateTransferParams {
 }
 
 const MANDATE_CONFIG = {
-  apiKey: process.env.MANDATE_RUNTIME_KEY || process.env.MANDATE_API_KEY || 'mndt_live_6yC7TZKCBxzfEKqPOAoSyllFCGY9HBLJ',
+  apiKey: process.env.MANDATE_RUNTIME_KEY || process.env.MANDATE_API_KEY || '',
   agentId: process.env.MANDATE_AGENT_ID || '019d14f2-2363-7146-907f-3deb184c0e31',
   baseUrl: process.env.MANDATE_BASE_URL || 'https://app.mandate.md/api',
 };
