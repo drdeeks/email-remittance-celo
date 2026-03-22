@@ -1,14 +1,48 @@
 # Email Remittance Pro
 
-> **Real email. Real CELO. Real proof.** Not a demo. Not a mock. Mainnet transactions + delivered email.
+> **Real email. Real native tokens. Real proof.** Not a demo. Not a mock. Mainnet transactions + delivered email.
 
 [![Built by Titan Agent](https://img.shields.io/badge/Built%20by-Titan%20Agent-blue)](https://github.com/drdeeks/email-remittance-pro)
-[![Celo Mainnet](https://img.shields.io/badge/Network-Celo%20Mainnet-FCFF52)](https://celo.org)
-[![Tests](https://img.shields.io/badge/Tests-16%20passing-green)](./package.json)
+[![Multi-Chain](https://img.shields.io/badge/Networks-Celo%20%7C%20Base%20%7C%20Monad-FCFF52)](https://celo.org)
+[![Tests](https://img.shields.io/badge/Tests-50%2B%20passing-green)](./package.json)
 [![Venice AI](https://img.shields.io/badge/Privacy-Venice%20AI-purple)](https://venice.ai)
 [![Self Protocol](https://img.shields.io/badge/ZK-Self%20Protocol-orange)](https://self.id)
 [![ERC-8004](https://img.shields.io/badge/Identity-ERC--8004-lightblue)](./agent.json)
 [![License](https://img.shields.io/badge/License-MIT-green)](./LICENSE)
+
+---
+
+## 🌐 Supported Chains
+
+| Chain | Symbol | Chain ID | Explorer |
+|-------|--------|----------|----------|
+| Celo  | CELO   | 42220    | [celoscan.io](https://celoscan.io) |
+| Base  | ETH    | 8453     | [basescan.org](https://basescan.org) |
+| Monad | MON    | 143      | [monadscan.com](https://monadscan.com) |
+
+---
+
+## 🎯 TRACK ELIGIBILITY
+
+### Best Agent on Celo ($5,000)
+Real Celo mainnet activity. Email as identity layer. Autonomous remittance flow. Zero human intervention after sender initiates. Live TX proof on celoscan.
+
+### Best Self Protocol Integration ($1,000)
+ZK verification for compliance without doxxing. Prove sender/recipient identity without revealing PII. RequireAuth flag enforces Self Protocol verification before claim.
+
+### Private Agents, Trusted Actions / Venice ($11,500)
+Venice AI fraud analysis — private inference, zero data retention. Every remittance analyzed for risk without storing transaction details.
+
+### Let the Agent Cook ($4,000)
+Built autonomously by Titan Agent. Zero human code written. ThinkPad, 3.7GB RAM, $0 budget. Full autonomous build from concept to mainnet.
+
+### Agents With Receipts / ERC-8004 ($4,000)
+`agent.json` + `agent_log.json` present. On-chain identity via ERC-8004. Every transaction logged with reasoning. Full provenance chain.
+
+### Agentic Finance / Best Uniswap API Integration ($2,500)
+Uniswap Trading API integration with LI.FI public fallback. Autonomous swaps and cross-chain bridges on Celo, Base, and Monad.
+
+**Total addressable: $28,000**
 
 ---
 
@@ -25,7 +59,7 @@ The unbanked can't receive crypto because:
 
 ## 💡 The Solution
 
-**Email IS the identity layer.** Send crypto to ANY email address. Recipient gets claim link, auto-generates wallet, funds land on-chain. No wallet setup required.
+**Email IS the identity layer.** Send CELO / ETH / MON to ANY email address. Recipient gets claim link, auto-generates wallet, funds land on-chain. No wallet setup required.
 
 ```
 sender@example.com → "Send 10 CELO to recipient@gmail.com"
@@ -37,7 +71,7 @@ sender@example.com → "Send 10 CELO to recipient@gmail.com"
                             ↓
                    Claim link → auto-generates wallet
                             ↓
-                   Funds on-chain. Done.
+                   Funds on Celo, Base, or Monad. Done.
 ```
 
 ---
@@ -57,7 +91,7 @@ sender@example.com → "Send 10 CELO to recipient@gmail.com"
 | **Remittance ID** | `fc820475-7dab-48b1-b616-aa67b8178287` |
 | **Claim endpoint** | `GET /api/remittance/claim/:id?wallet=0x...` |
 
-**Two live mainnet transactions. Real email delivered. Real wallet auto-generated. Real CELO claimed — from a mobile phone, via a public URL, with zero wallet setup by the recipient.**
+**Two live mainnet transactions. Real email delivered. Real wallet auto-generated. Real native tokens claimed — from a mobile phone, via a public URL, with zero wallet setup by the recipient.**
 
 ---
 
@@ -732,7 +766,7 @@ Set `BASE_URL=https://remittance.yourdomain.com` in `.env`.
 npm test
 ```
 
-**16 tests passing** — covering remittance flow, email delivery, policy enforcement, and claim processing.
+**50+ tests passing** — covering remittance flow, auth enforcement, multi-chain detection, Uniswap fallback, email delivery, policy enforcement, and claim processing.
 
 ```bash
 # Test a live end-to-end flow
@@ -774,7 +808,7 @@ email-remittance-pro/
 ├── agent.json              # ERC-8004 agent manifest
 ├── agent_log.json          # Decision audit trail
 ├── .env.example            # Config template
-└── tests/                  # Jest test suite (16 passing)
+└── tests/                  # Jest test suite (50+ passing)
 ```
 
 ---
@@ -827,25 +861,6 @@ curl http://localhost:3001/api/verifications/{verificationId}
 ```
 
 ZK proof includes: age verification (18+), OFAC sanctions check, nationality — without revealing passport number, birthdate, or name.
-
----
-
-## 🎯 TRACK ELIGIBILITY
-
-### 🥇 Best Agent on Celo ($5k)
-Real Celo mainnet activity. Email as identity layer. Autonomous remittance flow. Zero human intervention after sender initiates. Live TX proof on celoscan.
-
-### 🔐 Best Self Protocol Integration ($1k)
-ZK verification for compliance without doxxing. Prove sender/recipient identity without revealing PII. Compliance-ready while preserving privacy.
-
-### 🕵️ Private Agents, Trusted Actions / Venice ($11.5k)
-Venice AI fraud analysis — private inference, zero data retention. Every remittance analyzed for risk without storing transaction details.
-
-### 🍳 Let the Agent Cook ($4k)
-Built autonomously by Titan Agent. Zero human code written. ThinkPad, 3.7GB RAM, $0 budget. Full autonomous build from concept to mainnet.
-
-### 📜 Agents With Receipts / ERC-8004 ($4k)
-`agent.json` + `agent_log.json` present. On-chain identity via ERC-8004. Every transaction logged with reasoning. Full provenance chain.
 
 ---
 
