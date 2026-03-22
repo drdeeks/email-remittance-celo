@@ -147,7 +147,7 @@
       <div class="field">
         <label>Amount</label>
         <div class="amount-row">
-          <input type="number" id="amount" placeholder="0.01" min="0" step="any" />
+          <input type="number" id="amount" placeholder="0.01" min="0" step="any" oninput="updateFeeQuote()" />
           <div class="currency-badge" id="currency-badge">CELO</div>
         </div>
       </div>
@@ -157,20 +157,20 @@
         <label>Security Level</label>
         <div class="auth-card">
           <div class="auth-row">
-            <span class="auth-label" id="auth-label">🔒 Require Identity Verification</span>
+            <span class="auth-label" id="auth-label">🔒 Require Identity Verification (Self Protocol)</span>
             <label class="toggle">
               <input type="checkbox" id="auth-toggle" checked onchange="updateAuthToggle()" />
               <span class="slider"></span>
             </label>
           </div>
           <div class="auth-desc" id="auth-desc">
-            Recipient must verify their identity via Self Protocol before claiming. Prevents link theft — only the right person can collect.
+            Recipient must scan a QR code with the Self app and prove their identity before claiming. Only they can collect — even if someone else gets the link.
           </div>
         </div>
       </div>
 
       <!-- Send -->
-      <button class="btn-send" id="btn-send" onclick="sendRemittance()">Send →</button>
+      <button class="btn-send" id="btn-send" onclick="sendRemittance()" disabled>Connect wallet to send</button>
     </div>
   </div>
 
@@ -245,6 +245,11 @@
       const btn = document.getElementById('btn-connect');
       btn.textContent = '✓ Connected';
       btn.classList.add('connected');
+      
+      // Enable send button
+      const sendBtn = document.getElementById('btn-send');
+      sendBtn.disabled = false;
+      sendBtn.textContent = 'Send →';
     } catch (e) {
       console.error(e);
     }
@@ -253,6 +258,7 @@
   // ── Chain selection ─────────────────────────────────────────
   function selectChain(chain) {
     currentChain = chain;
+    updateFeeQuote();
     document.querySelectorAll('.chain-btn').forEach(b => b.classList.remove('active'));
     document.getElementById('chain-' + chain).classList.add('active');
     document.getElementById('currency-badge').textContent = CHAINS[chain].symbol;
@@ -264,13 +270,13 @@
   function updateAuthToggle() {
     const on = document.getElementById('auth-toggle').checked;
     document.getElementById('auth-label').textContent = on
-      ? '🔒 Require Identity Verification'
-      : '⚠️ Open Claim (no verification)';
+      ? '🔒 Require Identity Verification (Self Protocol)'
+      : '⚠️ Open Claim — No Verification';
     const desc = document.getElementById('auth-desc');
     desc.className = 'auth-desc' + (on ? '' : ' warning');
     desc.textContent = on
-      ? 'Recipient must verify their identity via Self Protocol before claiming. Prevents link theft — only the right person can collect.'
-      : 'Anyone with the claim link can collect the funds. Faster — but if the email is intercepted, funds could be stolen. Your call.';
+      ? 'Recipient must scan a QR code with the Self app and prove their identity before claiming. Only they can collect — even if someone else gets the link.'
+      : 'Anyone with the claim link can collect the funds. Faster and simpler — but if the email is forwarded or intercepted, funds could be stolen. You accept this risk.';
   }
 
   // ── Send ─────────────────────────────────────────────────────
@@ -294,6 +300,8 @@
           amount: amount,
           chain: currentChain,
           requireAuth,
+          feeModel: currentFeeModel,
+          senderWallet: walletAddress || '',
         }),
       });
 
@@ -336,6 +344,52 @@
     });
   }
 
+  // ── Fee model ───────────────────────────────────────────────
+  let currentFeeModel = 'standard';
+
+  function selectFee(model) {
+    currentFeeModel = model;
+    const stdCard = document.getElementById('fee-standard');
+    const premCard = document.getElementById('fee-premium');
+    const stdCheck = document.getElementById('fee-standard-check');
+    const premCheck = document.getElementById('fee-premium-check');
+    if (model === 'premium') {
+      stdCard.style.borderColor = 'var(--border)';
+      premCard.style.borderColor = 'var(--blue)';
+      premCard.style.background = 'rgba(59,130,246,0.05)';
+      stdCard.style.background = 'var(--card2)';
+      stdCheck.textContent = '○'; stdCheck.style.color = 'var(--muted)';
+      premCheck.textContent = '●'; premCheck.style.color = 'var(--blue)';
+    } else {
+      stdCard.style.borderColor = 'var(--blue)';
+      stdCard.style.background = 'rgba(59,130,246,0.05)';
+      premCard.style.borderColor = 'var(--border)';
+      premCard.style.background = 'var(--card2)';
+      stdCheck.textContent = '●'; stdCheck.style.color = 'var(--blue)';
+      premCheck.textContent = '○'; premCheck.style.color = 'var(--muted)';
+    }
+    updateFeeQuote();
+  }
+
+  async function updateFeeQuote() {
+    const amount = document.getElementById('amount').value.trim();
+    if (!amount || parseFloat(amount) <= 0) {
+      document.getElementById('fee-summary').style.display = 'none';
+      return;
+    }
+    try {
+      const res = await fetch(`${API}/api/remittance/fee-quote?amount=${amount}&chain=${currentChain}&feeModel=${currentFeeModel}`);
+      if (!res.ok) return;
+      const data = await res.json();
+      const d = data.data;
+      const sym = CHAINS[currentChain].symbol;
+      document.getElementById('fs-send').textContent = `${d.sendAmount} ${sym}`;
+      document.getElementById('fs-recv').textContent = `${d.recipientAmount} ${sym}`;
+      document.getElementById('fs-fee').textContent = currentFeeModel === 'premium' ? `$1 (${d.feeAmount} ${sym})` : `Gas only (${d.gasLabel})`;
+      document.getElementById('fee-summary').style.display = 'block';
+    } catch {}
+  }
+
   // Auto-detect connected wallet on load
   if (window.ethereum) {
     window.ethereum.request({ method: 'eth_accounts' }).then(accounts => {
@@ -345,6 +399,11 @@
         document.getElementById('wallet-addr').textContent = walletAddress.slice(0,6) + '…' + walletAddress.slice(-4);
         document.getElementById('btn-connect').textContent = '✓ Connected';
         document.getElementById('btn-connect').classList.add('connected');
+        
+        // Enable send button
+        const sendBtn = document.getElementById('btn-send');
+        sendBtn.disabled = false;
+        sendBtn.textContent = 'Send →';
       }
     });
   }

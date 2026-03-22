@@ -342,6 +342,47 @@ class ChainService {
       .map(([route, v]) => ({ route, ...v }));
   }
 
+  /**
+   * Send native token from a specific private key (used for escrow forwarding).
+   * Different from sendNative which uses the server's configured wallet.
+   */
+  async sendNativeFromKey(
+    fromPrivateKey: string,
+    toAddress: string,
+    amount: number,
+    chainName: SupportedChain = 'celo'
+  ): Promise<string> {
+    const config = CHAIN_CONFIG[chainName];
+    const rpcUrl = process.env[config.rpcEnvKey] || config.defaultRpc;
+    const account = privateKeyToAccount(fromPrivateKey as `0x${string}`);
+
+    const walletClient = createWalletClient({
+      account,
+      chain: config.chain,
+      transport: http(rpcUrl),
+    });
+
+    const publicClient = createPublicClient({
+      chain: config.chain,
+      transport: http(rpcUrl),
+    });
+
+    logger.info(`Forwarding ${amount} ${config.nativeCurrency} from escrow ${account.address} to ${toAddress}`);
+
+    const hash = await walletClient.sendTransaction({
+      account,
+      to: toAddress as `0x${string}`,
+      value: parseEther(amount.toString()),
+      chain: config.chain,
+    });
+
+    const receipt = await publicClient.waitForTransactionReceipt({ hash });
+    if (receipt.status === 'reverted') throw new Error('Escrow forward transaction reverted');
+
+    logger.info(`Escrow forward confirmed: ${hash}`);
+    return hash;
+  }
+
   // Legacy alias
   async sendCelo(toAddress: string, amountCelo: number): Promise<string> {
     return (await this.sendNative(toAddress, amountCelo, 'celo')).txHash;

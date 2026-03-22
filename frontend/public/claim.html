@@ -181,6 +181,35 @@
 </head>
 <body>
 <div class="card">
+  <!-- VERIFICATION REQUIRED STATE -->
+  <div id="verify-view" style="display:none;">
+    <div class="logo">🔐</div>
+    <h1>Verify Your Identity First</h1>
+    <p class="subtitle">The sender required identity verification. You must verify with Self Protocol before claiming.</p>
+
+    <div class="amount-box">
+      <div class="label">You're claiming</div>
+      <div class="amount" id="verify-amount-display">—</div>
+      <div class="currency" id="verify-currency-display">CELO</div>
+    </div>
+
+    <div style="background: #0f172a; border: 1px solid #f59e0b; border-radius: 10px; padding: 20px; margin: 20px 0; text-align: center;">
+      <p style="color: #f59e0b; font-size: 14px; margin-bottom: 12px;">📱 Scan with Self app to verify your identity</p>
+      <div id="qr-placeholder" style="background: #1e293b; width: 180px; height: 180px; margin: 0 auto 12px; border-radius: 8px; display: flex; align-items: center; justify-content: center;">
+        <span style="color: #64748b; font-size: 12px;">Loading QR...</span>
+      </div>
+      <button class="btn btn-secondary" onclick="requestVerification()" style="margin-top: 8px;">
+        📲 Open Self App
+      </button>
+    </div>
+
+    <button class="btn btn-primary" onclick="checkVerificationStatus()">
+      I've verified — Check Status
+    </button>
+
+    <p class="note">Your identity is verified with zero-knowledge proofs. No personal data is shared.</p>
+  </div>
+
   <!-- FORM STATE -->
   <div id="form-view">
     <div class="logo">💰</div>
@@ -191,6 +220,12 @@
       <div class="label">You're receiving</div>
       <div class="amount" id="amount-display">—</div>
       <div class="currency" id="currency-display">CELO</div>
+    </div>
+
+    <div id="chain-indicator" style="text-align: center; margin-bottom: 16px; display: none;">
+      <span style="padding: 6px 14px; background: rgba(59,130,246,0.1); border: 1px solid rgba(59,130,246,0.2); border-radius: 999px; font-size: 12px; color: #3b82f6;">
+        on <span id="chain-name">Celo</span>
+      </span>
     </div>
 
     <div class="field">
@@ -255,6 +290,7 @@
   }
 
   const token = getToken();
+  let remittanceData = null;
 
   // Pre-fill amount by fetching remittance info
   async function loadInfo() {
@@ -264,11 +300,36 @@
       if (res.ok) {
         const data = await res.json();
         const r = data?.data;
+        remittanceData = r;
         if (r) {
-          document.getElementById('amount-display').textContent = parseFloat(r.amount_celo || r.amount || 0).toFixed(4);
-          document.getElementById('currency-display').textContent = r.currency || 'CELO';
+          const amount = parseFloat(r.amount_celo || r.amount || 0).toFixed(4);
+          const currency = r.currency || 'CELO';
+          
+          document.getElementById('amount-display').textContent = amount;
+          document.getElementById('currency-display').textContent = currency;
+          
           if (r.sender_email) {
             document.getElementById('from-label').textContent = `From: ${r.sender_email}`;
+          }
+          
+          // Show chain indicator
+          if (r.chain) {
+            const chainNames = { celo: 'Celo', base: 'Base', monad: 'Monad' };
+            document.getElementById('chain-name').textContent = chainNames[r.chain] || r.chain;
+            document.getElementById('chain-indicator').style.display = 'block';
+          }
+          
+          // Check if verification required
+          if (r.requireAuth && !r.selfVerified) {
+            // Show verification view instead of claim form
+            document.getElementById('form-view').style.display = 'none';
+            document.getElementById('verify-view').style.display = 'block';
+            document.getElementById('verify-amount-display').textContent = amount;
+            document.getElementById('verify-currency-display').textContent = currency;
+          } else {
+            // Show normal claim form
+            document.getElementById('form-view').style.display = 'block';
+            document.getElementById('verify-view').style.display = 'none';
           }
         }
       }

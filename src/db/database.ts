@@ -44,7 +44,13 @@ class DatabaseManager {
         chain TEXT DEFAULT 'celo',
         self_verification_id TEXT,
         self_verified INTEGER DEFAULT 0,
-        email_sent INTEGER DEFAULT 0
+        email_sent INTEGER DEFAULT 0,
+        fee_model TEXT DEFAULT 'standard',
+        escrow_address TEXT,
+        sender_wallet TEXT,
+        fee_amount TEXT DEFAULT '0',
+        deposit_tx_hash TEXT,
+        deposit_confirmed INTEGER DEFAULT 0
       );
 
       CREATE INDEX IF NOT EXISTS idx_claim_token ON remittances(claim_token);
