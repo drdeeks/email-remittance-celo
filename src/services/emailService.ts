@@ -5,7 +5,15 @@ class EmailService {
   private resend: Resend;
   private baseUrl: string;
 
+  private initialized: boolean = false;
+
   constructor() {
+    // Lazy initialization - wait for dotenv to load
+  }
+
+  private ensureInitialized() {
+    if (this.initialized) return;
+
     const apiKey = process.env.RESEND_API_KEY;
     if (!apiKey || apiKey === 'NEEDS_KEY') {
       throw new Error('RESEND_API_KEY not configured in environment');
@@ -13,6 +21,7 @@ class EmailService {
 
     this.resend = new Resend(apiKey);
     this.baseUrl = process.env.BASE_URL || 'http://localhost:3001';
+    this.initialized = true;
     
     logger.info('Email service initialized with Resend');
   }
@@ -27,6 +36,7 @@ class EmailService {
     claimToken: string,
     message?: string
   ): Promise<void> {
+    this.ensureInitialized();
     try {
       const claimUrl = `${this.baseUrl}/api/remittance/claim/${claimToken}`;
 
@@ -100,6 +110,7 @@ class EmailService {
     amountCelo: number,
     txHash: string
   ): Promise<void> {
+    this.ensureInitialized();
     try {
       const explorerUrl = `https://explorer.celo.org/mainnet/tx/${txHash}`;
 
