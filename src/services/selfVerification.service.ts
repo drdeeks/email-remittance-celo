@@ -1,177 +1,206 @@
-// Simple configuration
-const config = {
-  nodeEnv: process.env.NODE_ENV || 'development',
-  selfAppId: process.env.SELF_APP_ID || 'dev-app',
-  selfAppSecret: process.env.SELF_APP_SECRET || 'dev-secret',
-  baseUrl: process.env.BASE_URL || 'http://localhost:3000',
-};
+/**
+ * Self Protocol — ZK Identity Verification
+ *
+ * Self Protocol enables zero-knowledge identity verification:
+ * - Sender proves they're a real human (not a bot) without revealing personal data
+ * - Recipient proves they control the claim wallet
+ * - Compliance checkable (KYC-passable) with zero data retention
+ *
+ * Integration: QR-based verification flow via Self Protocol REST API
+ * Docs: https://docs.self.xyz
+ * SDK: @selfxyz/core (install: npm install @selfxyz/core)
+ */
 
-// Mock Self SDK implementation (real SDK would be imported)
-class MockSelfSDK {
-  private readonly baseUrl: string;
+import { logger } from '../utils/logger';
+import { v4 as uuidv4 } from 'uuid';
 
-  constructor(options: { appId?: string; appSecret?: string; endpoint?: string }) {
-    this.baseUrl = options.endpoint || 'https://mock.self.xyz';
-  }
+const SELF_API_BASE = process.env.SELF_API_URL || 'https://api.self.xyz/v2';
+const SELF_APP_ID   = process.env.SELF_APP_ID   || '';
+const SELF_APP_SECRET = process.env.SELF_APP_SECRET || '';
+const BASE_URL      = process.env.BASE_URL || 'http://localhost:3001';
 
-  async createVerificationRequest(options: {
-    email: string;
-    callbackUrl?: string;
-    attributes?: string[];
-  }): Promise<{
-    verificationUrl: string;
-    qrCode: string;
-    id: string;
-  }> {
-    try {
-      // Simulate network delay
-      await new Promise(resolve => setTimeout(resolve, 500));
-      
-      return {
-        verificationUrl: `https://mock.self.xyz/verify/${Date.now()}`,
-        qrCode: 'mock-qr-code-base64',
-        id: `mock-verification-${Date.now()}`
-      };
-    } catch (error) {
-      console.error('Mock verification request failed:', error);
-      throw new Error('Mock verification request failed');
-    }
-  }
+// Self Protocol attribute scopes
+const DEFAULT_ATTRIBUTES = ['minimumAge', 'nationality', 'name'];
 
-  async getVerificationStatus(verificationId: string): Promise<{
-    verified: boolean;
-    attributes?: any;
-  }> {
-    try {
-      // Simulate status check
-      return {
-        verified: true, // Always succeed for demo
-        attributes: {
-          email: 'mock@example.com',
-          name: 'Mock User',
-          verified: true
-        }
-      };
-    } catch (error) {
-      console.error('Mock verification status check failed:', error);
-      return { verified: false };
-    }
-  }
+export interface SelfVerificationRequest {
+  verificationId: string;
+  verificationUrl: string;
+  deepLink: string;
+  qrCode: string;
+  expiresAt: string;
+}
 
-  async getAppInfo(): Promise<{
-    supportedAttributes: string[];
-    appId: string;
-    appSecret: string;
-    endpoint: string;
-  }> {
-    try {
-      return {
-        supportedAttributes: ['email', 'phone', 'id', 'address', 'birthdate'],
-        appId: 'mock-app',
-        appSecret: 'mock-secret',
-        endpoint: 'https://mock.self.xyz'
-      };
-    } catch (error) {
-      console.error('Mock app info fetch failed:', error);
-      return {
-        supportedAttributes: [],
-        appId: '',
-        appSecret: '',
-        endpoint: ''
-      };
-    }
-  }
+export interface SelfVerificationResult {
+  verified: boolean;
+  verificationId: string;
+  proof?: string;
+  nullifier?: string;        // ZK nullifier — proves uniqueness without identity
+  disclosedFields?: Record<string, string>;
+  issuingCountry?: string;
 }
 
 export class SelfVerificationService {
-  private selfSDK: MockSelfSDK;
-  private baseUrl: string;
+  private readonly configured: boolean;
 
   constructor() {
-    this.baseUrl = config.nodeEnv === 'production'
-      ? `https://api.self.xyz/v1`
-      : `https://sandbox-api.self.xyz/v1`;
-
-    this.selfSDK = new MockSelfSDK({
-      appId: config.selfAppId,
-      appSecret: config.selfAppSecret,
-      endpoint: this.baseUrl,
-    });
+    this.configured = !!(SELF_APP_ID && SELF_APP_SECRET);
+    if (!this.configured) {
+      logger.warn('Self Protocol: SELF_APP_ID/SELF_APP_SECRET not set — running in demo mode');
+    }
   }
 
-  async generateVerificationRequest(
+  /**
+   * Create a Self Protocol verification request.
+   * Returns a QR code URL and deep link for the Self app.
+   *
+   * In production: user scans QR with Self mobile app,
+   * generates ZK proof from their passport/ID on-device.
+   * Zero PII leaves the device.
+   */
+  async createVerificationRequest(
     email: string,
-    callbackUrl?: string,
-    attributes?: string[],
-  ): Promise<{ success: boolean; verificationUrl?: string; qrCode?: string; verificationId?: string }> {
+    remittanceId: string,
+    options?: {
+      attributes?: string[];
+      minimumAge?: number;
+    }
+  ): Promise<SelfVerificationRequest> {
+    const verificationId = uuidv4();
+    const callbackUrl = `${BASE_URL}/api/verifications/callback/${verificationId}`;
+
+    if (!this.configured) {
+      // Demo mode — returns mock verification that auto-passes
+      logger.info(`Self Protocol (demo): verification request for ${email}`);
+      return {
+        verificationId,
+        verificationUrl: `https://app.self.xyz/verify?id=${verificationId}&demo=true`,
+        deepLink: `self://verify?id=${verificationId}`,
+        qrCode: `data:text/plain;base64,${Buffer.from(verificationId).toString('base64')}`,
+        expiresAt: new Date(Date.now() + 10 * 60 * 1000).toISOString(),
+      };
+    }
+
     try {
-      // Create a Self verification request
-      const request = await this.selfSDK.createVerificationRequest({
-        email,
-        callbackUrl: callbackUrl || `${config.baseUrl}/api/verifications/callback`,
-        attributes: attributes || ['email', 'phone', 'id'],
+      const res = await fetch(`${SELF_API_BASE}/verifications`, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          'Authorization': `Bearer ${SELF_APP_SECRET}`,
+          'X-App-ID': SELF_APP_ID,
+        },
+        body: JSON.stringify({
+          appId: SELF_APP_ID,
+          scope: options?.attributes || DEFAULT_ATTRIBUTES,
+          callbackUrl,
+          metadata: { email, remittanceId },
+          minimumAge: options?.minimumAge || 18,
+          // ZK config: prove age + nationality without revealing exact birthdate/passport number
+          disclosures: {
+            minimumAge: options?.minimumAge || 18,
+            excludedCountries: [],  // no restrictions by default
+            ofacCheck: true,        // OFAC sanctions screening (required for compliance)
+          },
+        }),
       });
 
+      if (!res.ok) {
+        const err = await res.text();
+        throw new Error(`Self API error ${res.status}: ${err.slice(0, 120)}`);
+      }
+
+      const data = await res.json();
+
       return {
-        success: true,
-        verificationUrl: request.verificationUrl,
-        qrCode: request.qrCode,
-        verificationId: request.id,
+        verificationId: data.id || verificationId,
+        verificationUrl: data.verificationUrl,
+        deepLink: data.deepLink || `self://verify?id=${data.id}`,
+        qrCode: data.qrCode || '',
+        expiresAt: data.expiresAt || new Date(Date.now() + 10 * 60 * 1000).toISOString(),
       };
-    } catch (error: any) {
-      console.error('Self verification request failed:', error);
-      throw new Error(`Failed to generate Self verification request: ${error.message}`);
+    } catch (error) {
+      logger.error('Self Protocol verification request failed', error);
+      throw new Error(`Self verification failed: ${(error as Error).message}`);
     }
   }
 
-  async verifySelfProof(verificationId: string): Promise<{ verified: boolean; attributes?: any }> {
-    try {
-      // Check verification status via Self API
-      const status = await this.selfSDK.getVerificationStatus(verificationId);
-
-      if (!status.verified) {
-        return { verified: false };
-      }
-
+  /**
+   * Check verification status and retrieve ZK proof result.
+   */
+  async checkVerification(verificationId: string): Promise<SelfVerificationResult> {
+    if (!this.configured) {
+      // Demo mode — always passes
       return {
         verified: true,
-        attributes: status.attributes,
+        verificationId,
+        nullifier: `demo-nullifier-${verificationId}`,
+        disclosedFields: { minimumAge: 'true', sanctionsCheck: 'passed' },
       };
-    } catch (error: any) {
-      console.error('Self verification status check failed:', error);
-      throw new Error(`Self verification check failed: ${error.message}`);
     }
-  }
 
-  async parseVerificationCallback(
-    payload: any,
-  ): Promise<{ verified: boolean; verificationId: string; attributes: any }> {
     try {
-      const { id, verified, attributes } = payload;
+      const res = await fetch(`${SELF_API_BASE}/verifications/${verificationId}`, {
+        headers: {
+          'Authorization': `Bearer ${SELF_APP_SECRET}`,
+          'X-App-ID': SELF_APP_ID,
+        },
+      });
 
-      if (!id) {
-        throw new Error('Missing verification ID');
+      if (!res.ok) {
+        return { verified: false, verificationId };
       }
 
+      const data = await res.json();
+
       return {
-        verified: !!verified,
-        verificationId: id,
-        attributes,
+        verified: data.status === 'verified',
+        verificationId,
+        proof: data.proof,
+        nullifier: data.nullifier,
+        disclosedFields: data.disclosedFields,
+        issuingCountry: data.issuingCountry,
       };
-    } catch (error: any) {
-      console.error('Self verification callback parsing failed:', error);
-      throw new Error(`Failed to parse callback: ${error.message}`);
+    } catch (error) {
+      logger.error('Self verification check failed', error);
+      return { verified: false, verificationId };
     }
   }
 
-  async getSupportedAttributes(): Promise<string[]> {
-    try {
-      const info = await this.selfSDK.getAppInfo();
-      return info.supportedAttributes || [];
-    } catch (error: any) {
-      console.error('Self supported attributes fetch failed:', error);
-      throw new Error(`Failed to get supported attributes: ${error.message}`);
+  /**
+   * Handle callback from Self app after user completes verification.
+   * Called by POST /api/verifications/callback/:id
+   */
+  async handleCallback(payload: Record<string, unknown>): Promise<SelfVerificationResult> {
+    const verificationId = payload.id as string;
+
+    if (!verificationId) {
+      throw new Error('Missing verification ID in callback');
     }
+
+    logger.info(`Self Protocol callback received: ${verificationId}`);
+
+    // Re-check status to confirm — don't trust callback payload alone
+    return this.checkVerification(verificationId);
+  }
+
+  /**
+   * Quick check: is this verification configured and ready?
+   */
+  isConfigured(): boolean {
+    return this.configured;
+  }
+
+  /**
+   * Get integration status for health checks + README proof
+   */
+  getStatus() {
+    return {
+      configured: this.configured,
+      mode: this.configured ? 'production' : 'demo',
+      apiBase: SELF_API_BASE,
+      appId: SELF_APP_ID ? `${SELF_APP_ID.slice(0, 8)}...` : 'not set',
+      attributes: DEFAULT_ATTRIBUTES,
+      zkFeatures: ['minimumAge', 'ofacCheck', 'nullifier', 'countryCheck'],
+    };
   }
 }
 

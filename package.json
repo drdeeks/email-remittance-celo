@@ -23,6 +23,7 @@
   "dependencies": {
     "@celo/contractkit": "^10.0.3",
     "@mandate.md/sdk": "^0.2.0",
+    "@selfxyz/core": "^1.2.0-beta.1",
     "@types/better-sqlite3": "^7.6.13",
     "@types/nodemailer": "^7.0.11",
     "better-sqlite3": "^12.8.0",

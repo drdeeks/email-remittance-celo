@@ -2,7 +2,7 @@ import { Router, Request, Response, NextFunction } from 'express';
 import { validationError, validateEmail, validateAmount } from '../utils/errors';
 import { logger } from '../utils/logger';
 import { remittanceService } from '../services/remittanceService';
-import { detectChain } from '../services/celoService';
+import { detectChain, chainService, type SupportedChain } from '../services/celoService';
 
 const router = Router();
 
@@ -151,6 +151,79 @@ router.post('/demo', async (req: Request, res: Response, next: NextFunction) => 
         expiresAt: new Date(result.expiresAt * 1000).toISOString(),
         claimUrl: `${process.env.BASE_URL}/api/remittance/claim/${result.claimToken}`,
       },
+      timestamp: new Date().toISOString(),
+    });
+  } catch (error) {
+    next(error);
+  }
+});
+
+// ─── Bridge Routes ─────────────────────────────────────────────────────────────
+
+// GET /api/remittance/bridge/routes — list supported bridge paths
+router.get('/bridge/routes', (req: Request, res: Response) => {
+  res.json({
+    success: true,
+    data: {
+      routes: chainService.getSupportedBridgeRoutes(),
+      chains: chainService.getSupportedChains(),
+      note: 'Monad routes are testnet only. Celo↔Base routes are mainnet via LI.FI/Squid.',
+    },
+  });
+});
+
+// GET /api/remittance/bridge/quote — get a bridge quote
+router.get('/bridge/quote', async (req: Request, res: Response, next: NextFunction) => {
+  try {
+    const { from, to, amount, toAddress } = req.query;
+
+    if (!from || !to || !amount) {
+      throw validationError('from, to, and amount are required');
+    }
+
+    const fromChain = detectChain(undefined, from as string) as SupportedChain;
+    const toChain   = detectChain(undefined, to   as string) as SupportedChain;
+    const walletAddr = toAddress as string || chainService.getWalletAddress(toChain);
+
+    const quote = await chainService.getBridgeQuote(
+      fromChain,
+      toChain,
+      parseFloat(amount as string),
+      walletAddr
+    );
+
+    res.json({ success: true, data: quote });
+  } catch (error) {
+    next(error);
+  }
+});
+
+// POST /api/remittance/bridge — execute a bridge
+router.post('/bridge', async (req: Request, res: Response, next: NextFunction) => {
+  try {
+    const { fromChain, toChain, amount, toAddress } = req.body;
+
+    if (!fromChain || !toChain || !amount) {
+      throw validationError('fromChain, toChain, and amount are required');
+    }
+
+    const from = detectChain(undefined, fromChain) as SupportedChain;
+    const to   = detectChain(undefined, toChain)   as SupportedChain;
+
+    if (from === to) {
+      throw validationError('fromChain and toChain must be different');
+    }
+
+    const targetAddr = toAddress || chainService.getWalletAddress(to);
+
+    logger.info(`Bridge request: ${amount} ${from} → ${to} → ${targetAddr}`);
+
+    const result = await chainService.executeBridge(from, to, parseFloat(amount), targetAddr);
+
+    res.json({
+      success: true,
+      message: `Bridge initiated: ${from} → ${to}. Funds arrive in 2-5 minutes.`,
+      data: result,
       timestamp: new Date().toISOString(),
     });
   } catch (error) {
