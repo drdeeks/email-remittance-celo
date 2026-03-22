@@ -70,7 +70,7 @@ export class MandateService {
       if (!response.ok) {
         if (response.status === 422) {
           // Policy blocked the transaction
-          const data = await response.json();
+          const data = await response.json() as any;
           logger.warn('Mandate: policy blocked transaction', { reason: data.blockReason });
           return {
             allowed: false,
@@ -95,7 +95,7 @@ export class MandateService {
         };
       }
 
-      const data = await response.json();
+      const data = await response.json() as any;
 
       if (data.allowed) {
         logger.info('Mandate: policy check passed', { intentId: data.intentId });
