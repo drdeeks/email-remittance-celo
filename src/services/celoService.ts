@@ -1,157 +1,171 @@
-import { createWalletClient, createPublicClient, http, parseEther, formatEther, PublicClient, WalletClient } from 'viem';
-import { privateKeyToAccount } from 'viem/accounts';
-import { celo } from 'viem/chains';
-import { generatePrivateKey } from 'viem/accounts';
+import { createWalletClient, createPublicClient, http, parseEther, formatEther } from 'viem';
+import { privateKeyToAccount, generatePrivateKey } from 'viem/accounts';
+import { celo, base } from 'viem/chains';
 import { logger } from '../utils/logger';
 
-// Celo fee abstraction — pay gas in USDC instead of CELO
-const USDC_FEE_ADAPTER = '0x2F25deB3848C207fc8E0c34035B3Ba7fC157602B' as \`0x\${string}\`;
+// Supported chains
+export type SupportedChain = 'celo' | 'base';
 
-class CeloService {
-  private walletClient: any;
-  private publicClient: any;
-  private account: ReturnType<typeof privateKeyToAccount>;
-  private initialized: boolean = false;
+const CHAIN_CONFIG: Record<SupportedChain, {
+  chain: typeof celo | typeof base;
+  rpcEnvKey: string;
+  defaultRpc: string;
+  nativeCurrency: string;
+  explorerBase: string;
+}> = {
+  celo: {
+    chain: celo,
+    rpcEnvKey: 'CELO_RPC_URL',
+    defaultRpc: 'https://forno.celo.org',
+    nativeCurrency: 'CELO',
+    explorerBase: 'https://explorer.celo.org/mainnet/tx',
+  },
+  base: {
+    chain: base,
+    rpcEnvKey: 'BASE_RPC_URL',
+    defaultRpc: 'https://mainnet.base.org',
+    nativeCurrency: 'ETH',
+    explorerBase: 'https://basescan.org/tx',
+  },
+};
 
-  constructor() {
-    // Lazy initialization - wait for dotenv to load
-  }
+/**
+ * Detect chain from currency string or explicit chain param.
+ * Defaults to celo.
+ *
+ * Examples:
+ *   "CELO" → celo
+ *   "ETH" on base → base
+ *   "BASE" → base
+ *   "base" → base
+ */
+export function detectChain(currency?: string, chain?: string): SupportedChain {
+  const raw = (chain || currency || '').toLowerCase().trim();
+  if (raw === 'base' || raw === 'eth' || raw === 'ethereum') return 'base';
+  return 'celo';
+}
 
-  private ensureInitialized() {
-    if (this.initialized) return;
+export function getExplorerUrl(txHash: string, chain: SupportedChain): string {
+  return `${CHAIN_CONFIG[chain].explorerBase}/${txHash}`;
+}
+
+class ChainService {
+  private clients: Partial<Record<SupportedChain, {
+    walletClient: ReturnType<typeof createWalletClient>;
+    publicClient: ReturnType<typeof createPublicClient>;
+    account: ReturnType<typeof privateKeyToAccount>;
+  }>> = {};
+
+  private getClients(chainName: SupportedChain) {
+    if (this.clients[chainName]) return this.clients[chainName]!;
 
     const privateKey = process.env.WALLET_PRIVATE_KEY;
-    if (!privateKey) {
-      throw new Error('WALLET_PRIVATE_KEY not found in environment');
-    }
+    if (!privateKey) throw new Error('WALLET_PRIVATE_KEY not found in environment');
 
-    const rpcUrl = process.env.CELO_RPC_URL || 'https://forno.celo.org';
+    const config = CHAIN_CONFIG[chainName];
+    const rpcUrl = process.env[config.rpcEnvKey] || config.defaultRpc;
+    const account = privateKeyToAccount(privateKey as `0x${string}`);
 
-    this.account = privateKeyToAccount(privateKey as `0x${string}`);
-    
-    this.walletClient = createWalletClient({
-      account: this.account,
-      chain: celo,
-      transport: http(rpcUrl)
+    const walletClient = createWalletClient({
+      account,
+      chain: config.chain,
+      transport: http(rpcUrl),
     });
 
-    this.publicClient = createPublicClient({
-      chain: celo,
-      transport: http(rpcUrl)
+    const publicClient = createPublicClient({
+      chain: config.chain,
+      transport: http(rpcUrl),
     });
 
-    this.initialized = true;
-    logger.info(`Celo service initialized with wallet: ${this.account.address}`);
+    this.clients[chainName] = { walletClient, publicClient, account };
+    logger.info(`${chainName.toUpperCase()} client initialized: ${account.address}`);
+    return this.clients[chainName]!;
   }
 
   /**
-   * Send CELO to an address
+   * Send native currency (CELO or ETH on Base) to an address.
+   * Auto-detects chain from currency or explicit chain param.
+   */
+  async sendNative(
+    toAddress: string,
+    amount: number,
+    chainName: SupportedChain = 'celo'
+  ): Promise<{ txHash: string; chain: SupportedChain; explorerUrl: string }> {
+    const { walletClient, publicClient, account } = this.getClients(chainName);
+    const config = CHAIN_CONFIG[chainName];
+
+    logger.info(`Sending ${amount} ${config.nativeCurrency} to ${toAddress} on ${chainName}`);
+
+    try {
+      const hash = await walletClient.sendTransaction({
+        account,
+        to: toAddress as `0x${string}`,
+        value: parseEther(amount.toString()),
+        chain: config.chain,
+      });
+
+      logger.info(`TX sent on ${chainName}: ${hash}`);
+
+      const receipt = await publicClient.waitForTransactionReceipt({ hash });
+      if (receipt.status === 'reverted') throw new Error('Transaction reverted on chain');
+
+      logger.info(`TX confirmed on ${chainName}: ${hash}`);
+
+      return {
+        txHash: hash,
+        chain: chainName,
+        explorerUrl: getExplorerUrl(hash, chainName),
+      };
+    } catch (error) {
+      logger.error(`Failed to send on ${chainName}`, error);
+      throw error;
+    }
+  }
+
+  /**
+   * Legacy alias — always uses Celo (backwards compat)
    */
   async sendCelo(toAddress: string, amountCelo: number): Promise<string> {
-    this.ensureInitialized();
-    try {
-      logger.info(`Sending ${amountCelo} CELO to ${toAddress}`);
-
-      const hash = await this.walletClient.sendTransaction({
-        account: this.account,
-        to: toAddress as `0x${string}`,
-        value: parseEther(amountCelo.toString()),
-        chain: celo,
-      });
-
-      logger.info(`Transaction sent: ${hash}`);
-
-      const receipt = await this.publicClient.waitForTransactionReceipt({ hash });
-      
-      if (receipt.status === 'reverted') {
-        throw new Error('Transaction reverted');
-      }
-
-      logger.info(`Transaction confirmed: ${hash}`);
-      return hash;
-    } catch (error) {
-      logger.error('Failed to send CELO', error);
-      throw error;
-    }
+    const result = await this.sendNative(toAddress, amountCelo, 'celo');
+    return result.txHash;
   }
 
-  /**
-   * Get CELO balance for an address
-   */
-  async getBalance(address: string): Promise<string> {
-    this.ensureInitialized();
-    try {
-      const balance = await this.publicClient.getBalance({
-        address: address as `0x${string}`
-      });
-
-      return formatEther(balance);
-    } catch (error) {
-      logger.error(`Failed to get balance for ${address}`, error);
-      throw error;
-    }
+  async getBalance(address: string, chainName: SupportedChain = 'celo'): Promise<string> {
+    const { publicClient } = this.getClients(chainName);
+    const balance = await publicClient.getBalance({ address: address as `0x${string}` });
+    return formatEther(balance);
   }
 
-  /**
-   * Generate a new wallet for claim recipient
-   */
   generateClaimWallet(): { address: string; privateKey: string } {
-    this.ensureInitialized();
     const privateKey = generatePrivateKey();
     const account = privateKeyToAccount(privateKey);
-
-    logger.info(`Generated new claim wallet: ${account.address}`);
-
-    return {
-      address: account.address,
-      privateKey: privateKey
-    };
+    logger.info(`Generated claim wallet: ${account.address}`);
+    return { address: account.address, privateKey };
   }
 
-  /**
-   * Estimate gas for a CELO transfer
-   */
-  async estimateGas(toAddress: string, amountCelo: number): Promise<bigint> {
-    this.ensureInitialized();
-    try {
-      const gas = await this.publicClient.estimateGas({
-        account: this.account,
-        to: toAddress as `0x${string}`,
-        value: parseEther(amountCelo.toString()),
-      });
-
-      return gas;
-    } catch (error) {
-      logger.error('Failed to estimate gas', error);
-      throw error;
-    }
+  getWalletAddress(chainName: SupportedChain = 'celo'): string {
+    return this.getClients(chainName).account.address;
   }
 
-  /**
-   * Get the service wallet address
-   */
-  getWalletAddress(): string {
-    this.ensureInitialized();
-    return this.account.address;
+  async getGasPrice(chainName: SupportedChain = 'celo'): Promise<bigint> {
+    return this.getClients(chainName).publicClient.getGasPrice();
   }
 
-  /**
-   * Get transaction receipt
-   */
-  async getTransactionReceipt(hash: string) {
-    this.ensureInitialized();
-    return this.publicClient.getTransactionReceipt({
-      hash: hash as `0x${string}`
+  async getTransactionReceipt(hash: string, chainName: SupportedChain = 'celo') {
+    return this.getClients(chainName).publicClient.getTransactionReceipt({
+      hash: hash as `0x${string}`,
     });
   }
 
-  /**
-   * Get current gas price
-   */
-  async getGasPrice(): Promise<bigint> {
-    this.ensureInitialized();
-    return this.publicClient.getGasPrice();
+  getSupportedChains(): SupportedChain[] {
+    return Object.keys(CHAIN_CONFIG) as SupportedChain[];
+  }
+
+  getNativeCurrency(chainName: SupportedChain): string {
+    return CHAIN_CONFIG[chainName].nativeCurrency;
   }
 }
 
-export const celoService = new CeloService();
+// Export singleton + legacy named export for backwards compat
+export const chainService = new ChainService();
+export const celoService = chainService;

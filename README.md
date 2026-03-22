@@ -162,27 +162,124 @@ npm start        # production
 npm run dev      # development (ts-node, hot reload)
 ```
 
-### Send a Remittance
+### Step-by-Step: How to Send a Remittance
 
+This is exactly how the live proof was executed.
+
+**Step 1 — Make sure the server is running with a public URL:**
+```bash
+# Start the server
+npm start
+
+# In a separate terminal, start your public tunnel
+cloudflared tunnel --url http://localhost:3001 --no-autoupdate
+# → You'll get a URL like: https://xxxx-xxxx.trycloudflare.com
+
+# Update BASE_URL in .env with the tunnel URL, then restart:
+# BASE_URL=https://xxxx-xxxx.trycloudflare.com
+# pkill -f "node dist/index.js" && npm start
+```
+
+**Step 2 — Send the remittance (pick your chain):**
+
+On **Celo** (default):
 ```bash
 curl -X POST http://localhost:3001/api/remittance/send \
   -H "Content-Type: application/json" \
   -d '{
     "senderEmail": "you@example.com",
     "recipientEmail": "recipient@gmail.com",
-    "amount": "1.0",
-    "currency": "CELO"
+    "amount": "0.05",
+    "chain": "celo"
   }'
 ```
 
-### Claim Flow
-
-The recipient receives an email with a link:
+On **Base**:
+```bash
+curl -X POST http://localhost:3001/api/remittance/send \
+  -H "Content-Type: application/json" \
+  -d '{
+    "senderEmail": "you@example.com",
+    "recipientEmail": "recipient@gmail.com",
+    "amount": "0.001",
+    "chain": "base"
+  }'
 ```
-https://your-domain.com/api/remittance/claim/{token}?wallet=0x...
+
+Auto-detect from currency:
+```bash
+# "ETH" → routes to Base automatically
+# "CELO" → routes to Celo automatically
+curl -X POST http://localhost:3001/api/remittance/send \
+  -H "Content-Type: application/json" \
+  -d '{
+    "senderEmail": "you@example.com",
+    "recipientEmail": "recipient@gmail.com",
+    "amount": "0.001",
+    "currency": "ETH"
+  }'
 ```
 
-If the recipient doesn't have a wallet, the frontend auto-generates one (HD wallet from claim token entropy). Funds transfer on-chain on claim.
+**Step 3 — The response gives you a claim URL:**
+```json
+{
+  "success": true,
+  "data": {
+    "remittanceId": "fc820475-...",
+    "claimToken": "abc123-...",
+    "txHash": "0x...",
+    "expiresAt": "2026-03-23T20:17:00.000Z",
+    "claimUrl": "https://xxxx.trycloudflare.com/api/remittance/claim/abc123-..."
+  }
+}
+```
+
+**Step 4 — Recipient gets an email** with a "Claim Your CELO/ETH" button. They click it.
+
+**Step 5 — Claim the funds:**
+
+Option A — Recipient has a wallet (they pass their address):
+```bash
+curl "https://xxxx.trycloudflare.com/api/remittance/claim/{token}?wallet=0xYourWalletAddress"
+```
+
+Option B — Recipient has NO wallet (agent auto-generates one):
+```bash
+curl "https://xxxx.trycloudflare.com/api/remittance/claim/{token}"
+```
+
+The response includes the auto-generated wallet address AND private key. Import into any wallet app (Coinbase Wallet, MetaMask, etc.).
+
+**Step 6 — Verify on-chain:**
+- Celo: `https://explorer.celo.org/mainnet/tx/{txHash}`
+- Base: `https://basescan.org/tx/{txHash}`
+
+---
+
+### Supported Chains & Auto-Switching
+
+The `chain` field auto-routes to the correct network. No manual RPC switching needed.
+
+| `chain` value | Network | Native Currency | Explorer |
+|--------------|---------|----------------|---------|
+| `celo` | Celo Mainnet | CELO | celoscan.io |
+| `base` | Base Mainnet | ETH | basescan.org |
+
+**Auto-detection from `currency` field:**
+| `currency` | Detected chain |
+|-----------|---------------|
+| `CELO` | Celo |
+| `ETH` | Base |
+| `BASE` | Base |
+| `ETHEREUM` | Base |
+| *(default)* | Celo |
+
+**Adding Base to your `.env`:**
+```env
+BASE_RPC_URL=https://mainnet.base.org   # or your own Alchemy/Infura URL
+```
+
+The same wallet private key works on both chains (EVM-compatible). Make sure your wallet has funds on whichever chain you're sending from.
 
 ---
 
