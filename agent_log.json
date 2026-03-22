@@ -7,10 +7,60 @@
     "walletAddress": "0x9D65433B3FE597C15a46D2365F8F2c1701Eb9e4A"
   },
   "decisions": [
-    {"timestamp": "2026-03-14T01:00:00Z", "decision": "Build email-native remittance on Celo", "reasoning": "Celo has sub-cent tx fees and stablecoin focus — ideal for remittance. Email as UX layer means no wallet needed on receiver end"},
-    {"timestamp": "2026-03-19T00:00:00Z", "decision": "Integrate Self Protocol for ZK identity", "reasoning": "Remittance requires identity verification. Self Protocol provides ZK proofs without exposing PII — privacy-preserving KYC"},
-    {"timestamp": "2026-03-20T00:00:00Z", "decision": "Add Venice AI fraud scoring", "reasoning": "Private inference for transaction risk analysis. No data retention means sender financial patterns stay confidential"},
-    {"timestamp": "2026-03-22T02:30:00Z", "decision": "Enterprise hardening via sub-agent", "reasoning": "Added structured error system, input validation with injection protection, rate limiting, correlation IDs"}
+    {
+      "timestamp": "2026-03-14T01:00:00Z",
+      "decision": "Build email-native remittance on Celo",
+      "reasoning": "Celo has sub-cent tx fees and stablecoin focus \u2014 ideal for remittance. Email as UX layer means no wallet needed on receiver end"
+    },
+    {
+      "timestamp": "2026-03-19T00:00:00Z",
+      "decision": "Integrate Self Protocol for ZK identity",
+      "reasoning": "Remittance requires identity verification. Self Protocol provides ZK proofs without exposing PII \u2014 privacy-preserving KYC"
+    },
+    {
+      "timestamp": "2026-03-20T00:00:00Z",
+      "decision": "Add Venice AI fraud scoring",
+      "reasoning": "Private inference for transaction risk analysis. No data retention means sender financial patterns stay confidential"
+    },
+    {
+      "timestamp": "2026-03-22T02:30:00Z",
+      "decision": "Enterprise hardening via sub-agent",
+      "reasoning": "Added structured error system, input validation with injection protection, rate limiting, correlation IDs"
+    }
   ],
-  "outputs": {"commits": 12, "testsWritten": 40, "linesOfCode": 2800}
+  "outputs": {
+    "commits": 12,
+    "testsWritten": 40,
+    "linesOfCode": 2800
+  },
+  "liveDemo": {
+    "executedAt": "2026-03-22T18:03:41Z",
+    "fundingTx": {
+      "hash": "0x711d274b60fdfb4d084d6e72aeb9f9b7039e6a17fb9180b108836acf9ece6d06",
+      "chain": "celo-mainnet",
+      "amount": "0.075 CELO",
+      "from": "Dr Deeks",
+      "to": "0x9D65433B3FE597C15a46D2365F8F2c1701Eb9e4A",
+      "explorer": "https://celoscan.io/tx/0x711d274b60fdfb4d084d6e72aeb9f9b7039e6a17fb9180b108836acf9ece6d06"
+    },
+    "remittance": {
+      "id": "0dec1cbc-3b0e-45fa-9a62-340237732699",
+      "sender": "titan@openclaw.ai",
+      "recipient": "drdeeks@outlook.com",
+      "amount": "0.05 CELO",
+      "status": "pending_claim",
+      "emailDelivered": true,
+      "mandateValidated": true,
+      "claimToken": "fc820475-7dab-48b1-b616-aa67b8178287"
+    },
+    "stepsCompleted": [
+      "Input validation",
+      "Mandate policy check (passed)",
+      "Celo mainnet balance verification (0.075 CELO)",
+      "SQLite escrow record created",
+      "Resend email delivered to drdeeks@outlook.com",
+      "Claim URL generated (24h expiry)"
+    ],
+    "note": "First real end-to-end remittance. Funds in agent wallet, claim email in Dr Deeks' inbox."
+  }
 }
