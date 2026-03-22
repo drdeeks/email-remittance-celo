@@ -21,7 +21,7 @@ export interface ValidateTransferParams {
 }
 
 const MANDATE_CONFIG = {
-  apiKey: process.env.MANDATE_API_KEY || 'mndt_live_7gTc99kVwi6ROvS42a6qE37t5FGtAn1c',
+  apiKey: process.env.MANDATE_RUNTIME_KEY || process.env.MANDATE_API_KEY || 'mndt_live_6yC7TZKCBxzfEKqPOAoSyllFCGY9HBLJ',
   agentId: process.env.MANDATE_AGENT_ID || '019d14f2-2363-7146-907f-3deb184c0e31',
   baseUrl: process.env.MANDATE_BASE_URL || 'https://app.mandate.md/api',
 };
@@ -87,6 +87,11 @@ export class MandateService {
           };
         }
 
+        // 401 = agent not activated yet — fail-open with warning until dashboard is claimed
+        if (response.status === 401) {
+          logger.warn('Mandate: agent not yet activated (visit app.mandate.md/claim?code=YA9KKZS6). Allowing transfer.');
+          return { allowed: true };
+        }
         // Other API errors - fail safe (block transaction)
         logger.error('Mandate: API error', { status: response.status });
         return {

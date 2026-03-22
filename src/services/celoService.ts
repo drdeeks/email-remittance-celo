@@ -4,6 +4,9 @@ import { celo } from 'viem/chains';
 import { generatePrivateKey } from 'viem/accounts';
 import { logger } from '../utils/logger';
 
+// Celo fee abstraction — pay gas in USDC instead of CELO
+const USDC_FEE_ADAPTER = '0x2F25deB3848C207fc8E0c34035B3Ba7fC157602B' as \`0x\${string}\`;
+
 class CeloService {
   private walletClient: any;
   private publicClient: any;
