@@ -256,14 +256,60 @@ The response includes the auto-generated wallet address AND private key. Import 
 
 ---
 
+### Cross-Chain Bridging
+
+Bridge funds between chains directly through the API. No third-party UI required.
+
+**Supported routes:**
+| Route | Provider | Notes |
+|-------|----------|-------|
+| Celo → Base | LI.FI / Squid + Axelar | Mainnet |
+| Base → Celo | LI.FI / Squid + Axelar | Mainnet |
+| Celo → Monad | Direct (testnet) | Monad Testnet |
+| Monad → Celo | Direct (testnet) | Monad Testnet |
+| Base → Monad | Direct (testnet) | Monad Testnet |
+| Monad → Base | Direct (testnet) | Monad Testnet |
+
+**Get a quote:**
+```bash
+curl "http://localhost:3001/api/remittance/bridge/quote?from=celo&to=base&amount=1.0"
+```
+
+**Execute a bridge:**
+```bash
+# Celo → Base
+curl -X POST http://localhost:3001/api/remittance/bridge \
+  -H "Content-Type: application/json" \
+  -d '{"fromChain":"celo","toChain":"base","amount":"0.5","toAddress":"0xYourBaseAddress"}'
+
+# Base → Celo
+curl -X POST http://localhost:3001/api/remittance/bridge \
+  -H "Content-Type: application/json" \
+  -d '{"fromChain":"base","toChain":"celo","amount":"0.001"}'
+
+# Celo → Monad (testnet)
+curl -X POST http://localhost:3001/api/remittance/bridge \
+  -H "Content-Type: application/json" \
+  -d '{"fromChain":"celo","toChain":"monad","amount":"0.1"}'
+```
+
+Bridge response includes a `bridgeTrackingUrl` at `scan.li.fi` to monitor cross-chain delivery.
+
+Add to `.env` for additional chain RPCs (optional — public endpoints work fine for demos):
+```env
+BASE_RPC_URL=https://mainnet.base.org
+MONAD_RPC_URL=https://testnet-rpc.monad.xyz
+```
+
 ### Supported Chains & Auto-Switching
 
 The `chain` field auto-routes to the correct network. No manual RPC switching needed.
 
-| `chain` value | Network | Native Currency | Explorer |
-|--------------|---------|----------------|---------|
-| `celo` | Celo Mainnet | CELO | celoscan.io |
-| `base` | Base Mainnet | ETH | basescan.org |
+| `chain` value | Network | Native Currency | Chain ID | Explorer |
+|--------------|---------|----------------|---------|---------|
+| `celo` | Celo Mainnet | CELO | 42220 | celoscan.io |
+| `base` | Base Mainnet | ETH | 8453 | basescan.org |
+| `monad` | Monad Testnet | MON | 10143 | testnet.monadexplorer.com |
 
 **Auto-detection from `currency` field:**
 | `currency` | Detected chain |
@@ -525,6 +571,57 @@ email-remittance-celo/
 ├── .env.example            # Config template
 └── tests/                  # Jest test suite (16 passing)
 ```
+
+---
+
+## ✅ INTEGRATION VALIDATION
+
+Run this to verify all track integrations are live:
+
+```bash
+curl http://localhost:3001/health/integrations | jq .
+```
+
+Or against the public tunnel:
+```bash
+curl https://replacement-armed-entitled-paperback.trycloudflare.com/health/integrations | jq .
+```
+
+Expected response confirms:
+- **Self Protocol** — ZK identity verification endpoints active (demo mode without API keys, production with `SELF_APP_ID` + `SELF_APP_SECRET`)
+- **Mandate** — policy engine active, agent ID `019d14f2-2363-7146-907f-3deb184c0e31`, $100/tx limit live
+- **Venice AI** — fraud analysis active (set `VENICE_API_KEY` for production)
+- **Chains** — Celo, Base, Monad all initialized, wallet balances visible
+- **ERC-8004** — `agent.json` + `agent_log.json` present
+
+### Self Protocol Setup
+
+To activate production ZK verification (currently in demo mode):
+
+```bash
+# 1. Register at https://developer.self.xyz
+# 2. Create an app, get your App ID and App Secret
+# 3. Add to .env:
+SELF_APP_ID=your-app-id
+SELF_APP_SECRET=your-app-secret
+```
+
+Self Protocol verification flow:
+```bash
+# Request a ZK verification QR for a user
+curl -X POST http://localhost:3001/api/verifications/request \
+  -H "Content-Type: application/json" \
+  -d '{"email":"user@example.com","remittanceId":"fc820475-..."}'
+
+# Response includes QR code URL and deep link
+# User scans with Self mobile app → ZK proof generated on-device
+# No PII ever leaves the user's phone
+
+# Check verification result
+curl http://localhost:3001/api/verifications/{verificationId}
+```
+
+ZK proof includes: age verification (18+), OFAC sanctions check, nationality — without revealing passport number, birthdate, or name.
 
 ---
 
