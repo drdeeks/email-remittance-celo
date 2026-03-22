@@ -1,6 +1,7 @@
 import { v4 as uuidv4 } from 'uuid';
 import { db } from '../db/database';
 import { chainService, detectChain, getExplorerUrl, type SupportedChain } from './celoService';
+import { feeService, type FeeModel } from './feeService';
 const celoService = chainService; // backwards compat alias
 import { emailService } from './emailService';
 import { mandateService } from './mandateService';
@@ -12,6 +13,11 @@ interface CreateRemittanceParams {
   amountCelo: number;
   message?: string;
   chain?: SupportedChain;
+  feeModel?: FeeModel;
+  escrowAddress?: string;
+  escrowPrivateKey?: string;
+  senderWallet?: string;
+  feeAmount?: string;
   requireAuth?: boolean;
 }
 
@@ -55,7 +61,7 @@ class RemittanceService {
    * Create a new remittance
    */
   async createRemittance(params: CreateRemittanceParams): Promise<CreateRemittanceResult> {
-    const { senderEmail, recipientEmail, amountCelo, message, chain = 'celo', requireAuth = false } = params;
+    const { senderEmail, recipientEmail, amountCelo, message, chain = 'celo', requireAuth = false, feeModel = 'standard', escrowAddress = '', escrowPrivateKey = '', senderWallet = '', feeAmount = '0' } = params;
 
     logger.info(`Creating remittance: ${amountCelo} CELO from ${senderEmail} to ${recipientEmail}`);
 
@@ -114,8 +120,9 @@ class RemittanceService {
       const stmt = db.prepare(`
         INSERT INTO remittances (
           id, claim_token, sender_email, recipient_email, amount_celo,
-          message, status, escrow_tx_hash, expires_at, require_auth, chain
-        ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+          message, status, escrow_tx_hash, expires_at, require_auth, chain,
+          fee_model, escrow_address, sender_wallet, fee_amount
+        ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
       `);
 
       stmt.run(
@@ -129,7 +136,11 @@ class RemittanceService {
         txHash,
         expiresAt,
         requireAuth ? 1 : 0,
-        chain
+        chain,
+        feeModel,
+        escrowAddress,
+        senderWallet,
+        feeAmount
       );
 
       logger.info(`Remittance stored in database: ${remittanceId}`);
