@@ -35,7 +35,7 @@ sender@example.com → "Send 10 CELO to recipient@gmail.com"
                recipient@gmail.com inbox:
                "You received 10 CELO! Click to claim"
                             ↓
-                   Claim link generates wallet
+                   Claim link → auto-generates wallet
                             ↓
                    Funds on-chain. Done.
 ```
@@ -70,7 +70,6 @@ sender@example.com → "Send 10 CELO to recipient@gmail.com"
 │  │ Wakes   │      │Protocol │         │   AI    │       │ Policy  │ │
 │  │         │      │   ZK    │         │ Fraud   │       │  Gate   │ │
 │  └─────────┘      └─────────┘         └─────────┘       └─────────┘ │
-│       │               │                    │                 │      │
 │       │               │                    │                 │      │
 │       ▼               ▼                    ▼                 ▼      │
 │  ┌─────────────────────────────────────────────────────────────┐   │
@@ -115,83 +114,13 @@ Agent ID: 019d14f2-2363-7146-907f-3deb184c0e31
 
 ---
 
-## 🎯 TRACK ELIGIBILITY
-
-### 🥇 Best Agent on Celo ($5k)
-
-**Real Celo mainnet activity.** Not testnet. Not a simulation.
-
-- ✅ Live transaction: [celoscan.io/tx/0x711d...](https://celoscan.io/tx/0x711d274b60fdfb4d084d6e72aeb9f9b7039e6a17fb9180b108836acf9ece6d06)
-- ✅ Email as identity layer — no wallet required for recipients
-- ✅ Autonomous end-to-end remittance flow
-- ✅ Zero human intervention after sender initiates
-- ✅ Agent wallet: `0x9D65433B3FE597C15a46D2365F8F2c1701Eb9e4A`
-
-**This solves real remittance problems on Celo mainnet.**
-
----
-
-### 🔐 Best Self Protocol Integration ($1k)
-
-**ZK verification for compliance without doxxing.**
-
-- ✅ Self Protocol SDK integration for identity attestation
-- ✅ Prove sender/recipient identity WITHOUT revealing PII
-- ✅ Compliance-ready (KYC checkable) while preserving privacy
-- ✅ ZK proofs stored, raw identity data never persisted
-
-**Privacy-preserving compliance for cross-border remittances.**
-
----
-
-### 🕵️ Private Agents, Trusted Actions / Venice ($11.5k)
-
-**Venice AI fraud analysis — private inference, zero data retention.**
-
-- ✅ Every remittance analyzed for fraud risk
-- ✅ Venice AI processes transaction patterns privately
-- ✅ No transaction details stored on Venice servers
-- ✅ Risk scores inform policy decisions without data leakage
-
-**Private inference for financial operations. The agent thinks privately.**
-
----
-
-### 🍳 Let the Agent Cook ($4k)
-
-**Built autonomously by Titan Agent. Zero human code written.**
-
-- ✅ ThinkPad, 3.7GB RAM, **$0 budget**
-- ✅ Full autonomous build from concept to mainnet deployment
-- ✅ Agent researched, designed, coded, tested, deployed
-- ✅ Self-healing error recovery throughout development
-- ✅ Memory persistence across sessions
-
-**The agent cooked. From scratch. On a ThinkPad.**
-
----
-
-### 📜 Agents With Receipts / ERC-8004 ($4k)
-
-**On-chain agent identity with full audit trail.**
-
-- ✅ `agent.json` — ERC-8004 compliant agent manifest
-- ✅ `agent_log.json` — every decision logged with reasoning
-- ✅ On-chain identity via ERC-8004 standard
-- ✅ Every transaction traceable to agent actions
-- ✅ Full provenance chain from intent to execution
-
-**Agents with receipts. Auditable. Accountable.**
-
----
-
 ## 🔧 Quick Start
 
 ### Prerequisites
 - Node.js 18+
 - Celo wallet with CELO (for sending)
-- Resend API key
-- Venice AI API key (optional, for fraud analysis)
+- Resend API key (free tier works — 3,000 emails/month)
+- Venice AI API key (optional — for fraud analysis)
 
 ### Installation
 
@@ -199,39 +128,249 @@ Agent ID: 019d14f2-2363-7146-907f-3deb184c0e31
 git clone https://github.com/drdeeks/email-remittance-celo.git
 cd email-remittance-celo
 npm install
+npm run build
 ```
 
 ### Configuration
 
 ```bash
 cp .env.example .env
-# Edit .env with your keys:
-# CELO_PRIVATE_KEY=0x...
-# RESEND_API_KEY=re_...
-# VENICE_API_KEY=... (optional)
 ```
+
+Edit `.env`:
+
+```env
+PORT=3001
+WALLET_PRIVATE_KEY=0x...          # Your Celo wallet private key
+CELO_RPC_URL=https://forno.celo.org
+RESEND_API_KEY=re_...             # From resend.com/api-keys
+MANDATE_RUNTIME_KEY=mndt_live_... # From mandate.md
+BASE_URL=https://your-domain.com  # ⚠️ CRITICAL — must be a public URL
+DB_PATH=./remittance.db
+```
+
+> **⚠️ `BASE_URL` must be publicly accessible.** Claim links are emailed to recipients — they must resolve from outside your network. See deployment options below.
 
 ### Run
 
 ```bash
-# Start the server
-npm start
-
-# Or development mode
-npm run dev
+npm start        # production
+npm run dev      # development (ts-node, hot reload)
 ```
 
 ### Send a Remittance
 
 ```bash
-curl -X POST http://localhost:3000/api/remittance/send \
+curl -X POST http://localhost:3001/api/remittance/send \
   -H "Content-Type: application/json" \
   -d '{
     "senderEmail": "you@example.com",
-    "recipientEmail": "recipient@example.com", 
-    "amount": "1.0"
+    "recipientEmail": "recipient@gmail.com",
+    "amount": "1.0",
+    "currency": "CELO"
   }'
 ```
+
+### Claim Flow
+
+The recipient receives an email with a link:
+```
+https://your-domain.com/api/remittance/claim/{token}?wallet=0x...
+```
+
+If the recipient doesn't have a wallet, the frontend auto-generates one (HD wallet from claim token entropy). Funds transfer on-chain on claim.
+
+---
+
+## 🌐 Deployment — Making Claim Links Work
+
+The single most important config for this to work in the real world is `BASE_URL`. Claim links are emailed to recipients and **must be publicly accessible**. Here are your options:
+
+---
+
+### 🏠 Personal / Demo Use (Free, 5 minutes)
+
+Use a **Cloudflare Quick Tunnel** — no account required, instant public URL.
+
+```bash
+# Install cloudflared (Linux)
+curl -fsSL https://github.com/cloudflare/cloudflared/releases/latest/download/cloudflared-linux-amd64 \
+  -o /usr/local/bin/cloudflared && chmod +x /usr/local/bin/cloudflared
+
+# macOS
+brew install cloudflare/cloudflare/cloudflared
+
+# Windows
+winget install --id Cloudflare.cloudflared
+
+# Start tunnel (run your server first on port 3001)
+cloudflared tunnel --url http://localhost:3001 --no-autoupdate
+```
+
+You'll get a URL like: `https://replacement-armed-entitled-paperback.trycloudflare.com`
+
+```bash
+# Update .env with the tunnel URL
+sed -i 's|BASE_URL=.*|BASE_URL=https://your-tunnel-url.trycloudflare.com|' .env
+
+# Restart the server
+npm start
+```
+
+> **Note:** Quick tunnel URLs are ephemeral — they change every time you restart `cloudflared`. For persistent personal use, see the Named Tunnel option below.
+
+---
+
+### 🏡 Persistent Personal Use (Free, Cloudflare account required)
+
+Use a **Cloudflare Named Tunnel** with your own domain or a free `*.pages.dev` subdomain.
+
+```bash
+# Authenticate
+cloudflared login
+
+# Create a named tunnel
+cloudflared tunnel create remittance
+
+# Configure tunnel (~/.cloudflared/config.yml)
+cat > ~/.cloudflared/config.yml << EOF
+tunnel: <YOUR_TUNNEL_ID>
+credentials-file: ~/.cloudflared/<YOUR_TUNNEL_ID>.json
+
+ingress:
+  - hostname: remittance.yourdomain.com
+    service: http://localhost:3001
+  - service: http_status:404
+EOF
+
+# Route DNS
+cloudflared tunnel route dns remittance remittance.yourdomain.com
+
+# Run as a service (persists across reboots)
+cloudflared service install
+systemctl start cloudflared
+```
+
+Set `BASE_URL=https://remittance.yourdomain.com` in `.env`.
+
+---
+
+### 🚀 Small Business / Production (Recommended)
+
+Deploy to a PaaS with a permanent URL. Zero infrastructure management.
+
+#### Option A: Railway (Recommended — $5/month)
+
+```bash
+# Install Railway CLI
+npm install -g @railway/cli
+
+railway login
+railway init
+railway up
+
+# Set environment variables in Railway dashboard or:
+railway variables set BASE_URL=https://your-app.up.railway.app
+railway variables set WALLET_PRIVATE_KEY=0x...
+railway variables set RESEND_API_KEY=re_...
+railway variables set MANDATE_RUNTIME_KEY=mndt_live_...
+railway variables set CELO_RPC_URL=https://forno.celo.org
+```
+
+Railway auto-assigns a `*.up.railway.app` URL. Connect a custom domain in the dashboard.
+
+#### Option B: Render (Free tier available)
+
+1. Connect your GitHub repo at render.com
+2. Set build command: `npm run build`
+3. Set start command: `npm start`
+4. Add environment variables in the Render dashboard
+5. Copy the `*.onrender.com` URL into `BASE_URL`
+
+#### Option C: Fly.io (Free tier, great for global low-latency)
+
+```bash
+npm install -g flyctl
+fly launch
+fly secrets set BASE_URL=https://your-app.fly.dev
+fly secrets set WALLET_PRIVATE_KEY=0x...
+fly secrets set RESEND_API_KEY=re_...
+fly deploy
+```
+
+---
+
+### 🏢 Enterprise / High Volume
+
+For production remittance infrastructure handling real volume:
+
+#### Self-Hosted VPS (DigitalOcean, Hetzner, AWS EC2)
+
+```bash
+# On your VPS
+git clone https://github.com/drdeeks/email-remittance-celo.git
+cd email-remittance-celo
+npm install && npm run build
+
+# Set up as a systemd service
+cat > /etc/systemd/system/remittance.service << EOF
+[Unit]
+Description=Email Remittance Celo
+After=network.target
+
+[Service]
+Type=simple
+User=ubuntu
+WorkingDirectory=/home/ubuntu/email-remittance-celo
+EnvironmentFile=/home/ubuntu/email-remittance-celo/.env
+ExecStart=/usr/bin/node dist/index.js
+Restart=always
+RestartSec=10
+
+[Install]
+WantedBy=multi-user.target
+EOF
+
+systemctl enable remittance
+systemctl start remittance
+```
+
+Pair with nginx + certbot for TLS:
+
+```nginx
+server {
+    server_name remittance.yourdomain.com;
+
+    location / {
+        proxy_pass http://localhost:3001;
+        proxy_http_version 1.1;
+        proxy_set_header Upgrade $http_upgrade;
+        proxy_set_header Connection 'upgrade';
+        proxy_set_header Host $host;
+        proxy_set_header X-Real-IP $remote_addr;
+        proxy_cache_bypass $http_upgrade;
+    }
+
+    listen 443 ssl; # certbot manages this
+}
+```
+
+```bash
+certbot --nginx -d remittance.yourdomain.com
+```
+
+Set `BASE_URL=https://remittance.yourdomain.com` in `.env`.
+
+#### Enterprise Scaling Checklist
+
+- [ ] Replace SQLite with PostgreSQL (`DB_PATH` → `DATABASE_URL`)
+- [ ] Add Redis for rate limiting and session caching
+- [ ] Enable horizontal scaling (stateless API + shared DB)
+- [ ] Set up monitoring (Datadog, Grafana, or Sentry)
+- [ ] Configure automated wallet funding alerts (balance < threshold)
+- [ ] Add webhook support for payment notifications
+- [ ] Implement multi-sig for wallets above $10k/day volume
+- [ ] KYC integration via Self Protocol for regulated markets
 
 ---
 
@@ -243,6 +382,23 @@ npm test
 
 **16 tests passing** — covering remittance flow, email delivery, policy enforcement, and claim processing.
 
+```bash
+# Test a live end-to-end flow
+curl -X POST http://localhost:3001/api/remittance/send \
+  -H "Content-Type: application/json" \
+  -d '{
+    "senderEmail": "test@example.com",
+    "recipientEmail": "your-email@gmail.com",
+    "amount": "0.01"
+  }'
+
+# Check health
+curl http://localhost:3001/health
+
+# List remittances
+curl http://localhost:3001/api/remittance/list
+```
+
 ---
 
 ## 📁 Project Structure
@@ -250,19 +406,43 @@ npm test
 ```
 email-remittance-celo/
 ├── src/
-│   ├── api/           # Express routes
-│   ├── services/      # Core business logic
-│   │   ├── celo.js    # Blockchain interactions
-│   │   ├── email.js   # Resend integration
-│   │   ├── fraud.js   # Venice AI analysis
-│   │   └── identity.js # Self Protocol ZK
-│   └── db/            # SQLite persistence
-├── proof/             # Evidence artifacts
-│   └── email-claim-drdeeks-outlook.pdf
-├── agent.json         # ERC-8004 manifest
-├── agent_log.json     # Decision audit trail
-└── tests/             # Test suite
+│   ├── controllers/        # Route handlers
+│   │   ├── transactionController.ts
+│   │   └── emailController.ts
+│   ├── services/           # Core business logic
+│   │   ├── emailService.ts       # Resend integration + claim URL generation
+│   │   ├── mandateService.ts     # Policy enforcement ($100/tx, $1000/day)
+│   │   ├── selfVerification.service.ts  # ZK identity verification
+│   │   └── veniceService.ts      # Private AI fraud analysis
+│   ├── routes/             # Express router definitions
+│   ├── db/                 # SQLite schema + migrations
+│   └── index.ts            # Server entry point
+├── proof/
+│   └── email-claim-drdeeks-outlook.pdf  # Live delivery proof
+├── agent.json              # ERC-8004 agent manifest
+├── agent_log.json          # Decision audit trail
+├── .env.example            # Config template
+└── tests/                  # Jest test suite (16 passing)
 ```
+
+---
+
+## 🎯 TRACK ELIGIBILITY
+
+### 🥇 Best Agent on Celo ($5k)
+Real Celo mainnet activity. Email as identity layer. Autonomous remittance flow. Zero human intervention after sender initiates. Live TX proof on celoscan.
+
+### 🔐 Best Self Protocol Integration ($1k)
+ZK verification for compliance without doxxing. Prove sender/recipient identity without revealing PII. Compliance-ready while preserving privacy.
+
+### 🕵️ Private Agents, Trusted Actions / Venice ($11.5k)
+Venice AI fraud analysis — private inference, zero data retention. Every remittance analyzed for risk without storing transaction details.
+
+### 🍳 Let the Agent Cook ($4k)
+Built autonomously by Titan Agent. Zero human code written. ThinkPad, 3.7GB RAM, $0 budget. Full autonomous build from concept to mainnet.
+
+### 📜 Agents With Receipts / ERC-8004 ($4k)
+`agent.json` + `agent_log.json` present. On-chain identity via ERC-8004. Every transaction logged with reasoning. Full provenance chain.
 
 ---
 
@@ -270,10 +450,8 @@ email-remittance-celo/
 
 **Autonomous build on OpenClaw (claude-opus-4-5)**
 
-- Agent: Titan
-- Platform: OpenClaw
-- Hardware: ThinkPad, 3.7GB RAM
-- Budget: $0
+- Agent: Titan | Platform: OpenClaw
+- Hardware: ThinkPad, 3.7GB RAM | Budget: $0
 - Agent wallet: `0x9D65433B3FE597C15a46D2365F8F2c1701Eb9e4A`
 
 This entire project — architecture, code, tests, deployment — was built autonomously by an AI agent. The human provided the goal; the agent did everything else.
