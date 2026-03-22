@@ -159,6 +159,29 @@ router.post('/demo', async (req: Request, res: Response, next: NextFunction) => 
   }
 });
 
+// GET /api/remittance/status/:token — pre-claim info (no auth needed)
+router.get('/status/:token', async (req: Request, res: Response, next: NextFunction) => {
+  try {
+    const { token } = req.params;
+    const remittance = await remittanceService.getRemittanceByToken(token);
+    if (!remittance) {
+      return res.status(404).json({ success: false, error: { message: 'Remittance not found or expired' } });
+    }
+    res.json({
+      success: true,
+      data: {
+        amount_celo: remittance.amount_celo,
+        currency: 'CELO',
+        sender_email: remittance.sender_email,
+        status: remittance.status,
+        expires_at: new Date(remittance.expires_at * 1000).toISOString(),
+      },
+    });
+  } catch (error) {
+    next(error);
+  }
+});
+
 // ─── Bridge Routes ─────────────────────────────────────────────────────────────
 
 // GET /api/remittance/bridge/routes — list supported bridge paths

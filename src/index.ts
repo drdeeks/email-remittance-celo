@@ -58,6 +58,15 @@ app.use(express.urlencoded({ extended: true, limit: '10mb' }));
 // Rate limiting
 app.use(rateLimiter);
 
+// Serve static public assets
+import path from 'path';
+app.use(express.static(path.join(__dirname, '../public')));
+
+// Claim UI — /claim/:token → serve claim.html (SPA-style)
+app.get('/claim/:token', (req, res) => {
+  res.sendFile(path.join(__dirname, '../public/claim.html'));
+});
+
 // Health check endpoint (public)
 app.use('/health', healthRoutes);
 

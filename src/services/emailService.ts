@@ -38,7 +38,7 @@ class EmailService {
   ): Promise<void> {
     this.ensureInitialized();
     try {
-      const claimUrl = `${this.baseUrl}/api/remittance/claim/${claimToken}`;
+      const claimUrl = `${this.baseUrl}/claim/${claimToken}`;
 
       const emailHtml = `
         <!DOCTYPE html>
