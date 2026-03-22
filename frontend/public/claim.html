@@ -1,0 +1,343 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Claim Your Crypto</title>
+  <style>
+    * { box-sizing: border-box; margin: 0; padding: 0; }
+    body {
+      font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+      background: #0f172a;
+      color: #f0f4ff;
+      min-height: 100vh;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      padding: 20px;
+    }
+    .card {
+      background: #1e293b;
+      border: 1px solid #334155;
+      border-radius: 16px;
+      padding: 40px 32px;
+      max-width: 480px;
+      width: 100%;
+      box-shadow: 0 20px 60px rgba(0,0,0,0.5);
+    }
+    .logo {
+      font-size: 48px;
+      text-align: center;
+      margin-bottom: 8px;
+    }
+    h1 {
+      text-align: center;
+      font-size: 24px;
+      font-weight: 700;
+      margin-bottom: 6px;
+    }
+    .subtitle {
+      text-align: center;
+      color: #94a3b8;
+      font-size: 14px;
+      margin-bottom: 32px;
+    }
+    .amount-box {
+      background: linear-gradient(135deg, #3b82f6, #14b8a6);
+      border-radius: 12px;
+      padding: 24px;
+      text-align: center;
+      margin-bottom: 28px;
+    }
+    .amount-box .label { font-size: 13px; opacity: 0.85; margin-bottom: 6px; }
+    .amount-box .amount { font-size: 42px; font-weight: 800; }
+    .amount-box .currency { font-size: 18px; opacity: 0.9; }
+    .field { margin-bottom: 20px; }
+    .field label {
+      display: block;
+      font-size: 13px;
+      font-weight: 600;
+      color: #94a3b8;
+      margin-bottom: 8px;
+    }
+    .field input {
+      width: 100%;
+      background: #0f172a;
+      border: 1px solid #334155;
+      border-radius: 10px;
+      color: #f0f4ff;
+      font-size: 14px;
+      padding: 12px 14px;
+      outline: none;
+      transition: border-color 0.15s;
+    }
+    .field input:focus { border-color: #3b82f6; }
+    .field input::placeholder { color: #475569; }
+    .divider {
+      display: flex;
+      align-items: center;
+      gap: 12px;
+      margin: 20px 0;
+      color: #475569;
+      font-size: 12px;
+    }
+    .divider::before, .divider::after {
+      content: '';
+      flex: 1;
+      height: 1px;
+      background: #334155;
+    }
+    .btn {
+      width: 100%;
+      padding: 15px;
+      border: none;
+      border-radius: 10px;
+      font-size: 16px;
+      font-weight: 700;
+      cursor: pointer;
+      transition: all 0.15s;
+    }
+    .btn-primary {
+      background: linear-gradient(135deg, #3b82f6, #14b8a6);
+      color: white;
+      margin-bottom: 12px;
+    }
+    .btn-primary:hover { opacity: 0.9; transform: translateY(-1px); }
+    .btn-secondary {
+      background: #334155;
+      color: #f0f4ff;
+    }
+    .btn-secondary:hover { background: #475569; }
+    .btn:disabled { opacity: 0.5; cursor: not-allowed; transform: none; }
+
+    /* States */
+    #loading, #success, #error-box { display: none; }
+    .spinner {
+      width: 48px; height: 48px;
+      border: 4px solid #334155;
+      border-top-color: #3b82f6;
+      border-radius: 50%;
+      animation: spin 0.8s linear infinite;
+      margin: 0 auto 20px;
+    }
+    @keyframes spin { to { transform: rotate(360deg); } }
+
+    .success-icon { font-size: 56px; text-align: center; margin-bottom: 16px; }
+    .tx-link {
+      display: block;
+      background: #0f172a;
+      border: 1px solid #334155;
+      border-radius: 10px;
+      padding: 14px;
+      font-size: 12px;
+      color: #3b82f6;
+      word-break: break-all;
+      text-decoration: none;
+      margin: 16px 0;
+    }
+    .tx-link:hover { border-color: #3b82f6; }
+    .wallet-reveal {
+      background: #0f172a;
+      border: 1px solid #f59e0b;
+      border-radius: 10px;
+      padding: 16px;
+      margin-top: 16px;
+    }
+    .wallet-reveal .warn {
+      font-size: 12px;
+      color: #f59e0b;
+      margin-bottom: 10px;
+      font-weight: 600;
+    }
+    .wallet-reveal .key {
+      font-family: monospace;
+      font-size: 11px;
+      color: #94a3b8;
+      word-break: break-all;
+    }
+    .copy-btn {
+      background: #334155;
+      border: none;
+      border-radius: 6px;
+      color: #f0f4ff;
+      font-size: 12px;
+      padding: 6px 12px;
+      cursor: pointer;
+      margin-top: 8px;
+      width: 100%;
+    }
+    .copy-btn:hover { background: #475569; }
+    .error-msg {
+      background: rgba(239,68,68,0.1);
+      border: 1px solid rgba(239,68,68,0.3);
+      border-radius: 10px;
+      padding: 16px;
+      color: #fca5a5;
+      font-size: 14px;
+    }
+    .note { font-size: 12px; color: #64748b; text-align: center; margin-top: 16px; line-height: 1.5; }
+  </style>
+</head>
+<body>
+<div class="card">
+  <!-- FORM STATE -->
+  <div id="form-view">
+    <div class="logo">💰</div>
+    <h1>You received crypto!</h1>
+    <p class="subtitle" id="from-label">Someone sent you funds via email</p>
+
+    <div class="amount-box">
+      <div class="label">You're receiving</div>
+      <div class="amount" id="amount-display">—</div>
+      <div class="currency" id="currency-display">CELO</div>
+    </div>
+
+    <div class="field">
+      <label>Your wallet address (optional)</label>
+      <input type="text" id="wallet-input" placeholder="0x... — leave blank to auto-generate" />
+    </div>
+
+    <button class="btn btn-primary" id="claim-btn" onclick="claimFunds()">
+      Claim Funds →
+    </button>
+
+    <div class="divider">or</div>
+
+    <button class="btn btn-secondary" onclick="claimAutoWallet()">
+      Generate wallet for me
+    </button>
+
+    <p class="note">Funds live on-chain. This link expires in 24 hours.</p>
+  </div>
+
+  <!-- LOADING STATE -->
+  <div id="loading">
+    <div class="spinner"></div>
+    <p style="text-align:center; color:#94a3b8;">Processing on-chain…</p>
+  </div>
+
+  <!-- SUCCESS STATE -->
+  <div id="success">
+    <div class="success-icon">✅</div>
+    <h1 style="text-align:center; margin-bottom:8px;">Funds received!</h1>
+    <p style="text-align:center; color:#94a3b8; margin-bottom:24px; font-size:14px;">
+      Your crypto has landed on-chain.
+    </p>
+    <a class="tx-link" id="tx-link" href="#" target="_blank">
+      View on explorer →
+    </a>
+    <div id="wallet-reveal" class="wallet-reveal" style="display:none;">
+      <div class="warn">⚠️ Save your private key — this is shown once</div>
+      <div class="key" id="private-key-display"></div>
+      <button class="copy-btn" onclick="copyKey()">Copy private key</button>
+      <p style="font-size:11px; color:#64748b; margin-top:8px;">
+        Import into MetaMask, Coinbase Wallet, or any EVM wallet using "Import account".
+      </p>
+    </div>
+  </div>
+
+  <!-- ERROR STATE -->
+  <div id="error-box">
+    <div class="error-msg" id="error-msg"></div>
+    <button class="btn btn-secondary" onclick="reset()" style="margin-top:16px;">Try again</button>
+  </div>
+</div>
+
+<script>
+  // Parse token from URL: /claim/TOKEN or /claim?token=TOKEN
+  function getToken() {
+    const path = window.location.pathname;
+    const parts = path.split('/');
+    const idx = parts.indexOf('claim');
+    if (idx >= 0 && parts[idx + 1]) return parts[idx + 1];
+    return new URLSearchParams(window.location.search).get('token') || '';
+  }
+
+  const token = getToken();
+
+  // Pre-fill amount by fetching remittance info
+  async function loadInfo() {
+    if (!token) return;
+    try {
+      const res = await fetch(`/api/remittance/status/${token}`);
+      if (res.ok) {
+        const data = await res.json();
+        const r = data?.data;
+        if (r) {
+          document.getElementById('amount-display').textContent = parseFloat(r.amount_celo || r.amount || 0).toFixed(4);
+          document.getElementById('currency-display').textContent = r.currency || 'CELO';
+          if (r.sender_email) {
+            document.getElementById('from-label').textContent = `From: ${r.sender_email}`;
+          }
+        }
+      }
+    } catch {}
+  }
+  loadInfo();
+
+  function show(id) {
+    ['form-view','loading','success','error-box'].forEach(s => {
+      document.getElementById(s).style.display = s === id ? 'block' : 'none';
+    });
+  }
+
+  async function claimFunds() {
+    const wallet = document.getElementById('wallet-input').value.trim();
+    await doClaim(wallet || null);
+  }
+
+  async function claimAutoWallet() {
+    await doClaim(null);
+  }
+
+  async function doClaim(wallet) {
+    if (!token) { showError('No claim token found in URL.'); return; }
+    show('loading');
+
+    try {
+      const url = wallet
+        ? `/api/remittance/claim/${token}?wallet=${encodeURIComponent(wallet)}`
+        : `/api/remittance/claim/${token}`;
+
+      const res = await fetch(url);
+      const data = await res.json();
+
+      if (!res.ok || !data.success) {
+        throw new Error(data?.error?.message || data?.message || 'Claim failed. The link may have expired.');
+      }
+
+      const d = data.data;
+      const explorer = d.explorerUrl || `https://celoscan.io/tx/${d.txHash}`;
+
+      document.getElementById('tx-link').href = explorer;
+      document.getElementById('tx-link').textContent = `TX: ${d.txHash?.slice(0,20)}...  View on explorer →`;
+
+      if (d.privateKey) {
+        document.getElementById('private-key-display').textContent = d.privateKey;
+        document.getElementById('wallet-reveal').style.display = 'block';
+      }
+
+      show('success');
+    } catch (err) {
+      showError(err.message);
+    }
+  }
+
+  function showError(msg) {
+    document.getElementById('error-msg').textContent = msg;
+    show('error-box');
+  }
+
+  function reset() { show('form-view'); }
+
+  function copyKey() {
+    const key = document.getElementById('private-key-display').textContent;
+    navigator.clipboard.writeText(key).then(() => {
+      const btn = document.querySelector('.copy-btn');
+      btn.textContent = 'Copied!';
+      setTimeout(() => btn.textContent = 'Copy private key', 2000);
+    });
+  }
+</script>
+</body>
+</html>
