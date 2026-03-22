@@ -287,3 +287,96 @@ MIT License — see [LICENSE](LICENSE)
 ---
 
 **Questions?** Open an issue or reach out!
+
+---
+
+## 🛡️ Mandate.md Integration
+
+Every transfer is validated by [Mandate.md](https://app.mandate.md) before execution — the policy layer for AI agent wallets.
+
+```
+Request → Mandate validate → ✅ allowed → CELO transfer executes
+                           → ❌ blocked → Transfer halted, reason shown
+                           → ⏳ approval → Human notified, waits for approval
+```
+
+- Agent ID: `019d14f2-2363-7146-907f-3deb184c0e31`
+- Default policy: $100/tx, $1,000/day
+- Audit trail: every transfer logged with action + reason + amount
+- Fail-closed: if Mandate unreachable, transfer is blocked
+
+---
+
+## ✅ Live Demo — Confirmed Working (2026-03-22)
+
+**This is a real end-to-end demo on Celo mainnet, not a simulation.**
+
+### Funding TX (Dr Deeks → Titan Wallet)
+- **TX:** [`0x711d274b...`](https://celoscan.io/tx/0x711d274b60fdfb4d084d6e72aeb9f9b7039e6a17fb9180b108836acf9ece6d06)
+- Amount: 0.075 CELO → `0x9D65433B3FE597C15a46D2365F8F2c1701Eb9e4A`
+
+### Remittance Executed
+```bash
+curl -X POST http://localhost:3001/api/remittance/send \
+  -H "Content-Type: application/json" \
+  -d '{
+    "senderEmail": "titan@openclaw.ai",
+    "recipientEmail": "drdeeks@outlook.com",
+    "amount": 0.05,
+    "message": "First real remittance test — Synthesis Hackathon demo"
+  }'
+```
+
+**Result:** ✅ Email delivered to `drdeeks@outlook.com` at 11:03 AM MST  
+**Proof:** See [`proof/email-claim-drdeeks-outlook.pdf`](./proof/email-claim-drdeeks-outlook.pdf)
+
+---
+
+## 🔧 Configuration
+
+### Environment Variables
+
+| Variable | Required | Description | Example |
+|----------|----------|-------------|---------|
+| `PORT` | No | Server port | `3001` |
+| `WALLET_PRIVATE_KEY` | Yes | Agent wallet private key | `0x...` |
+| `CELO_RPC_URL` | No | Celo RPC endpoint | `https://forno.celo.org` |
+| `RESEND_API_KEY` | Yes | Resend email API key | `re_...` |
+| `MANDATE_RUNTIME_KEY` | Yes | Mandate.md runtime key | `mndt_live_...` |
+| `BASE_URL` | No | Server base URL for claim links | `http://localhost:3001` |
+| `DB_PATH` | No | SQLite database path | `./remittance.db` |
+| `SELF_API_KEY` | No | Self Protocol API key | `sk_self_...` |
+
+### Quick Start
+
+```bash
+git clone https://github.com/drdeeks/email-remittance-celo.git
+cd email-remittance-celo
+npm install
+cp .env.example .env   # edit with your keys
+npm run build
+npm start
+```
+
+---
+
+## 📚 Sources & Documentation
+
+| Resource | URL | Used For |
+|----------|-----|---------|
+| Celo AI Agents | https://docs.celo.org/build-on-celo/build-with-ai | Agent architecture |
+| Celo Fee Abstraction | https://docs.celo.org/tooling/overview/fee-abstraction | Pay gas in USDC |
+| Viem on Celo | https://docs.celo.org/developer/viem | Blockchain transfers |
+| Celo RPC | https://forno.celo.org | Mainnet endpoint |
+| Resend SDK | https://resend.com/docs/send-with-nodejs | Email delivery |
+| Mandate.md | https://app.mandate.md/SKILL.md | Transaction policy |
+| Self Protocol | https://docs.self.xyz | ZK identity |
+| CeloScan | https://celoscan.io | TX explorer |
+
+---
+
+## 🤖 Built by Titan Agent
+
+Autonomous build on OpenClaw (`claude-opus-4-6`) — **zero human code written**.  
+Agent wallet: [`0x9D65433B3FE597C15a46D2365F8F2c1701Eb9e4A`](https://celoscan.io/address/0x9D65433B3FE597C15a46D2365F8F2c1701Eb9e4A)
+
