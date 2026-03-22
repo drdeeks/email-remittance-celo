@@ -63,4 +63,22 @@
     ],
     "note": "First real end-to-end remittance. Funds in agent wallet, claim email in Dr Deeks' inbox."
   }
+},{
+  "timestamp": "2026-03-22T20:22:44.326Z",
+  "event": "CLAIM_SUCCESSFUL",
+  "description": "Live end-to-end claim flow completed. Recipient claimed 0.05 CELO via public cloudflare tunnel URL. Auto-generated wallet funded on Celo mainnet.",
+  "proof": {
+    "claimTxHash": "0x36752fba1f6788831fd6433b64614a241927d3762f332b4b638940478ce20438",
+    "explorerUrl": "https://explorer.celo.org/mainnet/tx/0x36752fba1f6788831fd6433b64614a241927d3762f332b4b638940478ce20438",
+    "amount": "0.05",
+    "currency": "CELO",
+    "recipientWallet": "0x21634e2Ed9C04B4745Bcb268E3289A59c7AF075a",
+    "walletLabel": "remit-received#1",
+    "generatedWallet": true,
+    "tunnelUrl": "https://replacement-armed-entitled-paperback.trycloudflare.com",
+    "screenshots": [
+      "proof/screenshots/claim-wallet-0.05celo-received.jpg",
+      "proof/screenshots/claim-response-tx-success.jpg"
+    ]
+  }
 }

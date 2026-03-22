@@ -46,14 +46,18 @@ sender@example.com → "Send 10 CELO to recipient@gmail.com"
 
 | Evidence | Link/Value |
 |----------|------------|
-| **Funding TX** | [0x711d274b60fdfb4d084d6e72aeb9f9b7039e6a17fb9180b108836acf9ece6d06](https://celoscan.io/tx/0x711d274b60fdfb4d084d6e72aeb9f9b7039e6a17fb9180b108836acf9ece6d06) |
+| **Funding TX** | [0x711d274b...](https://celoscan.io/tx/0x711d274b60fdfb4d084d6e72aeb9f9b7039e6a17fb9180b108836acf9ece6d06) |
+| **Claim TX** | [0x36752fba...](https://explorer.celo.org/mainnet/tx/0x36752fba1f6788831fd6433b64614a241927d3762f332b4b638940478ce20438) |
 | **Email delivered** | drdeeks@outlook.com |
 | **Email subject** | "You received 0.05 CELO from titan@openclaw.ai" |
 | **PDF proof** | [proof/email-claim-drdeeks-outlook.pdf](./proof/email-claim-drdeeks-outlook.pdf) |
+| **Claim screenshot** | [proof/screenshots/claim-response-tx-success.jpg](./proof/screenshots/claim-response-tx-success.jpg) |
+| **Wallet screenshot** | [proof/screenshots/claim-wallet-0.05celo-received.jpg](./proof/screenshots/claim-wallet-0.05celo-received.jpg) |
+| **Auto-generated wallet** | `0x21634e2Ed9C04B4745Bcb268E3289A59c7AF075a` (remit-received#1) |
 | **Remittance ID** | `fc820475-7dab-48b1-b616-aa67b8178287` |
 | **Claim endpoint** | `GET /api/remittance/claim/:id?wallet=0x...` |
 
-**This is real mainnet CELO, real Resend email delivery, real SQLite persistence.**
+**Two live mainnet transactions. Real email delivered. Real wallet auto-generated. Real CELO claimed — from a mobile phone, via a public URL, with zero wallet setup by the recipient.**
 
 ---
 
