@@ -125,6 +125,7 @@ export class SelfVerificationService {
 
   /**
    * Check verification status and retrieve ZK proof result.
+   * NEVER crashes — returns { verified: false } on any error.
    */
   async checkVerification(verificationId: string): Promise<SelfVerificationResult> {
     if (!this.configured) {
@@ -137,15 +138,22 @@ export class SelfVerificationService {
       };
     }
 
+    // 10s timeout to prevent hanging
+    const controller = new AbortController();
+    const timeoutId = setTimeout(() => controller.abort(), 10000);
+
     try {
       const res = await fetch(`${SELF_API_BASE}/verifications/${verificationId}`, {
         headers: {
           'Authorization': `Bearer ${SELF_APP_SECRET}`,
           'X-App-ID': SELF_APP_ID,
         },
+        signal: controller.signal,
       });
+      clearTimeout(timeoutId);
 
       if (!res.ok) {
+        logger.warn(`Self Protocol API returned ${res.status} — treating as unverified`);
         return { verified: false, verificationId };
       }
 
@@ -159,8 +167,16 @@ export class SelfVerificationService {
         disclosedFields: data.disclosedFields,
         issuingCountry: data.issuingCountry,
       };
-    } catch (error) {
-      logger.error('Self verification check failed', error);
+    } catch (error: any) {
+      clearTimeout(timeoutId);
+      
+      // Log warning but NEVER crash — return unverified
+      if (error.name === 'AbortError') {
+        logger.warn('Self Protocol API timeout (>10s) — returning unverified');
+      } else {
+        logger.warn('Self Protocol API unreachable — returning unverified', { error: error.message });
+      }
+      
       return { verified: false, verificationId };
     }
   }
