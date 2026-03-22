@@ -8,8 +8,15 @@ class CeloService {
   private walletClient: any;
   private publicClient: any;
   private account: ReturnType<typeof privateKeyToAccount>;
+  private initialized: boolean = false;
 
   constructor() {
+    // Lazy initialization - wait for dotenv to load
+  }
+
+  private ensureInitialized() {
+    if (this.initialized) return;
+
     const privateKey = process.env.WALLET_PRIVATE_KEY;
     if (!privateKey) {
       throw new Error('WALLET_PRIVATE_KEY not found in environment');
@@ -30,6 +37,7 @@ class CeloService {
       transport: http(rpcUrl)
     });
 
+    this.initialized = true;
     logger.info(`Celo service initialized with wallet: ${this.account.address}`);
   }
 
@@ -37,6 +45,7 @@ class CeloService {
    * Send CELO to an address
    */
   async sendCelo(toAddress: string, amountCelo: number): Promise<string> {
+    this.ensureInitialized();
     try {
       logger.info(`Sending ${amountCelo} CELO to ${toAddress}`);
 
@@ -67,6 +76,7 @@ class CeloService {
    * Get CELO balance for an address
    */
   async getBalance(address: string): Promise<string> {
+    this.ensureInitialized();
     try {
       const balance = await this.publicClient.getBalance({
         address: address as `0x${string}`
@@ -83,6 +93,7 @@ class CeloService {
    * Generate a new wallet for claim recipient
    */
   generateClaimWallet(): { address: string; privateKey: string } {
+    this.ensureInitialized();
     const privateKey = generatePrivateKey();
     const account = privateKeyToAccount(privateKey);
 
@@ -98,6 +109,7 @@ class CeloService {
    * Estimate gas for a CELO transfer
    */
   async estimateGas(toAddress: string, amountCelo: number): Promise<bigint> {
+    this.ensureInitialized();
     try {
       const gas = await this.publicClient.estimateGas({
         account: this.account,
@@ -116,6 +128,7 @@ class CeloService {
    * Get the service wallet address
    */
   getWalletAddress(): string {
+    this.ensureInitialized();
     return this.account.address;
   }
 
@@ -123,6 +136,7 @@ class CeloService {
    * Get transaction receipt
    */
   async getTransactionReceipt(hash: string) {
+    this.ensureInitialized();
     return this.publicClient.getTransactionReceipt({
       hash: hash as `0x${string}`
     });
@@ -132,6 +146,7 @@ class CeloService {
    * Get current gas price
    */
   async getGasPrice(): Promise<bigint> {
+    this.ensureInitialized();
     return this.publicClient.getGasPrice();
   }
 }
