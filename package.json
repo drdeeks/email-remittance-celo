@@ -21,6 +21,11 @@
   "author": "Titan",
   "license": "MIT",
   "dependencies": {
+    "@celo/contractkit": "^10.0.3",
+    "@mandate.md/sdk": "^0.2.0",
+    "@types/better-sqlite3": "^7.6.13",
+    "@types/nodemailer": "^7.0.11",
+    "better-sqlite3": "^12.8.0",
     "cors": "^2.8.5",
     "dotenv": "^16.4.5",
     "ethers": "^6.11.1",
@@ -28,7 +33,10 @@
     "express-rate-limit": "^7.1.5",
     "helmet": "^7.1.0",
     "jsonwebtoken": "^9.0.2",
+    "nodemailer": "^8.0.3",
+    "resend": "^6.9.4",
     "uuid": "^9.0.1",
+    "viem": "^2.47.6",
     "winston": "^3.11.0"
   },
   "devDependencies": {

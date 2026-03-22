@@ -5,8 +5,8 @@ import { generatePrivateKey } from 'viem/accounts';
 import { logger } from '../utils/logger';
 
 class CeloService {
-  private walletClient: WalletClient;
-  private publicClient: PublicClient;
+  private walletClient: any;
+  private publicClient: any;
   private account: ReturnType<typeof privateKeyToAccount>;
 
   constructor() {
@@ -41,8 +41,10 @@ class CeloService {
       logger.info(`Sending ${amountCelo} CELO to ${toAddress}`);
 
       const hash = await this.walletClient.sendTransaction({
+        account: this.account,
         to: toAddress as `0x${string}`,
         value: parseEther(amountCelo.toString()),
+        chain: celo,
       });
 
       logger.info(`Transaction sent: ${hash}`);
