@@ -1,0 +1,16 @@
+{
+  "agent": "Titan",
+  "harness": "openclaw",
+  "model": "claude-opus-4-6",
+  "onChainActivity": {
+    "summary": "Agent shares wallet 0x9D65433B3FE597C15a46D2365F8F2c1701Eb9e4A with 48 mainnet txs on Base + Optimism. Project targets Celo Alfajores for remittance execution.",
+    "walletAddress": "0x9D65433B3FE597C15a46D2365F8F2c1701Eb9e4A"
+  },
+  "decisions": [
+    {"timestamp": "2026-03-14T01:00:00Z", "decision": "Build email-native remittance on Celo", "reasoning": "Celo has sub-cent tx fees and stablecoin focus — ideal for remittance. Email as UX layer means no wallet needed on receiver end"},
+    {"timestamp": "2026-03-19T00:00:00Z", "decision": "Integrate Self Protocol for ZK identity", "reasoning": "Remittance requires identity verification. Self Protocol provides ZK proofs without exposing PII — privacy-preserving KYC"},
+    {"timestamp": "2026-03-20T00:00:00Z", "decision": "Add Venice AI fraud scoring", "reasoning": "Private inference for transaction risk analysis. No data retention means sender financial patterns stay confidential"},
+    {"timestamp": "2026-03-22T02:30:00Z", "decision": "Enterprise hardening via sub-agent", "reasoning": "Added structured error system, input validation with injection protection, rate limiting, correlation IDs"}
+  ],
+  "outputs": {"commits": 12, "testsWritten": 40, "linesOfCode": 2800}
+}
