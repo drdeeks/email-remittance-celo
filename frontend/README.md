@@ -1,122 +1,110 @@
 # Email Remittance — Frontend
 
-> **The public face.** Anyone can use this — no wallet, no crypto knowledge required.
-> Send crypto to an email address. Claim it with one click.
-
-Built with Next.js 14, RainbowKit, wagmi, and Tailwind CSS. Deploys to Vercel in one click.
+Send crypto to any email. Recipient claims with zero wallet setup.
+Supports Celo · Base · Monad. Self Protocol ZK auth optional.
 
 ---
 
-## What it does
-
-**Send page (/):**
-- Connect your wallet (MetaMask, Coinbase Wallet, any EVM wallet)
-- Pick your chain: Celo, Base, or Monad
-- Enter recipient email + amount
-- Choose: **Secure** (Self Protocol ZK verification required to claim) or **Open** (anyone with the link can claim)
-- Hit send — recipient gets an email with a claim button
-
-**Claim page (/claim/[token]):**
-- Recipient clicks the email link → lands here
-- Shows amount + sender — no wallet needed yet
-- Two options:
-  - Paste their own wallet address
-  - Click "Generate wallet for me" → get a private key → import into any wallet app
-- If sender chose "Secure mode" → Self Protocol identity check first
-- On success: TX hash + explorer link + wallet import instructions
-
-**No technical knowledge required to receive.** That's the point.
-
----
-
-## Deploy to Vercel (5 minutes)
-
-### Step 1 — Get a WalletConnect Project ID (free)
-1. Go to [cloud.walletconnect.com](https://cloud.walletconnect.com)
-2. Sign in → New Project → name it anything
-3. Copy the **Project ID**
-
-### Step 2 — Deploy
-[![Deploy with Vercel](https://vercel.com/button)](https://vercel.com/new/clone?repository-url=https://github.com/drdeeks/email-remittance-celo&root=frontend)
-
-Or via CLI:
-```bash
-cd frontend
-npx vercel
-```
-
-### Step 3 — Set environment variables in Vercel dashboard
-
-Go to your project → Settings → Environment Variables:
-
-| Variable | Value | Required |
-|----------|-------|----------|
-| `NEXT_PUBLIC_API_URL` | Your backend URL (Railway/Render/tunnel) | ✅ |
-| `NEXT_PUBLIC_WALLETCONNECT_PROJECT_ID` | From Step 1 | ✅ |
-
-### Step 4 — Tell your backend about the Vercel URL
-
-In your backend `.env`:
-```env
-FRONTEND_URL=https://your-app.vercel.app
-```
-
-This makes claim links in emails point to the Vercel frontend instead of the raw API. Restart your backend after updating.
-
-### Step 5 — Update vercel.json
-
-Edit `frontend/vercel.json` to point at your actual backend URL:
-```json
-{
-  "rewrites": [
-    {
-      "source": "/api/:path*",
-      "destination": "https://your-backend.up.railway.app/api/:path*"
-    }
-  ]
-}
-```
-
----
-
-## Local Development
+## Local Setup (3 commands)
 
 ```bash
 cd frontend
-cp .env.example .env.local
-# Fill in NEXT_PUBLIC_API_URL and NEXT_PUBLIC_WALLETCONNECT_PROJECT_ID
-npm install
-npm run dev
+echo "API_URL=http://localhost:3001" > .env
+node setup.js
 ```
 
-Open [http://localhost:3000](http://localhost:3000).
-
-Make sure the backend is running on port 3001.
+Then open `public/index.html` in your browser.
+Make sure the backend is running on port 3001 first (`npm start` from the root).
 
 ---
 
-## The Vision
+## Deploy to Vercel
 
-Traditional remittance apps require the recipient to:
-1. Download an app
-2. Create an account
-3. Set up a wallet
-4. Learn what a seed phrase is
-5. Wait 3-5 days
-6. Pay 8-12% in fees
+**Step 1 — Import the repo**
 
-**This requires:**
-1. Click the link in the email
-2. Done
+1. Go to [vercel.com/new](https://vercel.com/new)
+2. Import `github.com/drdeeks/email-remittance-celo`
+3. Set these in the Vercel project settings:
+   - **Root Directory:** `frontend`
+   - **Build Command:** `node setup.js`
+   - **Output Directory:** `public`
 
-The Vercel URL is the single public-facing hub. Anyone on earth with an email can receive crypto. The sender controls the security level. The recipient controls the wallet. Nobody has to be a developer.
+**Step 2 — Add one environment variable**
+
+In Vercel → Settings → Environment Variables:
+
+| Key | Value |
+|-----|-------|
+| `API_URL` | Your backend URL (e.g. `https://your-app.up.railway.app`) |
+
+**Step 3 — Deploy**
+
+Vercel runs `node setup.js` automatically on every deploy.
+It reads `API_URL`, generates `public/config.js` and `vercel.json`, done.
+
+**When your backend URL changes:** update `API_URL` in Vercel dashboard → Redeploy. Nothing else to touch.
+
+---
+
+## How setup.js works
+
+`node setup.js` reads environment variables and generates two files:
+
+- `public/config.js` — runtime config loaded by the HTML pages
+- `vercel.json` — Vercel rewrite rules pointing `/api/*` at your backend
+
+Both files are in `.gitignore` (environment-specific, never committed).
+
+Reads from (in order of priority):
+1. Shell environment: `API_URL=https://... node setup.js`
+2. `.env` file in the frontend directory
+3. Vercel's injected `VERCEL_URL` environment variable
+
+---
+
+## Backend Hosting Options
+
+The frontend is a static site. It needs a running backend to call.
+
+| Option | Cost | Setup time |
+|--------|------|-----------|
+| **Local + Cloudflare tunnel** | Free | 2 min |
+| **Railway** | ~$5/mo | 5 min |
+| **Render** | Free tier | 5 min |
+| **Fly.io** | Free tier | 10 min |
+
+**Quickest (local + public tunnel):**
+```bash
+# Terminal 1 — start backend
+cd ..  # root of email-remittance-celo
+npm start
+
+# Terminal 2 — expose it publicly
+cloudflared tunnel --url http://localhost:3001 --no-autoupdate
+# Copy the URL it gives you, e.g. https://xxxx.trycloudflare.com
+
+# Terminal 3 — configure frontend
+cd frontend
+API_URL=https://xxxx.trycloudflare.com node setup.js
+```
+
+Then redeploy Vercel with that URL as `API_URL`.
+
+---
+
+## Pages
+
+| Path | What it does |
+|------|-------------|
+| `/` | Send form — wallet connect, chain picker, email input, auth toggle |
+| `/claim/:token` | Claim page — shows amount, wallet input or auto-generate, TX confirmation |
 
 ---
 
 ## Supported Chains
 
-| Chain | Currency | Chain ID |
-|-------|---------|---------|
+| Chain | Symbol | Chain ID |
+|-------|--------|---------|
 | Celo | CELO | 42220 |
 | Base | ETH | 8453 |
 | Monad | MON | 143 |
