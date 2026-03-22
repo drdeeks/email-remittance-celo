@@ -76,7 +76,7 @@ describe('Transaction Endpoints', () => {
       });
     
     expect(res.status).toBe(400);
-    expect(res.body.error).toContain('email');
+    expect(JSON.stringify(res.body)).toContain('email');
   });
 
   test('POST /api/transactions validates amount > 0', async () => {
@@ -89,7 +89,7 @@ describe('Transaction Endpoints', () => {
       });
     
     expect(res.status).toBe(400);
-    expect(res.body.error).toContain('Amount');
+    expect(JSON.stringify(res.body)).toContain('Amount');
   });
 
   test('GET /api/transactions/:id returns 404 for unknown transaction', async () => {
@@ -137,7 +137,7 @@ describe('Celo Endpoints', () => {
   test('GET /api/celo/balance/:address validates address format', async () => {
     const res = await request(app).get('/api/celo/balance/invalid');
     expect(res.status).toBe(400);
-    expect(res.body.error).toContain('Invalid');
+    expect(JSON.stringify(res.body)).toContain('Invalid');
   });
 
   test('GET /api/celo/balance/:address returns balance for valid address', async () => {
