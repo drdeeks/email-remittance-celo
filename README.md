@@ -1,5 +1,13 @@
 # Email Remittance Pro
 
+**Send crypto to anyone with just their email address. No wallet required to receive.**
+
+Email Remittance Pro is an autonomous agent-powered remittance system that lets anyone send CELO, ETH, or MON to any email address. The recipient gets a simple email with a claim button — they don't need a wallet, don't need to know what blockchain is, and don't need to install anything. If they want, the app generates a wallet for them automatically and walks them through importing it.
+
+For senders, it's a clean web interface: connect your wallet, pick a chain, enter an email, choose your security level, and send. For recipients, it's a single click.
+
+Built for the real-world remittance use case — the 1.4 billion unbanked people who can't receive crypto because the UX is broken, not because the technology doesn't work. Email Remittance Pro fixes the last mile.
+
 > **Real email. Real native tokens. Real proof.** Not a demo. Not a mock. Mainnet transactions + delivered email.
 
 [![Built by Titan Agent](https://img.shields.io/badge/Built%20by-Titan%20Agent-blue)](https://github.com/drdeeks/email-remittance-pro)
