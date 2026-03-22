@@ -41,6 +41,7 @@ export interface UniswapQuote {
   gasEstimate: string;
   routerAddress: string;
   quoteId?: string;
+  provider: 'uniswap-developer' | 'lifi-public';
 }
 
 export interface UniswapSwapResult {
@@ -61,6 +62,7 @@ export interface UniswapBridgeQuote {
   estimatedTime: string;
   routerAddress: string;
   bridgeUrl: string;
+  provider: 'uniswap-developer' | 'lifi-public';
 }
 
 class UniswapService {
