@@ -1,0 +1,34 @@
+services:
+  - type: web
+    name: email-remittance-pro
+    runtime: node
+    buildCommand: npm run build
+    startCommand: npm start
+    healthCheckPath: /health
+    envVars:
+      - key: NODE_ENV
+        value: production
+      - key: PORT
+        value: 3001
+      - key: WALLET_PRIVATE_KEY
+        sync: false
+      - key: RESEND_API_KEY
+        sync: false
+      - key: CELO_RPC_URL
+        value: https://forno.celo.org
+      - key: BASE_RPC_URL
+        value: https://mainnet.base.org
+      - key: MONAD_RPC_URL
+        value: https://rpc.monad.xyz
+      - key: DB_PATH
+        value: ./remittance.db
+      - key: MANDATE_RUNTIME_KEY
+        sync: false
+      - key: VENICE_API_KEY
+        sync: false
+      - key: UNISWAP_API_KEY
+        sync: false
+      - key: SELF_APP_ID
+        sync: false
+      - key: SELF_APP_SECRET
+        sync: false

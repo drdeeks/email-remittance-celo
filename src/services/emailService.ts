@@ -20,7 +20,9 @@ class EmailService {
     }
 
     this.resend = new Resend(apiKey);
-    this.baseUrl = process.env.BASE_URL || 'http://localhost:3001';
+    // FRONTEND_URL: Vercel deployment URL (e.g. https://email-remittance.vercel.app)
+    // Falls back to BASE_URL (the backend URL) for local dev
+    this.baseUrl = process.env.FRONTEND_URL || process.env.BASE_URL || 'http://localhost:3001';
     this.initialized = true;
     
     logger.info('Email service initialized with Resend');
