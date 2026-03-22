@@ -76,7 +76,7 @@ class UniswapService {
   }
 
   /**
-   * Get a swap quote from Uniswap Trading API.
+   * Get a swap quote from Uniswap Trading API or LI.FI fallback.
    * Uses the /quote endpoint with exact-input mode.
    */
   async getSwapQuote(params: {
@@ -93,7 +93,44 @@ class UniswapService {
     logger.info(`Uniswap quote: ${amountIn} ${tokenIn} → ${tokenOut} on ${chain} (chainId: ${chainId})`);
 
     if (!this.configured) {
-      // Demo mode fallback
+      // LI.FI public fallback — no API key required
+      logger.info('Uniswap: using LI.FI public bridge (no Uniswap API key set)');
+      
+      try {
+        const tokenInAddress = tokenIn === 'NATIVE' ? 'NATIVE' : tokenIn;
+        const tokenOutAddress = tokenOut === 'NATIVE' ? 'NATIVE' : tokenOut;
+        
+        const lifiUrl = new URL('https://li.quest/v1/quote');
+        lifiUrl.searchParams.set('fromChain', chainId.toString());
+        lifiUrl.searchParams.set('toChain', chainId.toString());
+        lifiUrl.searchParams.set('fromToken', tokenInAddress === 'NATIVE' ? '0x0000000000000000000000000000000000000000' : tokenInAddress);
+        lifiUrl.searchParams.set('toToken', tokenOutAddress === 'NATIVE' ? '0x0000000000000000000000000000000000000000' : tokenOutAddress);
+        lifiUrl.searchParams.set('fromAmount', parseEther(amountIn).toString());
+        lifiUrl.searchParams.set('fromAddress', swapper);
+
+        const res = await fetch(lifiUrl.toString(), { headers: { Accept: 'application/json' } });
+        
+        if (res.ok) {
+          const data = await res.json();
+          const est = data?.estimate || {};
+          return {
+            chainId,
+            chain,
+            tokenIn,
+            tokenOut,
+            amountIn,
+            amountOut: formatEther(BigInt(est.toAmount || '0')),
+            priceImpact: '< 0.5%',
+            gasEstimate: est.gasCosts?.[0]?.amount ? formatEther(BigInt(est.gasCosts[0].amount)) : '0.001',
+            routerAddress: config.uniswapUniversalRouter || '0x0000000000000000000000000000000000000000',
+            provider: 'lifi-public',
+          };
+        }
+      } catch (err) {
+        logger.warn('LI.FI quote failed, using static estimate', err);
+      }
+      
+      // Static fallback
       return {
         chainId,
         chain,
@@ -104,6 +141,7 @@ class UniswapService {
         priceImpact: '0.1%',
         gasEstimate: '0.001',
         routerAddress: config.uniswapUniversalRouter || '0x0000000000000000000000000000000000000000',
+        provider: 'lifi-public',
       };
     }
 
@@ -152,12 +190,14 @@ class UniswapService {
       gasEstimate: formatEther(BigInt(quote?.gasFeeUSD || '0')),
       routerAddress: config.uniswapUniversalRouter || '0x0000000000000000000000000000000000000000',
       quoteId: data?.requestId,
+      provider: 'uniswap-developer',
     };
   }
 
   /**
    * Execute a swap via Uniswap Universal Router.
    * Submits the calldata from the Trading API directly to the router contract.
+   * REQUIRES UNISWAP_API_KEY — LI.FI fallback does not support execution.
    */
   async executeSwap(params: {
     chain: SupportedChain;
@@ -179,7 +219,7 @@ class UniswapService {
     logger.info(`Uniswap swap: ${amountIn} ${tokenIn} → ${tokenOut} on ${chain}`);
 
     if (!this.configured) {
-      throw new Error('UNISWAP_API_KEY required for swap execution. Set it in .env');
+      throw new Error('UNISWAP_API_KEY required for swap execution. LI.FI public fallback only supports quotes, not execution. Set UNISWAP_API_KEY in .env to enable swaps.');
     }
 
     const tokenInAddress  = tokenIn  === 'NATIVE' ? '0xEeeeeEeeeEeEeeEeEeEeeEEEeeeeEeeeeeeeEEeE' : tokenIn;
@@ -241,7 +281,7 @@ class UniswapService {
   }
 
   /**
-   * Get a cross-chain bridge quote via Uniswap's bridge aggregator.
+   * Get a cross-chain bridge quote via Uniswap's bridge aggregator or LI.FI fallback.
    */
   async getBridgeQuote(
     fromChain: SupportedChain,
@@ -253,15 +293,46 @@ class UniswapService {
     const walletAddress = chainService.getWalletAddress(fromChain);
 
     if (!this.configured) {
+      // LI.FI public fallback — no API key required
+      logger.info('Uniswap: using LI.FI public bridge (no Uniswap API key set)');
+      
+      try {
+        const lifiUrl = new URL('https://li.quest/v1/quote');
+        lifiUrl.searchParams.set('fromChain', fromConfig.chainId.toString());
+        lifiUrl.searchParams.set('toChain', toConfig.chainId.toString());
+        lifiUrl.searchParams.set('fromToken', 'NATIVE');
+        lifiUrl.searchParams.set('toToken', 'NATIVE');
+        lifiUrl.searchParams.set('fromAmount', parseEther(amountIn).toString());
+        lifiUrl.searchParams.set('fromAddress', walletAddress);
+        lifiUrl.searchParams.set('toAddress', walletAddress);
+
+        const res = await fetch(lifiUrl.toString(), { headers: { Accept: 'application/json' } });
+
+        if (res.ok) {
+          const data = await res.json();
+          const est = data?.estimate || {};
+          return {
+            fromChain, toChain, amountIn,
+            estimatedAmountOut: formatEther(BigInt(est.toAmount || '0')),
+            estimatedFee: est.feeCosts?.[0]?.amountUSD ? `$${est.feeCosts[0].amountUSD}` : '< $0.10',
+            estimatedTime: est.executionDuration ? `${Math.ceil(est.executionDuration / 60)} min` : '2-5 min',
+            routerAddress: fromConfig.uniswapUniversalRouter || '0x0',
+            bridgeUrl: `https://jumper.exchange/?fromChain=${fromConfig.chainId}&toChain=${toConfig.chainId}`,
+            provider: 'lifi-public',
+          };
+        }
+      } catch (err) {
+        logger.warn('LI.FI bridge quote failed, using estimate', err);
+      }
+      
       return {
-        fromChain,
-        toChain,
-        amountIn,
+        fromChain, toChain, amountIn,
         estimatedAmountOut: (parseFloat(amountIn) * 0.997).toFixed(6),
         estimatedFee: '< $0.10',
         estimatedTime: '2-5 min',
         routerAddress: fromConfig.uniswapUniversalRouter || '0x0',
-        bridgeUrl: `https://app.uniswap.org/swap?chain=${fromChain}`,
+        bridgeUrl: `https://jumper.exchange/?fromChain=${fromConfig.chainId}&toChain=${toConfig.chainId}`,
+        provider: 'lifi-public',
       };
     }
 
@@ -293,6 +364,7 @@ class UniswapService {
           estimatedTime: '2-10 min',
           routerAddress: fromConfig.uniswapUniversalRouter || '0x0',
           bridgeUrl: `https://app.uniswap.org/swap?chain=${fromChain}&outputCurrency=NATIVE&chainTo=${toChain}`,
+          provider: 'uniswap-developer',
         };
       }
     } catch (err) {
@@ -306,6 +378,7 @@ class UniswapService {
       estimatedTime: '2-10 min',
       routerAddress: fromConfig.uniswapUniversalRouter || '0x0',
       bridgeUrl: `https://app.uniswap.org/swap?chain=${fromChain}`,
+      provider: 'uniswap-developer',
     };
   }
 

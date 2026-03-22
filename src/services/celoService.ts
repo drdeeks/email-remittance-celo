@@ -26,6 +26,7 @@ export const CHAIN_CONFIG: Record<SupportedChain, {
   chain: typeof celo | typeof base | typeof monad;
   rpcEnvKey: string;
   defaultRpc: string;
+  backupRpc: string;  // Fallback RPC for retries
   nativeCurrency: string;
   explorerBase: string;
   chainId: number;
@@ -36,6 +37,7 @@ export const CHAIN_CONFIG: Record<SupportedChain, {
     chain: celo,
     rpcEnvKey: 'CELO_RPC_URL',
     defaultRpc: 'https://forno.celo.org',
+    backupRpc: 'https://celo-mainnet.infura.io/v3/public',
     nativeCurrency: 'CELO',
     explorerBase: 'https://celoscan.io/tx',
     chainId: 42220,
@@ -45,6 +47,7 @@ export const CHAIN_CONFIG: Record<SupportedChain, {
     chain: base,
     rpcEnvKey: 'BASE_RPC_URL',
     defaultRpc: 'https://mainnet.base.org',
+    backupRpc: 'https://base.llamarpc.com',
     nativeCurrency: 'ETH',
     explorerBase: 'https://basescan.org/tx',
     chainId: 8453,
@@ -54,6 +57,7 @@ export const CHAIN_CONFIG: Record<SupportedChain, {
     chain: monad,
     rpcEnvKey: 'MONAD_RPC_URL',
     defaultRpc: 'https://rpc.monad.xyz',
+    backupRpc: 'https://rpc1.monad.xyz',
     nativeCurrency: 'MON',
     explorerBase: 'https://monadscan.com/tx',
     chainId: 143,
@@ -147,23 +151,62 @@ class ChainService {
     amount: number,
     chainName: SupportedChain = 'celo'
   ): Promise<{ txHash: string; chain: SupportedChain; explorerUrl: string }> {
-    const { walletClient, publicClient, account } = this.getClients(chainName);
     const config = CHAIN_CONFIG[chainName];
 
     logger.info(`Sending ${amount} ${config.nativeCurrency} to ${toAddress} on ${chainName} (chainId: ${config.chainId})`);
 
-    const hash = await walletClient.sendTransaction({
+    // Try with primary RPC, fallback to backup on failure
+    let lastError: Error | null = null;
+    const rpcsToTry = [
+      process.env[config.rpcEnvKey] || config.defaultRpc,
+      config.backupRpc,
+    ];
+
+    for (const rpcUrl of rpcsToTry) {
+      try {
+        const { walletClient, publicClient, account } = this.getClientsWithRpc(chainName, rpcUrl);
+
+        const hash = await walletClient.sendTransaction({
+          account,
+          to: toAddress as `0x${string}`,
+          value: parseEther(amount.toString()),
+          chain: config.chain,
+        });
+
+        logger.info(`TX sent: ${hash} (via ${rpcUrl})`);
+        const receipt = await publicClient.waitForTransactionReceipt({ hash });
+        if (receipt.status === 'reverted') throw new Error('Transaction reverted on chain');
+
+        return { txHash: hash, chain: chainName, explorerUrl: getExplorerUrl(hash, chainName) };
+      } catch (error: any) {
+        lastError = error;
+        logger.warn(`RPC failed (${rpcUrl}): ${error.message}. Trying fallback...`);
+      }
+    }
+
+    logger.error(`All RPCs failed for ${chainName}`, lastError);
+    throw lastError || new Error(`Failed to send on ${chainName}`);
+  }
+
+  private getClientsWithRpc(chainName: SupportedChain, rpcUrl: string) {
+    const privateKey = process.env.WALLET_PRIVATE_KEY;
+    if (!privateKey) throw new Error('WALLET_PRIVATE_KEY not found in environment');
+
+    const config = CHAIN_CONFIG[chainName];
+    const account = privateKeyToAccount(privateKey as `0x${string}`);
+
+    const walletClient = createWalletClient({
       account,
-      to: toAddress as `0x${string}`,
-      value: parseEther(amount.toString()),
       chain: config.chain,
+      transport: http(rpcUrl),
     });
 
-    logger.info(`TX sent: ${hash}`);
-    const receipt = await publicClient.waitForTransactionReceipt({ hash });
-    if (receipt.status === 'reverted') throw new Error('Transaction reverted on chain');
+    const publicClient = createPublicClient({
+      chain: config.chain,
+      transport: http(rpcUrl),
+    });
 
-    return { txHash: hash, chain: chainName, explorerUrl: getExplorerUrl(hash, chainName) };
+    return { walletClient, publicClient, account };
   }
 
   async getBridgeQuote(
