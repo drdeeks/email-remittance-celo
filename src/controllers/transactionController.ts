@@ -2,13 +2,14 @@ import { Router, Request, Response, NextFunction } from 'express';
 import { validationError, validateEmail, validateAmount } from '../utils/errors';
 import { logger } from '../utils/logger';
 import { remittanceService } from '../services/remittanceService';
+import { detectChain } from '../services/celoService';
 
 const router = Router();
 
 // Create a new remittance transaction
 router.post('/send', async (req: Request, res: Response, next: NextFunction) => {
   try {
-    const { senderEmail, recipientEmail, amount, message } = req.body;
+    const { senderEmail, recipientEmail, amount, message, chain, currency } = req.body;
 
     // Validate inputs
     if (!senderEmail || !recipientEmail) {
@@ -19,12 +20,14 @@ router.post('/send', async (req: Request, res: Response, next: NextFunction) => 
     validateAmount(amount);
 
     const amountCelo = parseFloat(amount);
+    const resolvedChain = detectChain(currency, chain); // auto-detects: 'celo' | 'base'
 
     const result = await remittanceService.createRemittance({
       senderEmail,
       recipientEmail,
       amountCelo,
       message,
+      chain: resolvedChain,
     });
 
     logger.info('Remittance created', {

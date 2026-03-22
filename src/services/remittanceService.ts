@@ -1,6 +1,7 @@
 import { v4 as uuidv4 } from 'uuid';
 import { db } from '../db/database';
-import { celoService } from './celoService';
+import { chainService, detectChain, getExplorerUrl, type SupportedChain } from './celoService';
+const celoService = chainService; // backwards compat alias
 import { emailService } from './emailService';
 import { mandateService } from './mandateService';
 import { logger } from '../utils/logger';
@@ -10,6 +11,7 @@ interface CreateRemittanceParams {
   recipientEmail: string;
   amountCelo: number;
   message?: string;
+  chain?: SupportedChain;
 }
 
 interface CreateRemittanceResult {
@@ -47,7 +49,7 @@ class RemittanceService {
    * Create a new remittance
    */
   async createRemittance(params: CreateRemittanceParams): Promise<CreateRemittanceResult> {
-    const { senderEmail, recipientEmail, amountCelo, message } = params;
+    const { senderEmail, recipientEmail, amountCelo, message, chain = 'celo' } = params;
 
     logger.info(`Creating remittance: ${amountCelo} CELO from ${senderEmail} to ${recipientEmail}`);
 
@@ -198,7 +200,9 @@ class RemittanceService {
     // Send the CELO
     let claimTxHash: string;
     try {
-      claimTxHash = await celoService.sendCelo(targetWallet, amount);
+      const remittanceChain: SupportedChain = 'celo'; // stored remittances default celo; future: store chain in DB
+      const sendResult = await chainService.sendNative(targetWallet, amount, remittanceChain);
+      claimTxHash = sendResult.txHash;
       logger.info(`CELO transferred: ${claimTxHash}`);
     } catch (error) {
       logger.error('Failed to transfer CELO', error);
