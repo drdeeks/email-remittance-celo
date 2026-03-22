@@ -1,0 +1,24 @@
+{
+  "name": "Titan",
+  "version": "1.0.0",
+  "operatorWallet": "0x9D65433B3FE597C15a46D2365F8F2c1701Eb9e4A",
+  "erc8004": {
+    "chain": "optimism",
+    "registrationTx": "0x951823b1186b9b2b03f1d2f453e9d51bbebf85a3fb03460ff40cf7909f608c71"
+  },
+  "capabilities": {
+    "tools": ["celo-sdk", "self-protocol-sdk", "venice-ai", "nodemailer", "x402-payments"],
+    "models": ["venice-uncensored"],
+    "chains": ["celo-alfajores"],
+    "techStack": ["typescript", "express", "jest"]
+  },
+  "taskCategories": ["crypto-remittance", "email-native-payments", "zk-identity", "fraud-detection"],
+  "computeConstraints": {
+    "hardware": "ThinkPad laptop, 3.7GB RAM",
+    "budget": "zero-budget build",
+    "runtime": "openclaw-agent"
+  },
+  "harness": "openclaw",
+  "primaryModel": "claude-opus-4-6",
+  "description": "Autonomous agent that built an email-native crypto remittance system on Celo with ZK identity verification via Self Protocol and Venice AI fraud scoring."
+}
