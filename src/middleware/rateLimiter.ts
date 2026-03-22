@@ -67,7 +67,7 @@ function createKeyGenerator(includeUserId = false) {
   return (req: Request): string => {
     const ip = req.ip || req.socket?.remoteAddress || 'unknown';
     if (includeUserId) {
-      const userId = (req as Record<string, unknown>).user?.['userId'] as string | undefined;
+      const userId = (req as unknown as Record<string, unknown>).user?.['userId'] as string | undefined;
       return userId ? `${ip}:${userId}` : ip;
     }
     return ip;
@@ -231,7 +231,7 @@ export const transferLimiter: RateLimitRequestHandler = rateLimit({
 
     logger.warn('Transfer rate limit exceeded', {
       ip: req.ip || req.socket?.remoteAddress,
-      userId: (req as Record<string, unknown>).user?.['userId'],
+      userId: (req as unknown as Record<string, unknown>).user?.['userId'],
       retryAfter,
     });
 
