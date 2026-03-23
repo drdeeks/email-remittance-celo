@@ -1,66 +1,140 @@
 'use client';
 
-import { useState } from 'react';
-import { useAccount } from 'wagmi';
+import { useState, useEffect } from 'react';
+import { useAccount, useSignMessage } from 'wagmi';
 import { ConnectButton } from '@rainbow-me/rainbowkit';
 import { ChainSelector } from './ChainSelector';
 import { AuthToggle } from './AuthToggle';
 import { chainConfig, SupportedChainId } from '@/config/chains';
-import { PaperAirplaneIcon, ClipboardIcon, CheckIcon } from '@heroicons/react/24/solid';
+import { PaperAirplaneIcon, ClipboardIcon, CheckIcon, ArrowsRightLeftIcon } from '@heroicons/react/24/solid';
 
 const API_URL = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:3001';
+
+// Chain ID to backend chain name mapping
+const CHAIN_ID_TO_NAME: Record<number, string> = {
+  42220: 'celo',
+  8453: 'base',
+  143: 'monad',
+};
+
+// Available tokens per chain for recipient to receive
+const RECIPIENT_TOKENS: Record<number, { symbol: string; name: string }[]> = {
+  42220: [
+    { symbol: 'CELO', name: 'Celo (Native)' },
+    { symbol: 'cUSD', name: 'Celo Dollar' },
+    { symbol: 'USDC', name: 'USD Coin' },
+  ],
+  8453: [
+    { symbol: 'ETH', name: 'Ethereum (Native)' },
+    { symbol: 'USDC', name: 'USD Coin' },
+    { symbol: 'USDT', name: 'Tether USD' },
+  ],
+  143: [
+    { symbol: 'MON', name: 'Monad (Native)' },
+  ],
+};
 
 interface SendResult {
   success: boolean;
   claimUrl?: string;
   token?: string;
+  escrowAddress?: string;
+  sendAmount?: string;
   error?: string;
 }
 
 export function SendForm() {
   const { address, isConnected } = useAccount();
+  const { signMessageAsync } = useSignMessage();
+  
   const [selectedChain, setSelectedChain] = useState<SupportedChainId>(42220);
-  const [email, setEmail] = useState('');
+  const [senderEmail, setSenderEmail] = useState('');
+  const [recipientEmail, setRecipientEmail] = useState('');
   const [amount, setAmount] = useState('');
+  const [recipientToken, setRecipientToken] = useState('');
   const [requireAuth, setRequireAuth] = useState(true);
   const [loading, setLoading] = useState(false);
   const [result, setResult] = useState<SendResult | null>(null);
   const [copied, setCopied] = useState(false);
 
   const chain = chainConfig[selectedChain];
+  const availableTokens = RECIPIENT_TOKENS[selectedChain] || [];
+
+  // Set default recipient token when chain changes
+  useEffect(() => {
+    const tokens = RECIPIENT_TOKENS[selectedChain];
+    if (tokens && tokens.length > 0) {
+      setRecipientToken(tokens[0].symbol);
+    }
+  }, [selectedChain]);
 
   const handleSend = async () => {
-    if (!address || !email || !amount) return;
+    if (!address || !senderEmail || !recipientEmail || !amount) return;
     
     setLoading(true);
     setResult(null);
 
     try {
+      // Step 1: Sign message to prove wallet ownership
+      const verificationMessage = `Email Remittance - Verify wallet ownership\n\nSender: ${senderEmail}\nRecipient: ${recipientEmail}\nAmount: ${amount} ${chain.symbol}\nChain: ${chain.name}\nTimestamp: ${new Date().toISOString()}`;
+      
+      let walletProof: { message: string; signature: string } | undefined;
+      
+      try {
+        const signature = await signMessageAsync({ message: verificationMessage });
+        walletProof = { message: verificationMessage, signature };
+      } catch (signError: any) {
+        // User rejected signature - allow sending without proof for demo
+        console.warn('Wallet signature skipped:', signError.message);
+      }
+
+      // Step 2: Send to backend with correct field names
+      const chainName = CHAIN_ID_TO_NAME[selectedChain] || 'celo';
+      
+      const payload: Record<string, any> = {
+        senderEmail,
+        recipientEmail,
+        amount: parseFloat(amount),
+        chain: chainName,
+        senderWallet: address,
+        requireAuth,
+      };
+
+      // Add wallet proof if user signed
+      if (walletProof) {
+        payload.walletProof = walletProof;
+      }
+
+      // Add recipient token if different from native (for swap/bridge)
+      if (recipientToken && recipientToken !== chain.symbol) {
+        payload.receiverToken = recipientToken;
+      }
+
       const response = await fetch(`${API_URL}/api/remittance/send`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          senderAddress: address,
-          recipientEmail: email,
-          amount: parseFloat(amount),
-          chainId: selectedChain,
-          requireAuth,
-        }),
+        body: JSON.stringify(payload),
       });
 
       const data = await response.json();
       
-      if (response.ok) {
+      if (response.ok && data.success) {
+        // Backend wraps response in data.data
+        const responseData = data.data || data;
         setResult({
           success: true,
-          claimUrl: data.claimUrl,
-          token: data.token,
+          claimUrl: responseData.claimUrl,
+          token: responseData.claimToken,
+          escrowAddress: responseData.escrowAddress,
+          sendAmount: responseData.sendAmount,
         });
       } else {
-        setResult({ success: false, error: data.error || 'Failed to send' });
+        // Handle error from backend
+        const errorMsg = data.error?.message || data.message || data.error || 'Failed to send';
+        setResult({ success: false, error: errorMsg });
       }
-    } catch (error) {
-      setResult({ success: false, error: 'Network error' });
+    } catch (error: any) {
+      setResult({ success: false, error: error.message || 'Network error' });
     } finally {
       setLoading(false);
     }
@@ -81,9 +155,21 @@ export function SendForm() {
           <div className="w-16 h-16 mx-auto mb-4 rounded-full bg-emerald-500/20 flex items-center justify-center">
             <CheckIcon className="w-8 h-8 text-emerald-400" />
           </div>
-          <h2 className="text-xl font-bold text-white mb-2">Sent Successfully!</h2>
-          <p className="text-gray-400">Email sent to {email}</p>
+          <h2 className="text-xl font-bold text-white mb-2">Remittance Created!</h2>
+          <p className="text-gray-400">Claim link sent to {recipientEmail}</p>
         </div>
+
+        {result.escrowAddress && (
+          <div className="bg-amber-500/10 border border-amber-500/30 rounded-lg p-4">
+            <p className="text-amber-300 text-sm font-medium mb-2">⚠️ Action Required</p>
+            <p className="text-gray-300 text-sm mb-2">
+              Send <strong>{result.sendAmount || amount} {chain.symbol}</strong> to:
+            </p>
+            <code className="block bg-slate-900 p-2 rounded text-xs text-gray-300 break-all">
+              {result.escrowAddress}
+            </code>
+          </div>
+        )}
 
         <div className="bg-slate-900 rounded-lg p-4">
           <label className="text-xs text-gray-500 block mb-2">Claim URL</label>
@@ -106,7 +192,8 @@ export function SendForm() {
         <button
           onClick={() => {
             setResult(null);
-            setEmail('');
+            setSenderEmail('');
+            setRecipientEmail('');
             setAmount('');
           }}
           className="w-full py-3 bg-slate-700 hover:bg-slate-600 rounded-lg font-medium transition-colors"
@@ -127,18 +214,29 @@ export function SendForm() {
       <ChainSelector selectedChain={selectedChain} onChainSelect={setSelectedChain} />
 
       <div className="space-y-2">
+        <label className="text-sm text-gray-400">Your Email</label>
+        <input
+          type="email"
+          value={senderEmail}
+          onChange={(e) => setSenderEmail(e.target.value)}
+          placeholder="your@email.com"
+          className="w-full bg-slate-900 border border-slate-700 rounded-lg px-4 py-3 text-white placeholder-gray-500 focus:border-sky-500 focus:outline-none transition-colors"
+        />
+      </div>
+
+      <div className="space-y-2">
         <label className="text-sm text-gray-400">Recipient Email</label>
         <input
           type="email"
-          value={email}
-          onChange={(e) => setEmail(e.target.value)}
+          value={recipientEmail}
+          onChange={(e) => setRecipientEmail(e.target.value)}
           placeholder="recipient@example.com"
           className="w-full bg-slate-900 border border-slate-700 rounded-lg px-4 py-3 text-white placeholder-gray-500 focus:border-sky-500 focus:outline-none transition-colors"
         />
       </div>
 
       <div className="space-y-2">
-        <label className="text-sm text-gray-400">Amount</label>
+        <label className="text-sm text-gray-400">Amount to Send</label>
         <div className="relative">
           <input
             type="number"
@@ -158,6 +256,33 @@ export function SendForm() {
         </div>
       </div>
 
+      {/* Recipient Token Selector */}
+      {availableTokens.length > 1 && (
+        <div className="space-y-2">
+          <label className="text-sm text-gray-400 flex items-center gap-2">
+            <ArrowsRightLeftIcon className="w-4 h-4" />
+            Recipient Receives (swap via Uniswap/LI.FI)
+          </label>
+          <select
+            value={recipientToken}
+            onChange={(e) => setRecipientToken(e.target.value)}
+            className="w-full bg-slate-900 border border-slate-700 rounded-lg px-4 py-3 text-white focus:border-sky-500 focus:outline-none transition-colors"
+          >
+            {availableTokens.map((token) => (
+              <option key={token.symbol} value={token.symbol}>
+                {token.name} ({token.symbol})
+                {token.symbol === chain.symbol ? ' — No swap' : ''}
+              </option>
+            ))}
+          </select>
+          {recipientToken && recipientToken !== chain.symbol && (
+            <p className="text-xs text-gray-500">
+              Your {chain.symbol} will be swapped to {recipientToken} on-chain before recipient claims.
+            </p>
+          )}
+        </div>
+      )}
+
       <AuthToggle requireAuth={requireAuth} onToggle={setRequireAuth} />
 
       {result?.error && (
@@ -168,7 +293,7 @@ export function SendForm() {
 
       <button
         onClick={handleSend}
-        disabled={!isConnected || !email || !amount || loading}
+        disabled={!isConnected || !senderEmail || !recipientEmail || !amount || loading}
         className="w-full py-4 bg-gradient-to-r from-sky-500 to-teal-500 hover:from-sky-600 hover:to-teal-600 disabled:from-slate-600 disabled:to-slate-600 disabled:cursor-not-allowed rounded-lg font-bold text-lg transition-all flex items-center justify-center gap-2"
       >
         {loading ? (
