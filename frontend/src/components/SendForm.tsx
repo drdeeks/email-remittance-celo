@@ -6,7 +6,7 @@ import { ConnectButton } from '@rainbow-me/rainbowkit';
 import { ChainSelector } from './ChainSelector';
 import { AuthToggle } from './AuthToggle';
 import { chainConfig, SupportedChainId } from '@/config/chains';
-import { PaperAirplaneIcon, ClipboardIcon, CheckIcon, ArrowsRightLeftIcon } from '@heroicons/react/24/solid';
+import { PaperAirplaneIcon, ClipboardIcon, CheckIcon } from '@heroicons/react/24/solid';
 
 const API_URL = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:3001';
 
@@ -259,10 +259,7 @@ export function SendForm() {
       {/* Recipient Token Selector */}
       {availableTokens.length > 1 && (
         <div className="space-y-2">
-          <label className="text-sm text-gray-400 flex items-center gap-2">
-            <ArrowsRightLeftIcon className="w-4 h-4" />
-            Recipient Receives (swap via Uniswap/LI.FI)
-          </label>
+          <label className="text-sm text-gray-400">Recipient Receives</label>
           <select
             value={recipientToken}
             onChange={(e) => setRecipientToken(e.target.value)}
@@ -271,15 +268,9 @@ export function SendForm() {
             {availableTokens.map((token) => (
               <option key={token.symbol} value={token.symbol}>
                 {token.name} ({token.symbol})
-                {token.symbol === chain.symbol ? ' — No swap' : ''}
               </option>
             ))}
           </select>
-          {recipientToken && recipientToken !== chain.symbol && (
-            <p className="text-xs text-gray-500">
-              Your {chain.symbol} will be swapped to {recipientToken} on-chain before recipient claims.
-            </p>
-          )}
         </div>
       )}
 
