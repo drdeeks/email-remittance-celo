@@ -79,7 +79,7 @@ router.post('/send', async (req: Request, res: Response, next: NextFunction) => 
         claimToken: result.claimToken,
         txHash: result.txHash,
         expiresAt: new Date(result.expiresAt * 1000).toISOString(),
-        claimUrl: `${process.env.FRONTEND_URL || process.env.BASE_URL}/claim/${result.claimToken}`,
+        claimUrl: `${process.env.FRONTEND_URL || process.env.BASE_URL || 'https://email-remittance-pro.vercel.app'}/claim/${result.claimToken}`,
         chain: resolvedChain,
         requireAuth: requireAuth === true || requireAuth === 'true',
         feeModel: resolvedFeeModel,
