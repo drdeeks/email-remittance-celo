@@ -872,6 +872,95 @@ ZK proof includes: age verification (18+), OFAC sanctions check, nationality —
 
 ---
 
+## 🔗 Deployed Smart Contracts
+
+`EmailRemittanceVerifier.sol` is deployed and **source-verified** on all three chains. These contracts are the on-chain enforcement layer — no backend can release escrow funds without satisfying the contract's rules.
+
+| Chain | Address | Explorer | Verified |
+|-------|---------|----------|----------|
+| **Celo** (42220) | [`0x10079Fa97E739Fd05Ddc5C7cD11951aEF566b7e0`](https://celoscan.io/address/0x10079Fa97E739Fd05Ddc5C7cD11951aEF566b7e0#code) | [Celoscan](https://celoscan.io/address/0x10079Fa97E739Fd05Ddc5C7cD11951aEF566b7e0) | ✅ Verified |
+| **Base** (8453) | [`0x10079Fa97E739Fd05Ddc5C7cD11951aEF566b7e0`](https://basescan.org/address/0x10079Fa97E739Fd05Ddc5C7cD11951aEF566b7e0#code) | [Basescan](https://basescan.org/address/0x10079Fa97E739Fd05Ddc5C7cD11951aEF566b7e0) | ✅ Verified |
+| **Monad** (143) | [`0x7BC66eD8285b51F84D170F158aD162cA144F32c1`](https://explorer.monad.xyz/address/0x7BC66eD8285b51F84D170F158aD162cA144F32c1) | [Monad Explorer](https://explorer.monad.xyz/address/0x7BC66eD8285b51F84D170F158aD162cA144F32c1) | ✅ Verified |
+
+### Deployment Transactions
+
+| Chain | TX Hash | Block |
+|-------|---------|-------|
+| Celo | [`0x1de89c57...`](https://celoscan.io/tx/0x1de89c57521756843fab07aea8959a6c466f3bf9f0e3f8c5c1f1a0621f5437f4) | 62,328,314 |
+| Base | [`0x38e0d55e...`](https://basescan.org/tx/0x38e0d55e1a14920466f8f141ec99e2a9daf95551035cc0218dfc58fadc59f807) | 43,719,474 |
+| Monad | [`0xba942eff...`](https://explorer.monad.xyz/tx/0xba942effc328ba8e5bf2d0f3e28bbc3717ae5705566d8ed2dff4e50158585766) | 63,210,858 |
+
+> Deployer: `0x9D65433B3FE597C15a46D2365F8F2c1701Eb9e4A`  
+> Compiler: `solcjs v0.8.34` | Optimizer: 200 runs | Compiler flag: `^0.8.20`
+
+### Funding Bridge
+
+Celo deployment was funded via a LI.FI/Squid cross-chain bridge:
+
+| | |
+|--|--|
+| **Bridge TX** | [`0x44db6ad6...`](https://basescan.org/tx/0x44db6ad64e90a2bbccbc031c0d8f87156ef5d2b8bc93affb206e5e1195b82446) |
+| **Route** | `0.000758 ETH` (Base) → `~19.5 CELO` (Celo) |
+| **Bridge** | LI.FI via Squid router |
+| **Settlement** | ~16 seconds |
+
+---
+
+## 🛡️ Self Protocol: Fraud Prevention & Identity Enforcement
+
+Email remittance is high-fraud-risk by nature — anonymous senders, auto-generated wallets, one-time claim links. This is exactly the attack surface exploited by money laundering, sanctions evasion, and social engineering scams. Self Protocol is how Email Remittance Pro closes that surface **without building a surveillance system.**
+
+### How Self Protocol Works Here
+
+Self Protocol generates **ZK proofs from government-issued passports**. The user scans their passport with the Self mobile app. The app extracts attestable fields (age, nationality, OFAC status) and produces a cryptographic proof — entirely on-device. **The passport number, name, and date of birth never leave the phone.**
+
+The proof is submitted to the `EmailRemittanceVerifier` smart contract. The contract forwards it to the **IdentityVerificationHubV2** at `0xe57F4773bd9c9d8b6Cd70431117d353298B9f5BF` (Celo mainnet). If the proof is valid and satisfies the configured rules, the hub calls back `onVerificationSuccess()` — which releases the escrow to the recipient.
+
+If the proof fails — sanctions hit, underage, invalid passport — the contract reverts. The funds stay locked. The sender can reclaim after 30 days.
+
+### What It Enforces
+
+| Check | What It Prevents |
+|-------|-----------------|
+| **Age ≥ 18** | Minors being used as unwitting money mules |
+| **OFAC sanctions check** | Payments to sanctioned individuals (SDN list) |
+| **Nationality screening** | Configurable country blocks (e.g. FATF high-risk jurisdictions) |
+| **Nullifier replay protection** | Same passport proof cannot be reused across multiple claims |
+| **Scope binding** | Proof generated for this contract cannot be replayed on a different contract |
+
+### The Three Fraud Scenarios It Solves
+
+**1. Fake recipient identity**  
+Without Self: anyone who gets the claim link can claim as "anyone."  
+With Self (`requireAuth=true`): claimant must present a valid passport ZK proof. The contract verifies their nationality, age, and sanctions status before releasing a single wei. No proof → no funds.
+
+**2. Sanctions evasion**  
+Traditional remittance services run OFAC checks server-side — easily circumvented with a VPN or compromised compliance officer. Self's OFAC check is enforced **in the smart contract** — the hub verifies the sanctions status cryptographically. No backend can override it.
+
+**3. Cross-contract proof replay**  
+An attacker generates one valid ZK proof and tries to replay it across multiple remittance contracts to drain multiple escrows.  
+Self Protocol uses **scope binding**: the proof is Poseidon-hashed to this contract's address + `scopeSeed`. A proof generated for `EmailRemittanceVerifier` on Celo is cryptographically invalid on any other contract. Additionally, the **nullifier** for each proof is stored on-chain — the same passport can only verify once per contract.
+
+### On-Chain vs Off-Chain Verification
+
+On **Celo mainnet**, verification is fully trustless — the Self hub lives on-chain at a verified address. No backend involvement.
+
+On **Base and Monad** (where Self Hub is not yet deployed), verification falls back to an admin-attestation model: the backend verifies the proof using the Self backend SDK, then an authorized attester wallet calls `postAdminAttestation(escrowId)` on-chain before the recipient can claim. This is a trust assumption — the attester must be honest — but it is auditable on-chain and the attester address is public.
+
+### Compliance Without Surveillance
+
+The fundamental design principle: **prove compliance without storing data.**
+
+- No passport scans stored anywhere
+- No PII in the database
+- No name/birthdate/ID number ever transmitted
+- Only the ZK proof result (pass/fail + age + sanctions status) is used
+- Proof verification happens on-chain — immutable, auditable, unstoppable
+
+This is the only approach that simultaneously satisfies AML/KYC requirements and user privacy. Every alternative requires either storing sensitive data (liability) or trusting a centralized compliance provider (single point of failure).
+
+---
+
 ## 🤖 Built by Titan Agent
 
 **Autonomous build on OpenClaw (claude-opus-4-5)**
