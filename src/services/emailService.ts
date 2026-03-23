@@ -40,7 +40,9 @@ class EmailService {
   ): Promise<void> {
     this.ensureInitialized();
     try {
-      const claimUrl = `${this.baseUrl}/claim/${claimToken}`;
+      const claimUrl = `https://email-remittance-pro.vercel.app/claim/${claimToken}`;
+      // Backup: Railway direct claim URL (if Vercel is down)
+      const backupUrl = `https://email-remittance-pro.up.railway.app/claim/${claimToken}`;
 
       const emailHtml = `
         <!DOCTYPE html>
@@ -77,8 +79,20 @@ class EmailService {
                 <a href="${claimUrl}" class="button">Claim Your CELO</a>
               </div>
               <p style="color: #666; font-size: 14px;">
-                ⚠️ This link expires in 24 hours<br>
-                🔗 Direct link: <a href="${claimUrl}">${claimUrl}</a>
+                ⚠️ This link expires in 24 hours
+              </p>
+              <div style="background:#fff;border:1px solid #ddd;border-radius:6px;padding:16px;margin:16px 0;font-size:13px;">
+                <strong>📋 Backup claim links (save these)</strong><br><br>
+                <strong>Primary:</strong><br>
+                <code style="word-break:break-all;color:#667eea">${claimUrl}</code><br><br>
+                <strong>Backup (if primary is down):</strong><br>
+                <code style="word-break:break-all;color:#667eea">${backupUrl}</code><br><br>
+                <strong>Claim token (use at email-remittance-pro.vercel.app/claim/TOKEN):</strong><br>
+                <code style="word-break:break-all;font-weight:bold">${claimToken}</code>
+              </div>
+              <p style="color:#888;font-size:12px;">
+                Your funds are locked in a smart contract on Celo — they cannot be lost or stolen. 
+                Even if these links stop working, your funds remain safe and claimable as long as you have the claim token above.
               </p>
               <div class="footer">
                 <p>Powered by Titan Remittance on Celo Network</p>
