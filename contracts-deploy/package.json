@@ -1,0 +1,17 @@
+{
+  "name": "email-remittance-contracts",
+  "version": "1.0.0",
+  "type": "module",
+  "description": "EmailRemittanceVerifier deployment workspace",
+  "scripts": {
+    "compile": "hardhat compile",
+    "deploy:celo": "hardhat run scripts/deploy-verifier.js --network celo",
+    "deploy:base": "hardhat run scripts/deploy-verifier.js --network base",
+    "deploy:monad": "hardhat run scripts/deploy-verifier.js --network monad"
+  },
+  "devDependencies": {
+    "@nomicfoundation/hardhat-ethers": "^4.0.6",
+    "ethers": "^6.16.0",
+    "hardhat": "^3.2.0"
+  }
+}
