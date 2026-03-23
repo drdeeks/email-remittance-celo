@@ -1,455 +1,171 @@
 <!DOCTYPE html>
 <html lang="en">
 <head>
-  <meta charset="UTF-8" />
-  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-  <title>Email Remittance — Send crypto to anyone</title>
-  <meta name="description" content="Send CELO, ETH, or MON to any email address. Recipient claims with zero wallet setup." />
-  <meta property="og:title" content="Email Remittance" />
-  <meta property="og:description" content="Send crypto to any email. Zero wallet setup required." />
-  <script src="https://cdnjs.cloudflare.com/ajax/libs/ethers/5.7.2/ethers.umd.min.js" crossorigin="anonymous" referrerpolicy="no-referrer"></script>
-  <script src="/config.js"></script>
-  <style>
-    *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
-    :root {
-      --bg: #0f172a; --card: #1e293b; --card2: #283548; --border: #334155;
-      --text: #f0f4ff; --muted: #94a3b8; --dim: #64748b;
-      --blue: #3b82f6; --teal: #14b8a6; --green: #10b981;
-      --yellow: #f59e0b; --red: #ef4444;
-      --celo: #FCFF52; --base: #0052FF; --monad: #836EF9;
-    }
-    body { font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif; background: var(--bg); color: var(--text); min-height: 100vh; padding: 16px; }
-    .app { max-width: 480px; margin: 0 auto; padding-top: 24px; }
-
-    /* Header */
-    .header { text-align: center; margin-bottom: 28px; }
-    .header .pill { display: inline-flex; align-items: center; gap: 6px; padding: 5px 14px; background: rgba(59,130,246,0.1); border: 1px solid rgba(59,130,246,0.2); border-radius: 999px; font-size: 12px; color: var(--blue); margin-bottom: 12px; }
-    .header h1 { font-size: 28px; font-weight: 800; background: linear-gradient(135deg, #3b82f6, #14b8a6); -webkit-background-clip: text; -webkit-text-fill-color: transparent; margin-bottom: 6px; }
-    .header p { font-size: 14px; color: var(--muted); }
-
-    /* Card */
-    .card { background: var(--card); border: 1px solid var(--border); border-radius: 16px; padding: 24px; margin-bottom: 16px; }
-
-    /* Wallet bar */
-    .wallet-bar { display: flex; justify-content: space-between; align-items: center; margin-bottom: 20px; }
-    .wallet-info { font-size: 13px; color: var(--muted); }
-    .wallet-info .addr { color: var(--text); font-family: monospace; font-size: 12px; }
-    .btn-connect { padding: 8px 16px; border: 1px solid var(--blue); background: rgba(59,130,246,0.1); color: var(--blue); border-radius: 8px; cursor: pointer; font-size: 13px; font-weight: 600; transition: all 0.15s; }
-    .btn-connect:hover { background: rgba(59,130,246,0.2); }
-    .btn-connect.connected { border-color: var(--green); color: var(--green); background: rgba(16,185,129,0.1); }
-
-    /* Fields */
-    .field { margin-bottom: 16px; }
-    .field label { display: block; font-size: 12px; font-weight: 600; color: var(--muted); margin-bottom: 6px; text-transform: uppercase; letter-spacing: 0.05em; }
-    .field input, .field select { width: 100%; background: #0f172a; border: 1px solid var(--border); border-radius: 10px; color: var(--text); font-size: 14px; padding: 11px 13px; outline: none; transition: border-color 0.15s; -webkit-appearance: none; }
-    .field input:focus, .field select:focus { border-color: var(--blue); }
-    .field input::placeholder { color: var(--dim); }
-
-    /* Amount row */
-    .amount-row { display: flex; gap: 8px; }
-    .amount-row input { flex: 1; }
-    .currency-badge { padding: 11px 14px; background: var(--card2); border: 1px solid var(--border); border-radius: 10px; font-size: 14px; font-weight: 700; white-space: nowrap; min-width: 64px; text-align: center; }
-
-    /* Chain selector */
-    .chain-grid { display: grid; grid-template-columns: repeat(3, 1fr); gap: 8px; }
-    .chain-btn { padding: 10px 8px; background: var(--card2); border: 2px solid var(--border); border-radius: 10px; cursor: pointer; text-align: center; transition: all 0.15s; }
-    .chain-btn:hover { border-color: var(--muted); }
-    .chain-btn.active { border-color: var(--blue); background: rgba(59,130,246,0.08); }
-    .chain-btn .icon { font-size: 18px; margin-bottom: 3px; }
-    .chain-btn .name { font-size: 11px; font-weight: 600; }
-    .chain-btn .sym { font-size: 10px; color: var(--muted); }
-
-    /* Auth toggle */
-    .auth-card { background: var(--card2); border: 1px solid var(--border); border-radius: 12px; padding: 14px 16px; }
-    .auth-row { display: flex; align-items: center; justify-content: space-between; margin-bottom: 8px; }
-    .auth-label { font-size: 13px; font-weight: 600; }
-    .toggle { position: relative; width: 44px; height: 24px; cursor: pointer; }
-    .toggle input { opacity: 0; width: 0; height: 0; }
-    .slider { position: absolute; inset: 0; background: var(--border); border-radius: 999px; transition: 0.2s; }
-    .slider::before { content: ''; position: absolute; width: 18px; height: 18px; left: 3px; top: 3px; background: white; border-radius: 50%; transition: 0.2s; }
-    input:checked + .slider { background: var(--green); }
-    input:checked + .slider::before { transform: translateX(20px); }
-    .auth-desc { font-size: 12px; color: var(--muted); line-height: 1.5; }
-    .auth-desc.warning { color: var(--yellow); }
-
-    /* Send button */
-    .btn-send { width: 100%; padding: 14px; border: none; border-radius: 12px; background: linear-gradient(135deg, #3b82f6, #14b8a6); color: white; font-size: 15px; font-weight: 700; cursor: pointer; transition: all 0.15s; margin-top: 4px; }
-    .btn-send:hover:not(:disabled) { opacity: 0.9; transform: translateY(-1px); box-shadow: 0 8px 24px rgba(59,130,246,0.3); }
-    .btn-send:disabled { opacity: 0.4; cursor: not-allowed; transform: none; }
-
-    /* Status panels */
-    .panel { display: none; }
-    .spinner-wrap { text-align: center; padding: 24px 0; }
-    .spinner { width: 40px; height: 40px; border: 3px solid var(--border); border-top-color: var(--blue); border-radius: 50%; animation: spin 0.8s linear infinite; margin: 0 auto 12px; }
-    @keyframes spin { to { transform: rotate(360deg); } }
-
-    .success-icon { text-align: center; font-size: 48px; margin-bottom: 12px; }
-    .claim-url-box { background: #0f172a; border: 1px solid var(--border); border-radius: 10px; padding: 12px; font-family: monospace; font-size: 11px; color: var(--blue); word-break: break-all; margin: 12px 0; }
-    .btn-copy { width: 100%; padding: 10px; background: var(--card2); border: 1px solid var(--border); border-radius: 8px; color: var(--text); font-size: 13px; cursor: pointer; transition: background 0.15s; }
-    .btn-copy:hover { background: var(--border); }
-
-    .error-box { background: rgba(239,68,68,0.1); border: 1px solid rgba(239,68,68,0.3); border-radius: 10px; padding: 14px; color: #fca5a5; font-size: 13px; margin-bottom: 12px; }
-    .btn-retry { width: 100%; padding: 10px; background: var(--card2); border: 1px solid var(--border); border-radius: 8px; color: var(--text); font-size: 13px; cursor: pointer; }
-
-    .chains-footer { text-align: center; font-size: 12px; color: var(--dim); margin-top: 16px; }
-    .dot { display: inline-block; width: 6px; height: 6px; border-radius: 50%; margin: 0 4px; vertical-align: middle; }
-  </style>
+<meta charset="UTF-8"/>
+<meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+<title>Email Remittance Pro</title>
+<style>
+*{box-sizing:border-box;margin:0;padding:0}
+body{background:#0f172a;color:#f0f4ff;font-family:-apple-system,sans-serif;padding:16px;min-height:100vh}
+.app{max-width:480px;margin:0 auto;padding-top:24px}
+h1{font-size:26px;font-weight:800;background:linear-gradient(135deg,#3b82f6,#14b8a6);-webkit-background-clip:text;-webkit-text-fill-color:transparent;margin-bottom:6px;text-align:center}
+p.sub{text-align:center;color:#94a3b8;font-size:14px;margin-bottom:24px}
+.card{background:#1e293b;border:1px solid #334155;border-radius:16px;padding:20px;margin-bottom:16px}
+label{display:block;font-size:11px;font-weight:600;color:#94a3b8;margin-bottom:6px;text-transform:uppercase;letter-spacing:.05em}
+input{width:100%;background:#0f172a;border:1px solid #334155;border-radius:10px;color:#f0f4ff;font-size:15px;padding:12px;outline:none;-webkit-appearance:none;margin-bottom:14px}
+input:focus{border-color:#3b82f6}
+.chains{display:grid;grid-template-columns:repeat(3,1fr);gap:8px;margin-bottom:14px}
+.chain{padding:10px 6px;background:#283548;border:2px solid #334155;border-radius:10px;cursor:pointer;text-align:center;transition:all .15s}
+.chain.active{border-color:#3b82f6;background:rgba(59,130,246,.08)}
+.chain .icon{font-size:18px;margin-bottom:2px}
+.chain .name{font-size:11px;font-weight:600}
+.chain .sym{font-size:10px;color:#94a3b8}
+.btn{width:100%;padding:14px;border:none;border-radius:12px;background:linear-gradient(135deg,#3b82f6,#14b8a6);color:#fff;font-size:15px;font-weight:700;cursor:pointer;margin-top:4px}
+.btn:disabled{opacity:.4;cursor:not-allowed}
+.btn-sec{width:100%;padding:10px;border:1px solid #334155;border-radius:10px;background:#283548;color:#f0f4ff;font-size:13px;cursor:pointer;margin-bottom:8px}
+.error{background:rgba(239,68,68,.1);border:1px solid rgba(239,68,68,.3);border-radius:10px;padding:14px;color:#fca5a5;font-size:13px;margin-bottom:12px;white-space:pre-wrap}
+.success-icon{text-align:center;font-size:48px;margin-bottom:12px}
+.claim-box{background:#0f172a;border:1px solid #334155;border-radius:10px;padding:12px;font-family:monospace;font-size:11px;color:#3b82f6;word-break:break-all;margin:12px 0}
+.hidden{display:none}
+.wallet-bar{display:flex;justify-content:space-between;align-items:center;margin-bottom:16px}
+.wallet-info{font-size:12px;color:#94a3b8}
+.wallet-addr{font-family:monospace;font-size:11px;color:#f0f4ff}
+.btn-wallet{padding:8px 14px;border:1px solid #3b82f6;background:rgba(59,130,246,.1);color:#3b82f6;border-radius:8px;cursor:pointer;font-size:12px;font-weight:600}
+.btn-wallet.ok{border-color:#10b981;color:#10b981;background:rgba(16,185,129,.1)}
+</style>
 </head>
 <body>
 <div class="app">
-  <div class="header">
-    <div class="pill">✉️ Crypto via Email</div>
-    <h1>Email Remittance</h1>
-    <p>Send CELO, ETH, or MON to anyone — no wallet required to receive.</p>
-  </div>
+  <h1>Email Remittance</h1>
+  <p class="sub">Send crypto to anyone — no wallet needed to receive</p>
 
-  <!-- FORM -->
   <div id="view-form">
     <div class="card">
-      <!-- Wallet connect -->
       <div class="wallet-bar">
         <div class="wallet-info">
-          <span id="wallet-label">Not connected</span><br>
-          <span class="addr" id="wallet-addr"></span>
+          <div id="w-label">Not connected</div>
+          <div class="wallet-addr" id="w-addr"></div>
         </div>
-        <button class="btn-connect" id="btn-connect" onclick="connectWallet()">Connect Wallet</button>
+        <button class="btn-wallet" id="btn-w" onclick="connectWallet()">Connect Wallet</button>
       </div>
 
-      <!-- Chain picker -->
-      <div class="field">
-        <label>Send From Chain</label>
-        <div class="chain-grid">
-          <div class="chain-btn active" id="chain-celo" onclick="selectChain('celo')">
-            <div class="icon">🟡</div>
-            <div class="name">Celo</div>
-            <div class="sym">CELO</div>
-          </div>
-          <div class="chain-btn" id="chain-base" onclick="selectChain('base')">
-            <div class="icon">🔵</div>
-            <div class="name">Base</div>
-            <div class="sym">ETH</div>
-          </div>
-          <div class="chain-btn" id="chain-monad" onclick="selectChain('monad')">
-            <div class="icon">🟣</div>
-            <div class="name">Monad</div>
-            <div class="sym">MON</div>
-          </div>
-        </div>
+      <label>Chain</label>
+      <div class="chains">
+        <div class="chain active" id="c-celo" onclick="setChain('celo','CELO','🟡')"><div class="icon">🟡</div><div class="name">Celo</div><div class="sym">CELO</div></div>
+        <div class="chain" id="c-base" onclick="setChain('base','ETH','🔵')"><div class="icon">🔵</div><div class="name">Base</div><div class="sym">ETH</div></div>
+        <div class="chain" id="c-monad" onclick="setChain('monad','MON','🟣')"><div class="icon">🟣</div><div class="name">Monad</div><div class="sym">MON</div></div>
       </div>
 
-      <!-- Recipient email -->
-      <div class="field">
-        <label>Recipient Email</label>
-        <input type="email" id="email" placeholder="recipient@gmail.com" />
-      </div>
+      <label>Recipient Email</label>
+      <input type="email" id="email" placeholder="recipient@gmail.com"/>
 
-      <!-- Amount -->
-      <div class="field">
-        <label>Amount</label>
-        <div class="amount-row">
-          <input type="number" id="amount" placeholder="0.01" min="0" step="any" oninput="updateFeeQuote()" />
-          <div class="currency-badge" id="currency-badge">CELO</div>
-        </div>
-      </div>
+      <label>Amount (<span id="sym">CELO</span>)</label>
+      <input type="number" id="amount" placeholder="0.01" min="0" step="any"/>
 
-      <!-- Auth toggle -->
-      <div class="field">
-        <label>Security Level</label>
-        <div class="auth-card">
-          <div class="auth-row">
-            <span class="auth-label" id="auth-label">🔒 Require Identity Verification (Self Protocol)</span>
-            <label class="toggle">
-              <input type="checkbox" id="auth-toggle" checked onchange="updateAuthToggle()" />
-              <span class="slider"></span>
-            </label>
-          </div>
-          <div class="auth-desc" id="auth-desc">
-            Recipient must scan a QR code with the Self app and prove their identity before claiming. Only they can collect — even if someone else gets the link.
-          </div>
-        </div>
-      </div>
-
-      <!-- Send -->
-      <button class="btn-send" id="btn-send" onclick="sendRemittance()" disabled>Connect wallet to send</button>
+      <button class="btn" id="btn-send" onclick="send()" disabled>Connect wallet to send</button>
     </div>
   </div>
 
-  <!-- LOADING -->
-  <div id="view-loading" class="panel">
-    <div class="card">
-      <div class="spinner-wrap">
-        <div class="spinner"></div>
-        <p style="color:var(--muted); font-size:14px;">Processing on Celo network…</p>
-      </div>
-    </div>
-  </div>
-
-  <!-- SUCCESS -->
-  <div id="view-success" class="panel">
+  <div id="view-success" class="hidden">
     <div class="card">
       <div class="success-icon">✅</div>
-      <h2 style="text-align:center; margin-bottom:6px;">Email sent!</h2>
-      <p style="text-align:center; color:var(--muted); font-size:13px; margin-bottom:20px;" id="success-sub">
-        Claim email delivered to recipient.
-      </p>
-      <div style="font-size:12px; color:var(--muted); margin-bottom:6px;">Claim link:</div>
-      <div class="claim-url-box" id="claim-url"></div>
-      <button class="btn-copy" onclick="copyClaimUrl()">📋 Copy claim link</button>
-      <button class="btn-copy" onclick="reset()" style="margin-top:8px;">Send another →</button>
+      <h2 style="text-align:center;margin-bottom:8px">Sent!</h2>
+      <p style="text-align:center;color:#94a3b8;font-size:13px;margin-bottom:16px" id="s-sub"></p>
+      <div style="font-size:12px;color:#94a3b8;margin-bottom:4px">Claim link:</div>
+      <div class="claim-box" id="claim-url"></div>
+      <button class="btn-sec" onclick="navigator.clipboard.writeText(document.getElementById('claim-url').textContent).then(()=>{this.textContent='✅ Copied!';setTimeout(()=>this.textContent='📋 Copy claim link',2000)})">📋 Copy claim link</button>
+      <button class="btn-sec" onclick="reset()">Send another →</button>
     </div>
   </div>
 
-  <!-- ERROR -->
-  <div id="view-error" class="panel">
+  <div id="view-error" class="hidden">
     <div class="card">
-      <div class="error-box" id="error-msg"></div>
-      <button class="btn-retry" onclick="reset()">Try again</button>
+      <div class="error" id="err-msg"></div>
+      <button class="btn-sec" onclick="showForm()">Try again</button>
     </div>
   </div>
 
-  <div class="chains-footer">
-    <span class="dot" style="background:var(--celo)"></span>Celo
-    <span class="dot" style="background:var(--base)"></span>Base
-    <span class="dot" style="background:var(--monad)"></span>Monad
-    &nbsp;·&nbsp; Built for Synthesis Hackathon
+  <div id="view-loading" class="hidden">
+    <div class="card" style="text-align:center;padding:32px">
+      <div style="font-size:32px;margin-bottom:12px">⏳</div>
+      <p style="color:#94a3b8">Processing on <span id="chain-name">Celo</span>…</p>
+    </div>
   </div>
 </div>
 
 <script>
-  // ── Config ─────────────────────────────────────────────────
-  const API = window.location.hostname === 'localhost'
-    ? 'http://localhost:3001'
-    : (window.ENV_API_URL || 'https://email-remittance-pro.up.railway.app');  // injected by Vercel env or relative proxy
+const API = 'https://email-remittance-pro.up.railway.app';
+let chain = 'celo', chainSym = 'CELO', walletAddr = null, walletProof = null;
 
-  const CHAINS = {
-    celo:  { id: '0xA4EC', name: 'Celo',  symbol: 'CELO', rpc: 'https://forno.celo.org',   emoji: '🟡' },
-    base:  { id: '0x2105', name: 'Base',  symbol: 'ETH',  rpc: 'https://mainnet.base.org',  emoji: '🔵' },
-    monad: { id: '0x8F',   name: 'Monad', symbol: 'MON',  rpc: 'https://rpc.monad.xyz',     emoji: '🟣' },
-  };
+function setChain(c,s,e){
+  chain=c; chainSym=s;
+  document.getElementById('sym').textContent=s;
+  document.getElementById('chain-name').textContent=c.charAt(0).toUpperCase()+c.slice(1);
+  ['celo','base','monad'].forEach(x=>document.getElementById('c-'+x).classList.toggle('active',x===c));
+}
 
-  let currentChain = 'celo';
-  let walletAddress = null;
-  let lastClaimUrl = '';
-
-  // ── Wallet Connect ─────────────────────────────────────────
-  let walletSignature = null;
-
-  async function connectWallet() {
-    const provider = window.ethereum;
-    const btn = document.getElementById('btn-connect');
-    const sendBtn = document.getElementById('btn-send');
-
-    if (!provider) {
-      btn.textContent = 'No Wallet Detected';
-      btn.style.borderColor = '#ef4444';
-      btn.style.color = '#ef4444';
-      showError('No wallet detected.\n\nInstall MetaMask or enable Brave Wallet (Settings → Brave Wallet) to send a remittance.\n\nRecipients never need a wallet — only senders do.');
-      return;
-    }
-
-    btn.textContent = 'Connecting…';
-    btn.disabled = true;
-    sendBtn.disabled = true;
-
-    try {
-      // Step 1: get accounts
-      const accounts = await provider.request({ method: 'eth_requestAccounts' });
-      walletAddress = accounts[0];
-      btn.textContent = 'Sign to verify ownership…';
-
-      // Step 2: ownership proof — REQUIRED, no bypass
-      const nonce = Date.now().toString();
-      const message = `Email Remittance Pro\nWallet ownership verification\nAddress: ${walletAddress}\nNonce: ${nonce}\n\nSigning proves you own this wallet. No funds will be moved.`;
-
-      const signature = await provider.request({
-        method: 'personal_sign',
-        params: [message, walletAddress],
-      });
-
-      walletSignature = { message, signature, nonce, address: walletAddress };
-
-      // Verified — unlock send
-      document.getElementById('wallet-label').textContent = '✓ Verified owner';
-      document.getElementById('wallet-addr').textContent = walletAddress.slice(0,6) + '…' + walletAddress.slice(-4);
-      btn.textContent = '✓ Verified';
-      btn.classList.add('connected');
-      btn.disabled = false;
-      sendBtn.disabled = false;
-      sendBtn.textContent = 'Send →';
-
-    } catch (e) {
-      // Reset — signature rejected or connection failed
-      walletAddress = null;
-      walletSignature = null;
-      btn.textContent = 'Connect Wallet';
-      btn.disabled = false;
-      sendBtn.disabled = true;
-      sendBtn.textContent = 'Connect wallet to send';
-      document.getElementById('wallet-label').textContent = 'Not connected';
-      document.getElementById('wallet-addr').textContent = '';
-
-      if (e.code === 4001) {
-        showError('Signature required.\n\nYou must sign the ownership message to prove you control this wallet. No funds are moved — it\'s just a verification step.');
-      } else {
-        showError('Connection failed. Please try again.');
-      }
-      console.error(e);
-    }
+async function connectWallet(){
+  const p = window.ethereum;
+  const btn = document.getElementById('btn-w');
+  if(!p){
+    showError('No wallet found.\n\nIn Brave: go to Settings → Brave Wallet → turn on.\nOr install MetaMask.\n\nRecipients never need a wallet — only senders do.');
+    return;
   }
-
-  // ── Chain selection ─────────────────────────────────────────
-  function selectChain(chain) {
-    currentChain = chain;
-    updateFeeQuote();
-    document.querySelectorAll('.chain-btn').forEach(b => b.classList.remove('active'));
-    document.getElementById('chain-' + chain).classList.add('active');
-    document.getElementById('currency-badge').textContent = CHAINS[chain].symbol;
-    document.getElementById('view-loading').querySelector('p').textContent =
-      `Processing on ${CHAINS[chain].name} network…`;
+  btn.textContent='Connecting…'; btn.disabled=true;
+  try{
+    const accs = await p.request({method:'eth_requestAccounts'});
+    walletAddr = accs[0];
+    btn.textContent='Sign to verify…';
+    const nonce = Date.now()+'';
+    const msg = `Email Remittance Pro\nProve wallet ownership\n${walletAddr}\nNonce:${nonce}\n\nNo funds moved.`;
+    const sig = await p.request({method:'personal_sign',params:[msg,walletAddr]});
+    walletProof = {message:msg,signature:sig,nonce,address:walletAddr};
+    document.getElementById('w-label').textContent='✓ Verified';
+    document.getElementById('w-addr').textContent=walletAddr.slice(0,6)+'…'+walletAddr.slice(-4);
+    btn.textContent='✓ Verified'; btn.classList.add('ok'); btn.disabled=false;
+    document.getElementById('btn-send').disabled=false;
+    document.getElementById('btn-send').textContent='Send →';
+  }catch(e){
+    walletAddr=null; walletProof=null;
+    btn.textContent='Connect Wallet'; btn.disabled=false;
+    document.getElementById('btn-send').disabled=true;
+    document.getElementById('btn-send').textContent='Connect wallet to send';
+    if(e.code===4001) showError('You must sign the message to verify wallet ownership.\nNo funds are moved — it\'s just a proof.');
+    else showError('Connection failed: '+e.message);
   }
+}
 
-  // ── Auth toggle ─────────────────────────────────────────────
-  function updateAuthToggle() {
-    const on = document.getElementById('auth-toggle').checked;
-    document.getElementById('auth-label').textContent = on
-      ? '🔒 Require Identity Verification (Self Protocol)'
-      : '⚠️ Open Claim — No Verification';
-    const desc = document.getElementById('auth-desc');
-    desc.className = 'auth-desc' + (on ? '' : ' warning');
-    desc.textContent = on
-      ? 'Recipient must scan a QR code with the Self app and prove their identity before claiming. Only they can collect — even if someone else gets the link.'
-      : 'Anyone with the claim link can collect the funds. Faster and simpler — but if the email is forwarded or intercepted, funds could be stolen. You accept this risk.';
-  }
-
-  // ── Send ─────────────────────────────────────────────────────
-  async function sendRemittance() {
-    const email = document.getElementById('email').value.trim();
-    const amount = document.getElementById('amount').value.trim();
-    const requireAuth = document.getElementById('auth-toggle').checked;
-
-    if (!email || !/\S+@\S+\.\S+/.test(email)) { alert('Enter a valid recipient email.'); return; }
-    if (!amount || parseFloat(amount) <= 0) { alert('Enter a valid amount.'); return; }
-
-    show('loading');
-
-    try {
-      const res = await fetch(`${API}/api/remittance/send`, {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          senderEmail: walletAddress ? `${walletAddress.slice(0,6)}@wallet.eth` : 'sender@remittance.app',
-          recipientEmail: email,
-          amount: amount,
-          chain: currentChain,
-          requireAuth,
-          feeModel: currentFeeModel,
-          senderWallet: walletAddress || '',
-          // Wallet ownership proof — backend verifies signature before processing
-          walletProof: walletSignature || null,
-        }),
-      });
-
-      const data = await res.json();
-      if (!res.ok || !data.success) throw new Error(data?.error?.message || data?.message || 'Send failed');
-
-      lastClaimUrl = data.data.claimUrl;
-      document.getElementById('claim-url').textContent = lastClaimUrl;
-      document.getElementById('success-sub').textContent =
-        `Claim email sent to ${email}. ${requireAuth ? '🔒 Self Protocol verification required.' : '⚠️ Open claim — no verification.'}`;
-      show('success');
-    } catch (err) {
-      showError(err.message);
-    }
-  }
-
-  // ── Helpers ──────────────────────────────────────────────────
-  function show(view) {
-    ['form','loading','success','error'].forEach(v => {
-      document.getElementById('view-' + v).style.display = v === view ? 'block' : 'none';
+async function send(){
+  const email=document.getElementById('email').value.trim();
+  const amount=document.getElementById('amount').value.trim();
+  if(!email||!/\S+@\S+\.\S+/.test(email)){alert('Enter a valid email');return;}
+  if(!amount||parseFloat(amount)<=0){alert('Enter a valid amount');return;}
+  show('loading');
+  try{
+    const r=await fetch(API+'/api/remittance/send',{
+      method:'POST',
+      headers:{'Content-Type':'application/json'},
+      body:JSON.stringify({
+        senderEmail: walletAddr?walletAddr.slice(0,6)+'@wallet.eth':'sender@remittance.app',
+        recipientEmail:email, amount, chain,
+        requireAuth:false, feeModel:'standard',
+        senderWallet:walletAddr||'', walletProof
+      })
     });
-  }
+    const d=await r.json();
+    if(!r.ok||!d.success) throw new Error(d?.error?.message||d?.message||'Send failed');
+    document.getElementById('claim-url').textContent=d.data.claimUrl;
+    document.getElementById('s-sub').textContent='Claim email sent to '+email;
+    show('success');
+  }catch(e){ showError(e.message); }
+}
 
-  function showError(msg) {
-    document.getElementById('error-msg').textContent = msg;
-    show('error');
-  }
-
-  function reset() {
-    document.getElementById('email').value = '';
-    document.getElementById('amount').value = '';
-    show('form');
-  }
-
-  function copyClaimUrl() {
-    navigator.clipboard.writeText(lastClaimUrl).then(() => {
-      const btn = event.target;
-      btn.textContent = '✅ Copied!';
-      setTimeout(() => btn.textContent = '📋 Copy claim link', 2000);
-    });
-  }
-
-  // ── Fee model ───────────────────────────────────────────────
-  let currentFeeModel = 'standard';
-
-  function selectFee(model) {
-    currentFeeModel = model;
-    const stdCard = document.getElementById('fee-standard');
-    const premCard = document.getElementById('fee-premium');
-    const stdCheck = document.getElementById('fee-standard-check');
-    const premCheck = document.getElementById('fee-premium-check');
-    if (model === 'premium') {
-      stdCard.style.borderColor = 'var(--border)';
-      premCard.style.borderColor = 'var(--blue)';
-      premCard.style.background = 'rgba(59,130,246,0.05)';
-      stdCard.style.background = 'var(--card2)';
-      stdCheck.textContent = '○'; stdCheck.style.color = 'var(--muted)';
-      premCheck.textContent = '●'; premCheck.style.color = 'var(--blue)';
-    } else {
-      stdCard.style.borderColor = 'var(--blue)';
-      stdCard.style.background = 'rgba(59,130,246,0.05)';
-      premCard.style.borderColor = 'var(--border)';
-      premCard.style.background = 'var(--card2)';
-      stdCheck.textContent = '●'; stdCheck.style.color = 'var(--blue)';
-      premCheck.textContent = '○'; premCheck.style.color = 'var(--muted)';
-    }
-    updateFeeQuote();
-  }
-
-  async function updateFeeQuote() {
-    const amount = document.getElementById('amount').value.trim();
-    if (!amount || parseFloat(amount) <= 0) {
-      document.getElementById('fee-summary').style.display = 'none';
-      return;
-    }
-    try {
-      const res = await fetch(`${API}/api/remittance/fee-quote?amount=${amount}&chain=${currentChain}&feeModel=${currentFeeModel}`);
-      if (!res.ok) return;
-      const data = await res.json();
-      const d = data.data;
-      const sym = CHAINS[currentChain].symbol;
-      document.getElementById('fs-send').textContent = `${d.sendAmount} ${sym}`;
-      document.getElementById('fs-recv').textContent = `${d.recipientAmount} ${sym}`;
-      document.getElementById('fs-fee').textContent = currentFeeModel === 'premium' ? `$1 (${d.feeAmount} ${sym})` : `Gas only (${d.gasLabel})`;
-      document.getElementById('fee-summary').style.display = 'block';
-    } catch {}
-  }
-
-  // Auto-detect wallet on load (MetaMask, Brave, Coinbase, any injected)
-  (async function autoDetectWallet() {
-    const provider = window.ethereum;
-    if (!provider) return;
-    try {
-      const accounts = await provider.request({ method: 'eth_accounts' });
-      if (accounts && accounts.length) {
-        walletAddress = accounts[0];
-        document.getElementById('wallet-label').textContent = 'Connected';
-        document.getElementById('wallet-addr').textContent = walletAddress.slice(0,6) + '…' + walletAddress.slice(-4);
-        const btn = document.getElementById('btn-connect');
-        btn.textContent = '✓ Connected';
-        btn.classList.add('connected');
-      }
-    } catch(e) { /* silent — wallet not connected yet */ }
-  })();
+function show(v){['form','success','error','loading'].forEach(x=>{const el=document.getElementById('view-'+x);el.className=x===v?'':(x==='form'?'hidden':'hidden')});}
+function showForm(){show('form');}
+function showError(m){document.getElementById('err-msg').textContent=m;show('error');}
+function reset(){document.getElementById('email').value='';document.getElementById('amount').value='';show('form');}
+// init
+show('form');
 </script>
 </body>
 </html>
