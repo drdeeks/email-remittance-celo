@@ -173,12 +173,28 @@ function setChain(c,s){
   updateHint();
 }
 
+// ── Wallet detection ────────────────────────────────────────
+function getProvider(){
+  // MetaMask, Brave, Coinbase, Trust, any EIP-1193 provider
+  if(window.ethereum) return window.ethereum;
+  // MetaMask mobile injects under ethereum
+  if(window.web3?.currentProvider) return window.web3.currentProvider;
+  // Multi-provider (EIP-6963)
+  if(window.ethereum?.providers?.length) return window.ethereum.providers[0];
+  return null;
+}
+
 // ── Wallet ──────────────────────────────────────────────────
 async function connectWallet(){
-  const p=window.ethereum;
+  // Give injected wallet up to 500ms to load (mobile browsers can be slow)
+  let p = getProvider();
+  if(!p){
+    await new Promise(r=>setTimeout(r,500));
+    p = getProvider();
+  }
   const btn=document.getElementById('btn-w');
   if(!p){
-    showError('No wallet detected.\n\nInstall MetaMask (metamask.io) and refresh this page.\n\nRecipients never need a wallet — only senders do.');
+    showError('No wallet detected.\n\nOptions:\n• MetaMask app → tap Browser → open this page\n• Install MetaMask extension and refresh\n• Use Brave browser with Brave Wallet enabled\n\nRecipients never need a wallet — only senders do.');
     return;
   }
   btn.textContent='Connecting…'; btn.disabled=true;
@@ -249,8 +265,23 @@ function reset(){document.getElementById('email').value='';document.getElementBy
 // Init
 show('form');
 fetchPrice();
-// Refresh price every 30s
 setInterval(fetchPrice, 30000);
+
+// Auto-detect already-connected wallet on load
+(async function(){
+  await new Promise(r=>setTimeout(r,300)); // wait for wallet to inject
+  const p = getProvider();
+  if(!p) return;
+  try{
+    const accs = await p.request({method:'eth_accounts'});
+    if(accs && accs.length){
+      // Already connected — but still need signature for security
+      // Just show the address, require sign on send
+      document.getElementById('w-addr').textContent=accs[0].slice(0,6)+'…'+accs[0].slice(-4);
+      document.getElementById('w-label').textContent='Wallet detected — click to verify';
+    }
+  }catch(e){}
+})();
 </script>
 </body>
 </html>
