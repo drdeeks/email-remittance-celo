@@ -76,7 +76,7 @@ input:focus{border-color:#3b82f6}
     </div>
   </div>
 
-  <div id="view-success" class="hidden">
+  <div id="view-success" style="display:none">
     <div class="card">
       <div class="success-icon">✅</div>
       <h2 style="text-align:center;margin-bottom:8px">Sent!</h2>
@@ -88,14 +88,14 @@ input:focus{border-color:#3b82f6}
     </div>
   </div>
 
-  <div id="view-error" class="hidden">
+  <div id="view-error" style="display:none">
     <div class="card">
       <div class="error" id="err-msg"></div>
       <button class="btn-sec" onclick="showForm()">Try again</button>
     </div>
   </div>
 
-  <div id="view-loading" class="hidden">
+  <div id="view-loading" style="display:none">
     <div class="card" style="text-align:center;padding:32px">
       <div style="font-size:32px;margin-bottom:12px">⏳</div>
       <p style="color:#94a3b8">Processing on <span id="chain-name">Celo</span>…</p>
@@ -257,7 +257,12 @@ async function send(){
   }catch(e){ showError(e.message); }
 }
 
-function show(v){['form','success','error','loading'].forEach(x=>{const el=document.getElementById('view-'+x);el.className=x===v?'':(x==='form'?'hidden':'hidden')});}
+function show(v){
+  document.getElementById('view-form').style.display    = (v==='form')    ? 'block' : 'none';
+  document.getElementById('view-success').style.display = (v==='success') ? 'block' : 'none';
+  document.getElementById('view-error').style.display   = (v==='error')   ? 'block' : 'none';
+  document.getElementById('view-loading').style.display = (v==='loading') ? 'block' : 'none';
+}
 function showForm(){show('form');}
 function showError(m){document.getElementById('err-msg').textContent=m;show('error');}
 function reset(){document.getElementById('email').value='';document.getElementById('amount').value='';show('form');}
@@ -267,21 +272,6 @@ show('form');
 fetchPrice();
 setInterval(fetchPrice, 30000);
 
-// Auto-detect already-connected wallet on load
-(async function(){
-  await new Promise(r=>setTimeout(r,300)); // wait for wallet to inject
-  const p = getProvider();
-  if(!p) return;
-  try{
-    const accs = await p.request({method:'eth_accounts'});
-    if(accs && accs.length){
-      // Already connected — but still need signature for security
-      // Just show the address, require sign on send
-      document.getElementById('w-addr').textContent=accs[0].slice(0,6)+'…'+accs[0].slice(-4);
-      document.getElementById('w-label').textContent='Wallet detected — click to verify';
-    }
-  }catch(e){}
-})();
 </script>
 </body>
 </html>
