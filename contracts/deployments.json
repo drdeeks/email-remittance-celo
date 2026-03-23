@@ -14,5 +14,13 @@
     "hub": "0x0000000000000000000000000000000000000000",
     "blockNumber": 63210858,
     "deployedAt": "2026-03-23T01:11:39.565Z"
+  },
+  "celo": {
+    "address": "0x10079Fa97E739Fd05Ddc5C7cD11951aEF566b7e0",
+    "txHash": "0x1de89c57521756843fab07aea8959a6c466f3bf9f0e3f8c5c1f1a0621f5437f4",
+    "selfEnabled": true,
+    "hub": "0xe57F4773bd9c9d8b6Cd70431117d353298B9f5BF",
+    "blockNumber": 62328314,
+    "deployedAt": "2026-03-23T01:24:34.362Z"
   }
 }
