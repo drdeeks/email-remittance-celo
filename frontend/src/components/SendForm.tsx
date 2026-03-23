@@ -1,8 +1,9 @@
 'use client';
 
 import { useState, useEffect } from 'react';
-import { useAccount, useSignMessage } from 'wagmi';
+import { useAccount, useSignMessage, useBalance } from 'wagmi';
 import { ConnectButton } from '@rainbow-me/rainbowkit';
+import { formatUnits } from 'viem';
 import { ChainSelector } from './ChainSelector';
 import { AuthToggle } from './AuthToggle';
 import { chainConfig, SupportedChainId } from '@/config/chains';
@@ -59,6 +60,16 @@ export function SendForm() {
 
   const chain = chainConfig[selectedChain];
   const availableTokens = RECIPIENT_TOKENS[selectedChain] || [];
+
+  // Fetch wallet balance for selected chain
+  const { data: balanceData, isLoading: balanceLoading } = useBalance({
+    address: address,
+    chainId: selectedChain,
+  });
+
+  const formattedBalance = balanceData 
+    ? parseFloat(formatUnits(balanceData.value, balanceData.decimals)).toFixed(4)
+    : '0.0000';
 
   // Set default recipient token when chain changes
   useEffect(() => {
@@ -236,7 +247,14 @@ export function SendForm() {
       </div>
 
       <div className="space-y-2">
-        <label className="text-sm text-gray-400">Amount to Send</label>
+        <div className="flex justify-between items-center">
+          <label className="text-sm text-gray-400">Amount to Send</label>
+          {isConnected && (
+            <span className="text-xs text-gray-500">
+              Balance: {balanceLoading ? '...' : `${formattedBalance} ${chain.symbol}`}
+            </span>
+          )}
+        </div>
         <div className="relative">
           <input
             type="number"
@@ -245,6 +263,7 @@ export function SendForm() {
             placeholder="0.00"
             step="0.01"
             min="0"
+            max={formattedBalance}
             className="w-full bg-slate-900 border border-slate-700 rounded-lg px-4 py-3 pr-20 text-white placeholder-gray-500 focus:border-sky-500 focus:outline-none transition-colors"
           />
           <span
@@ -254,6 +273,9 @@ export function SendForm() {
             {chain.symbol}
           </span>
         </div>
+        {isConnected && parseFloat(amount) > parseFloat(formattedBalance) && (
+          <p className="text-xs text-red-400">Insufficient balance</p>
+        )}
       </div>
 
       {/* Recipient Token Selector */}
