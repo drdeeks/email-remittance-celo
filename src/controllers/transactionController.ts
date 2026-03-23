@@ -1,6 +1,7 @@
 import { Router, Request, Response, NextFunction } from 'express';
 import { validationError, validateEmail, validateAmount } from '../utils/errors';
 import { logger } from '../utils/logger';
+import { ethers } from 'ethers';
 import { remittanceService } from '../services/remittanceService';
 import { detectChain, chainService, type SupportedChain } from '../services/celoService';
 import { uniswapService } from '../services/uniswapService';
@@ -14,7 +15,7 @@ const router = Router();
 // Create a new remittance transaction
 router.post('/send', async (req: Request, res: Response, next: NextFunction) => {
   try {
-    const { senderEmail, recipientEmail, amount, message, chain, currency, requireAuth, feeModel, senderWallet } = req.body;
+    const { senderEmail, recipientEmail, amount, message, chain, currency, requireAuth, feeModel, senderWallet, walletProof } = req.body;
 
     // Validate inputs
     if (!senderEmail || !recipientEmail) {
@@ -25,6 +26,20 @@ router.post('/send', async (req: Request, res: Response, next: NextFunction) => 
     const amountCelo = parseFloat(amount); // parse first so validateAmount gets a number
     validateAmount(amountCelo);
     const resolvedChain  = detectChain(currency, chain) as SupportedChain;
+
+    // Verify wallet ownership signature if provided
+    if (senderWallet && walletProof) {
+      try {
+        const recovered = ethers.utils.verifyMessage(walletProof.message, walletProof.signature);
+        if (recovered.toLowerCase() !== senderWallet.toLowerCase()) {
+          throw validationError('Wallet signature verification failed — you must sign with the connected wallet');
+        }
+        logger.info('Wallet ownership verified', { address: senderWallet });
+      } catch (sigErr: any) {
+        if (sigErr.statusCode === 400) throw sigErr; // re-throw our validation error
+        throw validationError('Invalid wallet signature — could not verify ownership');
+      }
+    }
     const resolvedFeeModel: FeeModel = feeModel === 'premium' ? 'premium' : 'standard';
 
     // Get fee quote + generate per-remittance escrow address

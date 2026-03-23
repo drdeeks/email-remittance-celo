@@ -232,41 +232,63 @@
   let lastClaimUrl = '';
 
   // ── Wallet Connect ─────────────────────────────────────────
+  let walletSignature = null;
+
   async function connectWallet() {
-    // Detect Brave, MetaMask, Coinbase, or any injected provider
-    const provider = window.ethereum
-      || window.braveSolana  // Brave sometimes uses this namespace
-      || (window.ethereum?.isBraveWallet ? window.ethereum : null);
+    const provider = window.ethereum;
 
     if (!provider) {
-      // No wallet — still allow sending (senderWallet will be empty)
       document.getElementById('wallet-label').textContent = 'No wallet — sending anonymously';
       document.getElementById('wallet-addr').textContent = '';
       const btn = document.getElementById('btn-connect');
       btn.textContent = '⚠ No Wallet';
       btn.style.borderColor = 'var(--yellow, #f59e0b)';
       btn.style.color = 'var(--yellow, #f59e0b)';
-      const sendBtn = document.getElementById('btn-send');
-      sendBtn.disabled = false;
-      sendBtn.textContent = 'Send →';
+      document.getElementById('btn-send').disabled = false;
+      document.getElementById('btn-send').textContent = 'Send →';
       return;
     }
+
+    const btn = document.getElementById('btn-connect');
+    btn.textContent = 'Connecting…';
+    btn.disabled = true;
+
     try {
+      // Step 1: request accounts
       const accounts = await provider.request({ method: 'eth_requestAccounts' });
       walletAddress = accounts[0];
-      document.getElementById('wallet-label').textContent = 'Connected';
+
+      // Step 2: sign ownership proof
+      const nonce = Date.now().toString();
+      const message = `Email Remittance Pro\nWallet ownership verification\nAddress: ${walletAddress}\nNonce: ${nonce}\n\nSigning this message proves you own this wallet. No funds will be moved.`;
+
+      btn.textContent = 'Sign to verify…';
+      const signature = await provider.request({
+        method: 'personal_sign',
+        params: [message, walletAddress],
+      });
+
+      walletSignature = { message, signature, nonce, address: walletAddress };
+
+      // Update UI
+      document.getElementById('wallet-label').textContent = '✓ Verified owner';
       document.getElementById('wallet-addr').textContent = walletAddress.slice(0,6) + '…' + walletAddress.slice(-4);
-      const btn = document.getElementById('btn-connect');
-      btn.textContent = '✓ Connected';
+      btn.textContent = '✓ Verified';
       btn.classList.add('connected');
-      const sendBtn = document.getElementById('btn-send');
-      sendBtn.disabled = false;
-      sendBtn.textContent = 'Send →';
+      btn.disabled = false;
+      document.getElementById('btn-send').disabled = false;
+      document.getElementById('btn-send').textContent = 'Send →';
+
     } catch (e) {
-      // User rejected — still allow anonymous send
-      const sendBtn = document.getElementById('btn-send');
-      sendBtn.disabled = false;
-      sendBtn.textContent = 'Send →';
+      btn.textContent = 'Connect Wallet';
+      btn.disabled = false;
+      if (e.code === 4001) {
+        // User rejected signature — allow anonymous send but warn
+        document.getElementById('wallet-label').textContent = '⚠ Unverified — sending anonymously';
+        document.getElementById('wallet-addr').textContent = walletAddress ? walletAddress.slice(0,6) + '…' + walletAddress.slice(-4) : '';
+        document.getElementById('btn-send').disabled = false;
+        document.getElementById('btn-send').textContent = 'Send →';
+      }
       console.error(e);
     }
   }
@@ -318,6 +340,8 @@
           requireAuth,
           feeModel: currentFeeModel,
           senderWallet: walletAddress || '',
+          // Wallet ownership proof — backend verifies signature before processing
+          walletProof: walletSignature || null,
         }),
       });
 
