@@ -5,6 +5,9 @@ import { remittanceService } from '../services/remittanceService';
 import { detectChain, chainService, type SupportedChain } from '../services/celoService';
 import { uniswapService } from '../services/uniswapService';
 import { feeService, type FeeModel } from '../services/feeService';
+import { uniswapQuoteService } from '../services/uniswapQuoteService';
+import { swapService } from '../services/swapService';
+import { getTokensByChain, getChainIdFromName, resolveTokenAddress } from '../config/tokens';
 
 const router = Router();
 
@@ -435,6 +438,142 @@ router.post('/uniswap/bridge', async (req: Request, res: Response, next: NextFun
       success: true,
       data: quote,
       note: 'Set UNISWAP_API_KEY in .env to execute this bridge. Quote shows estimated output.',
+      timestamp: new Date().toISOString(),
+    });
+  } catch (error) {
+    next(error);
+  }
+});
+
+// ─── Multi-Token Swap Routes (On-Chain Quoter V2 + SwapRouter02) ───────────────
+
+// GET /api/quote — Get swap quote (on-chain, no API key required)
+router.get('/quote', async (req: Request, res: Response, next: NextFunction) => {
+  try {
+    const { fromChain, fromToken, toToken, amount } = req.query;
+
+    if (!fromChain || !fromToken || !toToken || !amount) {
+      throw validationError('fromChain, fromToken, toToken, and amount are required');
+    }
+
+    const chainId = typeof fromChain === 'string' && /^\d+$/.test(fromChain)
+      ? parseInt(fromChain)
+      : getChainIdFromName(fromChain as string);
+
+    if (!uniswapQuoteService.isSwapSupported(chainId)) {
+      return res.json({
+        success: false,
+        error: { message: `Swaps not supported on chain ${chainId}. Use Base (8453) or Celo (42220).` },
+      });
+    }
+
+    const quote = await uniswapQuoteService.getSwapQuote(
+      chainId,
+      fromToken as string,
+      toToken as string,
+      amount as string
+    );
+
+    // Estimate gas fee in USD (rough)
+    const gasEstimateGwei = quote.gasEstimate ? BigInt(quote.gasEstimate) : 100000n;
+    const gasPrice = 0.1; // gwei estimate
+    const ethPrice = chainId === 8453 ? 3500 : 0.5; // ETH vs CELO price rough
+    const estimatedFeeUsd = (Number(gasEstimateGwei) * gasPrice * ethPrice / 1e9).toFixed(4);
+
+    res.json({
+      success: true,
+      data: {
+        amountOut: quote.amountOut,
+        priceImpact: quote.priceImpact,
+        estimatedFee: `$${estimatedFeeUsd}`,
+        route: quote.route,
+        fee: quote.feePercent,
+        provider: quote.provider,
+      },
+      timestamp: new Date().toISOString(),
+    });
+  } catch (error) {
+    next(error);
+  }
+});
+
+// GET /api/tokens — Get supported tokens for a chain
+router.get('/tokens', (req: Request, res: Response, next: NextFunction) => {
+  try {
+    const { chain } = req.query;
+
+    if (!chain) {
+      throw validationError('chain parameter is required (e.g., 8453, celo, base)');
+    }
+
+    const chainId = typeof chain === 'string' && /^\d+$/.test(chain)
+      ? parseInt(chain)
+      : getChainIdFromName(chain as string);
+
+    const tokens = getTokensByChain(chainId);
+
+    res.json({
+      success: true,
+      data: {
+        chainId,
+        tokens: tokens.map(t => ({
+          address: t.address,
+          symbol: t.symbol,
+          name: t.name,
+          decimals: t.decimals,
+          isNative: t.isNative,
+        })),
+        swapSupported: swapService.isSwapSupported(chainId),
+      },
+      timestamp: new Date().toISOString(),
+    });
+  } catch (error) {
+    next(error);
+  }
+});
+
+// GET /api/swap/status — Get swap service status
+router.get('/swap/status', (req: Request, res: Response) => {
+  res.json({
+    success: true,
+    data: {
+      quote: uniswapQuoteService.getStatus(),
+      swap: swapService.getStatus(),
+    },
+    timestamp: new Date().toISOString(),
+  });
+});
+
+// POST /api/swap/execute — Execute a swap (requires private key in body — for server-side use)
+router.post('/swap/execute', async (req: Request, res: Response, next: NextFunction) => {
+  try {
+    const { chainId, tokenIn, tokenOut, amountIn, recipient, slippageBps } = req.body;
+
+    if (!chainId || !tokenIn || !tokenOut || !amountIn || !recipient) {
+      throw validationError('chainId, tokenIn, tokenOut, amountIn, and recipient are required');
+    }
+
+    // Use server wallet for execution
+    const privateKey = process.env.WALLET_PRIVATE_KEY;
+    if (!privateKey) {
+      throw validationError('Server wallet not configured');
+    }
+
+    const result = await swapService.executeSwap({
+      chainId: parseInt(chainId),
+      tokenIn,
+      tokenOut,
+      amountIn: amountIn.toString(),
+      recipient,
+      privateKey,
+      slippageBps: slippageBps ? parseInt(slippageBps) : undefined,
+    });
+
+    logger.info('Swap executed', result);
+
+    res.json({
+      success: true,
+      data: result,
       timestamp: new Date().toISOString(),
     });
   } catch (error) {
