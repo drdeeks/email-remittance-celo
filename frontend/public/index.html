@@ -170,7 +170,7 @@
       </div>
 
       <!-- Send -->
-      <button class="btn-send" id="btn-send" onclick="sendRemittance()">Send →</button>
+      <button class="btn-send" id="btn-send" onclick="sendRemittance()" disabled>Connect wallet to send</button>
     </div>
   </div>
 
@@ -236,33 +236,31 @@
 
   async function connectWallet() {
     const provider = window.ethereum;
+    const btn = document.getElementById('btn-connect');
+    const sendBtn = document.getElementById('btn-send');
 
     if (!provider) {
-      document.getElementById('wallet-label').textContent = 'No wallet — sending anonymously';
-      document.getElementById('wallet-addr').textContent = '';
-      const btn = document.getElementById('btn-connect');
-      btn.textContent = '⚠ No Wallet';
-      btn.style.borderColor = 'var(--yellow, #f59e0b)';
-      btn.style.color = 'var(--yellow, #f59e0b)';
-      document.getElementById('btn-send').disabled = false;
-      document.getElementById('btn-send').textContent = 'Send →';
+      btn.textContent = 'No Wallet Detected';
+      btn.style.borderColor = '#ef4444';
+      btn.style.color = '#ef4444';
+      showError('No wallet detected.\n\nInstall MetaMask or enable Brave Wallet (Settings → Brave Wallet) to send a remittance.\n\nRecipients never need a wallet — only senders do.');
       return;
     }
 
-    const btn = document.getElementById('btn-connect');
     btn.textContent = 'Connecting…';
     btn.disabled = true;
+    sendBtn.disabled = true;
 
     try {
-      // Step 1: request accounts
+      // Step 1: get accounts
       const accounts = await provider.request({ method: 'eth_requestAccounts' });
       walletAddress = accounts[0];
+      btn.textContent = 'Sign to verify ownership…';
 
-      // Step 2: sign ownership proof
+      // Step 2: ownership proof — REQUIRED, no bypass
       const nonce = Date.now().toString();
-      const message = `Email Remittance Pro\nWallet ownership verification\nAddress: ${walletAddress}\nNonce: ${nonce}\n\nSigning this message proves you own this wallet. No funds will be moved.`;
+      const message = `Email Remittance Pro\nWallet ownership verification\nAddress: ${walletAddress}\nNonce: ${nonce}\n\nSigning proves you own this wallet. No funds will be moved.`;
 
-      btn.textContent = 'Sign to verify…';
       const signature = await provider.request({
         method: 'personal_sign',
         params: [message, walletAddress],
@@ -270,24 +268,30 @@
 
       walletSignature = { message, signature, nonce, address: walletAddress };
 
-      // Update UI
+      // Verified — unlock send
       document.getElementById('wallet-label').textContent = '✓ Verified owner';
       document.getElementById('wallet-addr').textContent = walletAddress.slice(0,6) + '…' + walletAddress.slice(-4);
       btn.textContent = '✓ Verified';
       btn.classList.add('connected');
       btn.disabled = false;
-      document.getElementById('btn-send').disabled = false;
-      document.getElementById('btn-send').textContent = 'Send →';
+      sendBtn.disabled = false;
+      sendBtn.textContent = 'Send →';
 
     } catch (e) {
+      // Reset — signature rejected or connection failed
+      walletAddress = null;
+      walletSignature = null;
       btn.textContent = 'Connect Wallet';
       btn.disabled = false;
+      sendBtn.disabled = true;
+      sendBtn.textContent = 'Connect wallet to send';
+      document.getElementById('wallet-label').textContent = 'Not connected';
+      document.getElementById('wallet-addr').textContent = '';
+
       if (e.code === 4001) {
-        // User rejected signature — allow anonymous send but warn
-        document.getElementById('wallet-label').textContent = '⚠ Unverified — sending anonymously';
-        document.getElementById('wallet-addr').textContent = walletAddress ? walletAddress.slice(0,6) + '…' + walletAddress.slice(-4) : '';
-        document.getElementById('btn-send').disabled = false;
-        document.getElementById('btn-send').textContent = 'Send →';
+        showError('Signature required.\n\nYou must sign the ownership message to prove you control this wallet. No funds are moved — it\'s just a verification step.');
+      } else {
+        showError('Connection failed. Please try again.');
       }
       console.error(e);
     }
