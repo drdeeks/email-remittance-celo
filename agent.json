@@ -3,22 +3,54 @@
   "version": "1.0.0",
   "operatorWallet": "0x9D65433B3FE597C15a46D2365F8F2c1701Eb9e4A",
   "erc8004": {
-    "chain": "optimism",
-    "registrationTx": "0x951823b1186b9b2b03f1d2f453e9d51bbebf85a3fb03460ff40cf7909f608c71"
+    "chain": "base",
+    "chainId": 8453,
+    "contractAddress": "0x...",
+    "registrationTx": "0xc3b2f088847b5dfc7e192b08e7535d52e8490816df913f8e3ed0a911cf8a66ff",
+    "ownerWallet": "drdeeks.base.eth",
+    "ownerAddress": "0x12F1B38DC35AA65B50E5849d02559078953aE24b",
+    "explorerUrl": "https://basescan.org/tx/0xc3b2f088847b5dfc7e192b08e7535d52e8490816df913f8e3ed0a911cf8a66ff"
   },
   "capabilities": {
-    "tools": ["celo-sdk", "self-protocol-sdk", "venice-ai", "nodemailer", "x402-payments"],
-    "models": ["venice-uncensored"],
-    "chains": ["celo-alfajores"],
-    "techStack": ["typescript", "express", "jest"]
+    "tools": [
+      "celo-sdk",
+      "self-protocol-sdk",
+      "venice-ai",
+      "nodemailer",
+      "x402-payments"
+    ],
+    "models": [
+      "venice-uncensored"
+    ],
+    "chains": [
+      "celo",
+      "base",
+      "monad"
+    ],
+    "techStack": [
+      "typescript",
+      "express",
+      "jest"
+    ]
   },
-  "taskCategories": ["crypto-remittance", "email-native-payments", "zk-identity", "fraud-detection"],
+  "taskCategories": [
+    "crypto-remittance",
+    "email-native-payments",
+    "zk-identity",
+    "fraud-detection",
+    "multi-chain-defi"
+  ],
   "computeConstraints": {
     "hardware": "ThinkPad laptop, 3.7GB RAM",
     "budget": "zero-budget build",
     "runtime": "openclaw-agent"
   },
   "harness": "openclaw",
-  "primaryModel": "claude-opus-4-6",
-  "description": "Autonomous agent that built an email-native crypto remittance system on Celo with ZK identity verification via Self Protocol and Venice AI fraud scoring."
+  "primaryModel": "claude-sonnet-4-6",
+  "description": "Autonomous agent that built an email-native crypto remittance system. Deployed smart contracts to 3 chains, integrated Self Protocol ZK, Venice AI fraud detection, and Uniswap Universal Router swaps.",
+  "agentId": "titan-3070917",
+  "farcasterFid": "3083838",
+  "farcasterHandle": "@titan-agent",
+  "moltbookHandle": "@titan_192",
+  "operatorEns": "drdeeks.base.eth"
 }
