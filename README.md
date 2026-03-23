@@ -872,6 +872,63 @@ ZK proof includes: age verification (18+), OFAC sanctions check, nationality —
 
 ---
 
+## 🤖 Venice AI: Private Fraud Detection
+
+Every remittance passes through Venice AI fraud analysis **before** funds move. Venice is the only inference provider that guarantees zero data retention — no transaction details, no behavioral patterns, no PII are stored after the call completes.
+
+### What Venice Analyzes
+
+Before any transfer executes, Venice evaluates:
+
+| Signal | What It Catches |
+|--------|----------------|
+| **Amount anomaly** | Sudden large transfers inconsistent with account history |
+| **Email domain risk** | Disposable/temp email services used for claim links |
+| **Velocity** | Multiple rapid-fire sends to different recipients |
+| **Recipient pattern** | Same claim wallet used across unrelated senders |
+| **Chain mismatch** | Sending high value on low-liquidity chains |
+| **Time-of-day pattern** | Unusual transaction timing correlated with fraud windows |
+
+### Why Venice Specifically
+
+Standard AI fraud analysis creates a surveillance problem: every transaction gets logged, analyzed, and stored by a centralized provider. That data becomes a liability — breach risk, subpoena risk, regulatory risk.
+
+Venice runs **private inference**: the model processes the transaction in a sandboxed environment, returns a risk score, and discards all inputs. There is no conversation history, no training on your data, no retention period. The fraud check is functionally identical to a traditional AI — the difference is that nothing persists after the call.
+
+### The Fraud Analysis Flow
+
+```
+Sender submits remittance
+         ↓
+Venice AI receives: { amount, chain, fromEmail, toEmail, tokenType, timestamp }
+         ↓
+Venice returns: { riskScore: 0-100, flags: [...], recommendation: "allow" | "review" | "block" }
+         ↓
+riskScore < 30  → allow (proceed to escrow)
+riskScore 30-70 → flag for review (proceed but log)
+riskScore > 70  → block (return error to sender, funds never leave wallet)
+         ↓
+Zero inputs retained by Venice after response
+```
+
+### Integration
+
+Venice uses an OpenAI-compatible API endpoint — drop-in replacement:
+
+```typescript
+// src/services/veniceService.ts
+const response = await openai.chat.completions.create({
+  model: "llama-3.3-70b",   // Venice-hosted, private inference
+  messages: [{ role: "user", content: fraudAnalysisPrompt }],
+  // Venice endpoint: https://api.venice.ai/api/v1
+  // No data retention by design
+});
+```
+
+Set `VENICE_API_KEY` in your `.env` to activate production analysis. Without it, the service runs in demo mode (all transactions allowed through).
+
+---
+
 ## 🔗 Deployed Smart Contracts
 
 `EmailRemittanceVerifier.sol` is deployed and **source-verified** on all three chains. These contracts are the on-chain enforcement layer — no backend can release escrow funds without satisfying the contract's rules.
