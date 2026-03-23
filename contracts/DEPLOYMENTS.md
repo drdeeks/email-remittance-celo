@@ -22,7 +22,7 @@ Contract: `EmailRemittanceVerifier.sol` (compiler: `solcjs v0.8.34`, optimizer: 
 | **Owner** | `0x9D65433B3FE597C15a46D2365F8F2c1701Eb9e4A` |
 | **Explorer** | https://basescan.org/address/0x10079Fa97E739Fd05Ddc5C7cD11951aEF566b7e0 |
 | **TX Explorer** | https://basescan.org/tx/0x38e0d55e1a14920466f8f141ec99e2a9daf95551035cc0218dfc58fadc59f807 |
-| **Verified** | ⏳ Pending (requires Etherscan API key) |
+| **Verified** | ✅ Pass - Verified (Etherscan V2 / Basescan) |
 
 Constructor ABI args (Base):
 ```
@@ -62,15 +62,19 @@ Constructor ABI args (Monad):
 
 ---
 
-### Celo Mainnet (chainId: 42220) ⏳ PENDING FUNDING
+### Celo Mainnet (chainId: 42220) ✅ LIVE + VERIFIED
 
 | Field | Value |
 |-------|-------|
-| **Contract Address** | TBD — awaiting deployment |
+| **Contract Address** | `0x10079Fa97E739Fd05Ddc5C7cD11951aEF566b7e0` |
 | **Self Hub** | `0xe57F4773bd9c9d8b6Cd70431117d353298B9f5BF` (official) |
 | **Self Enabled** | `true` — ZK passport proof mode |
-| **Blocking** | Need ~0.04 more CELO at `0x9D65433B3FE597C15a46D2365F8F2c1701Eb9e4A` |
-| **Explorer** | https://celoscan.io |
+| **Deploy TX** | `0x1de89c57521756843fab07aea8959a6c466f3bf9f0e3f8c5c1f1a0621f5437f4` |
+| **Block** | `62328314` |
+| **Gas Used** | `2,063,976` |
+| **Explorer** | https://celoscan.io/address/0x10079Fa97E739Fd05Ddc5C7cD11951aEF566b7e0 |
+| **TX Explorer** | https://celoscan.io/tx/0x1de89c57521756843fab07aea8959a6c466f3bf9f0e3f8c5c1f1a0621f5437f4 |
+| **Verified** | ✅ Pass - Verified (Etherscan V2 / Celoscan) |
 
 Constructor ABI args (Celo — once deployed):
 ```
@@ -168,3 +172,19 @@ CELO_CONTRACT_ADDRESS=<TBD>
 ---
 
 *This file is the authoritative deployment record. Update when Celo deploys and when verification completes.*
+
+---
+
+## Bridge Transaction (Base ETH → Celo CELO)
+
+Used LI.FI / Squid router to fund Celo deployment wallet.
+
+| Field | Value |
+|-------|-------|
+| **Bridge TX (Base)** | `0x44db6ad64e90a2bbccbc031c0d8f87156ef5d2b8bc93affb206e5e1195b82446` |
+| **From** | `0.000758 ETH` on Base (chain 8453) |
+| **To** | `~19.5 CELO` on Celo (chain 42220) |
+| **Bridge** | LI.FI via Squid router |
+| **Router** | `0x1231DEB6f5749EF6cE6943a275A1D3E7486F4EaE` |
+| **Arrival time** | ~16 seconds |
+| **Base explorer** | https://basescan.org/tx/0x44db6ad64e90a2bbccbc031c0d8f87156ef5d2b8bc93affb206e5e1195b82446 |
