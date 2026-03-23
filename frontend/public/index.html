@@ -170,7 +170,7 @@
       </div>
 
       <!-- Send -->
-      <button class="btn-send" id="btn-send" onclick="sendRemittance()" disabled>Connect wallet to send</button>
+      <button class="btn-send" id="btn-send" onclick="sendRemittance()">Send →</button>
     </div>
   </div>
 
@@ -233,24 +233,40 @@
 
   // ── Wallet Connect ─────────────────────────────────────────
   async function connectWallet() {
-    if (!window.ethereum) {
-      showError('No wallet detected. Install MetaMask or Coinbase Wallet to send from your own wallet.\n\nYou can still receive funds without a wallet — just share your email.');
+    // Detect Brave, MetaMask, Coinbase, or any injected provider
+    const provider = window.ethereum
+      || window.braveSolana  // Brave sometimes uses this namespace
+      || (window.ethereum?.isBraveWallet ? window.ethereum : null);
+
+    if (!provider) {
+      // No wallet — still allow sending (senderWallet will be empty)
+      document.getElementById('wallet-label').textContent = 'No wallet — sending anonymously';
+      document.getElementById('wallet-addr').textContent = '';
+      const btn = document.getElementById('btn-connect');
+      btn.textContent = '⚠ No Wallet';
+      btn.style.borderColor = 'var(--yellow, #f59e0b)';
+      btn.style.color = 'var(--yellow, #f59e0b)';
+      const sendBtn = document.getElementById('btn-send');
+      sendBtn.disabled = false;
+      sendBtn.textContent = 'Send →';
       return;
     }
     try {
-      const accounts = await window.ethereum.request({ method: 'eth_requestAccounts' });
+      const accounts = await provider.request({ method: 'eth_requestAccounts' });
       walletAddress = accounts[0];
       document.getElementById('wallet-label').textContent = 'Connected';
       document.getElementById('wallet-addr').textContent = walletAddress.slice(0,6) + '…' + walletAddress.slice(-4);
       const btn = document.getElementById('btn-connect');
       btn.textContent = '✓ Connected';
       btn.classList.add('connected');
-      
-      // Enable send button
       const sendBtn = document.getElementById('btn-send');
       sendBtn.disabled = false;
       sendBtn.textContent = 'Send →';
     } catch (e) {
+      // User rejected — still allow anonymous send
+      const sendBtn = document.getElementById('btn-send');
+      sendBtn.disabled = false;
+      sendBtn.textContent = 'Send →';
       console.error(e);
     }
   }
@@ -390,23 +406,22 @@
     } catch {}
   }
 
-  // Auto-detect connected wallet on load
-  if (window.ethereum) {
-    window.ethereum.request({ method: 'eth_accounts' }).then(accounts => {
-      if (accounts.length) {
+  // Auto-detect wallet on load (MetaMask, Brave, Coinbase, any injected)
+  (async function autoDetectWallet() {
+    const provider = window.ethereum;
+    if (!provider) return;
+    try {
+      const accounts = await provider.request({ method: 'eth_accounts' });
+      if (accounts && accounts.length) {
         walletAddress = accounts[0];
         document.getElementById('wallet-label').textContent = 'Connected';
         document.getElementById('wallet-addr').textContent = walletAddress.slice(0,6) + '…' + walletAddress.slice(-4);
-        document.getElementById('btn-connect').textContent = '✓ Connected';
-        document.getElementById('btn-connect').classList.add('connected');
-        
-        // Enable send button
-        const sendBtn = document.getElementById('btn-send');
-        sendBtn.disabled = false;
-        sendBtn.textContent = 'Send →';
+        const btn = document.getElementById('btn-connect');
+        btn.textContent = '✓ Connected';
+        btn.classList.add('connected');
       }
-    });
-  }
+    } catch(e) { /* silent — wallet not connected yet */ }
+  })();
 </script>
 </body>
 </html>
