@@ -33,7 +33,7 @@ router.post('/send', async (req: Request, res: Response, next: NextFunction) => 
         throw validationError('Wallet ownership proof required — sign the verification message in your wallet before sending');
       }
       try {
-        const recovered = ethers.utils.verifyMessage(walletProof.message, walletProof.signature);
+        const recovered = ethers.verifyMessage(walletProof.message, walletProof.signature);
         if (recovered.toLowerCase() !== senderWallet.toLowerCase()) {
           throw validationError('Wallet signature mismatch — the signature does not match the provided wallet address');
         }
