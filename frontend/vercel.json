@@ -2,7 +2,7 @@
   "rewrites": [
     {
       "source": "/api/:path*",
-      "destination": "https://replacement-armed-entitled-paperback.trycloudflare.com/api/:path*"
+      "destination": "https://email-remittance-pro.up.railway.app/api/:path*"
     },
     {
       "source": "/claim/:token",
