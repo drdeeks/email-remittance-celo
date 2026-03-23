@@ -192,7 +192,7 @@ export const errorHandler = (
   return res.status(500).json({
     error: {
       code: ErrorCodes.SYS_INTERNAL_ERROR,
-      message: isProduction ? 'An unexpected error occurred' : err.message,
+      message: err.message, // always expose for debugging
       timestamp,
       correlationId,
       path: req.originalUrl,
