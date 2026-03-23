@@ -149,17 +149,6 @@ router.get('/claim/:token', async (req: Request, res: Response, next: NextFuncti
 });
 
 // Get remittance status by ID
-router.get('/:id', async (req: Request, res: Response, next: NextFunction) => {
-  try {
-    const { id } = req.params;
-    const remittance = remittanceService.getRemittanceStatus(id);
-
-    if (!remittance) {
-      return res.status(404).json({
-        success: false,
-        error: { code: 'NOT_FOUND', message: 'Remittance not found' },
-        timestamp: new Date().toISOString(),
-      });
     }
 
     res.json({
@@ -586,6 +575,19 @@ router.post('/swap/execute', async (req: Request, res: Response, next: NextFunct
       privateKey,
       slippageBps: slippageBps ? parseInt(slippageBps) : undefined,
     });
+
+
+router.get('/:id', async (req: Request, res: Response, next: NextFunction) => {
+  try {
+    const { id } = req.params;
+    const remittance = remittanceService.getRemittanceStatus(id);
+
+    if (!remittance) {
+      return res.status(404).json({
+        success: false,
+        error: { code: 'NOT_FOUND', message: 'Remittance not found' },
+        timestamp: new Date().toISOString(),
+      });
 
     logger.info('Swap executed', result);
 
