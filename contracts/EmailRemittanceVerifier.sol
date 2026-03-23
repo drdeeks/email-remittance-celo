@@ -1,5 +1,5 @@
 // SPDX-License-Identifier: MIT
-pragma solidity 0.8.28;
+pragma solidity ^0.8.20;
 
 /**
  * @title EmailRemittanceVerifier
@@ -252,14 +252,24 @@ contract EmailRemittanceVerifier is ReentrancyGuard, Ownable {
         feeBps      = _feeBps;
         feeRecipient = _feeRecipient;
 
-        // Register verification config with hub on Celo
-        if (selfEnabled && _minAge > 0) {
-            IIdentityVerificationHubV2.VerificationConfigV2 memory cfg;
-            // Pack age into bytes32 as the hub expects
-            cfg.olderThan = bytes32(uint256(_minAge));
-            cfg.ofacEnabled = true;
-            verificationConfigId = selfHub.setVerificationConfigV2(cfg);
-        }
+        // NOTE: Call registerVerificationConfig() after deployment to register with Self hub.
+        // This avoids constructor revert if hub struct format changes.
+    }
+
+    // ── Self hub config registration ─────────────────────────────────────────────
+
+    /**
+     * @notice Register verification config with Self hub. Call once after deployment on Celo.
+     * @dev    Only owner. No-op if selfHub is address(0).
+     * @param  minAge  Minimum age requirement (e.g. 18).
+     * @param  ofac    Enable OFAC sanctions check.
+     */
+    function registerVerificationConfig(uint8 minAge, bool ofac) external onlyOwner {
+        if (!selfEnabled) revert SelfNotEnabled();
+        IIdentityVerificationHubV2.VerificationConfigV2 memory cfg;
+        cfg.olderThan = bytes32(uint256(minAge));
+        cfg.ofacEnabled = ofac;
+        verificationConfigId = selfHub.setVerificationConfigV2(cfg);
     }
 
     // ── Escrow creation ───────────────────────────────────────────────────────
