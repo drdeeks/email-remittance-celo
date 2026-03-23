@@ -219,7 +219,7 @@
   // ── Config ─────────────────────────────────────────────────
   const API = window.location.hostname === 'localhost'
     ? 'http://localhost:3001'
-    : (window.ENV_API_URL || '');  // injected by Vercel env or relative proxy
+    : (window.ENV_API_URL || 'https://email-remittance-pro.up.railway.app');  // injected by Vercel env or relative proxy
 
   const CHAINS = {
     celo:  { id: '0xA4EC', name: 'Celo',  symbol: 'CELO', rpc: 'https://forno.celo.org',   emoji: '🟡' },
