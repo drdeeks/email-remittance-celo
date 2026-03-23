@@ -27,16 +27,19 @@ router.post('/send', async (req: Request, res: Response, next: NextFunction) => 
     validateAmount(amountCelo);
     const resolvedChain  = detectChain(currency, chain) as SupportedChain;
 
-    // Verify wallet ownership signature if provided
-    if (senderWallet && walletProof) {
+    // Wallet ownership verification — required if senderWallet is provided
+    if (senderWallet) {
+      if (!walletProof?.message || !walletProof?.signature) {
+        throw validationError('Wallet ownership proof required — sign the verification message in your wallet before sending');
+      }
       try {
         const recovered = ethers.utils.verifyMessage(walletProof.message, walletProof.signature);
         if (recovered.toLowerCase() !== senderWallet.toLowerCase()) {
-          throw validationError('Wallet signature verification failed — you must sign with the connected wallet');
+          throw validationError('Wallet signature mismatch — the signature does not match the provided wallet address');
         }
         logger.info('Wallet ownership verified', { address: senderWallet });
       } catch (sigErr: any) {
-        if (sigErr.statusCode === 400) throw sigErr; // re-throw our validation error
+        if (sigErr.statusCode === 400) throw sigErr;
         throw validationError('Invalid wallet signature — could not verify ownership');
       }
     }
