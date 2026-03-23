@@ -178,7 +178,7 @@ async function connectWallet(){
   const p=window.ethereum;
   const btn=document.getElementById('btn-w');
   if(!p){
-    showError('No wallet found.\n\nIn Brave: Settings → Brave Wallet → turn on.\nOr install MetaMask.\n\nRecipients never need a wallet.');
+    showError('No wallet detected.\n\nInstall MetaMask (metamask.io) and refresh this page.\n\nRecipients never need a wallet — only senders do.');
     return;
   }
   btn.textContent='Connecting…'; btn.disabled=true;
