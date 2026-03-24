@@ -1,6 +1,6 @@
 'use client';
 
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useRef } from 'react';
 import { useAccount, useSignMessage, useBalance } from 'wagmi';
 import { ConnectButton } from '@rainbow-me/rainbowkit';
 import { formatUnits } from 'viem';
@@ -59,6 +59,8 @@ export function SendForm() {
   const [copied, setCopied] = useState(false);
   const [walletVerified, setWalletVerified] = useState(false);
   const [walletProofCache, setWalletProofCache] = useState<{message: string; signature: string} | null>(null);
+  const walletProofRef = useRef<{message: string; signature: string} | null>(null);
+  const [tokenPriceUSD, setTokenPriceUSD] = useState<number | null>(null);
 
   const chain = chainConfig[selectedChain];
   const availableTokens = RECIPIENT_TOKENS[selectedChain] || [];
@@ -83,8 +85,27 @@ export function SendForm() {
 
   // Reset verification when wallet disconnects or changes address
   useEffect(() => {
-    if (!isConnected) { setWalletVerified(false); setWalletProofCache(null); }
+    if (!isConnected) {
+      setWalletVerified(false);
+      setWalletProofCache(null);
+      walletProofRef.current = null;
+    }
   }, [isConnected, address]);
+
+  // Fetch token price in USD when chain changes
+  useEffect(() => {
+    const COINGECKO_IDS: Record<number, string> = {
+      42220: 'celo',
+      8453: 'ethereum',
+      10143: 'monad-network',
+    };
+    const id = COINGECKO_IDS[selectedChain];
+    if (!id) return;
+    fetch(`https://api.coingecko.com/api/v3/simple/price?ids=${id}&vs_currencies=usd`)
+      .then(r => r.json())
+      .then(d => setTokenPriceUSD(d[id]?.usd || null))
+      .catch(() => setTokenPriceUSD(null));
+  }, [selectedChain]);
 
   const handleSend = async () => {
     if (!address || !senderEmail || !recipientEmail || !amount) return;
@@ -93,23 +114,23 @@ export function SendForm() {
     setResult(null);
 
     try {
-      // Sign once, cache and reuse — never prompt again for same session
+      // Sign once, cache in ref (avoids stale closure) — never prompt again same session
       let walletProof: { message: string; signature: string } | undefined;
-      if (walletProofCache) {
-        walletProof = walletProofCache;
+      if (walletProofRef.current) {
+        walletProof = walletProofRef.current;
       } else {
         try {
           const verificationMessage = `Email Remittance - Verify wallet ownership\n\nAddress: ${address}\nTimestamp: ${new Date().toISOString()}\n\nThis signature proves you own this wallet. No funds are moved.`;
           const signature = await signMessageAsync({ message: verificationMessage });
           walletProof = { message: verificationMessage, signature };
+          walletProofRef.current = walletProof;
           setWalletProofCache(walletProof);
           setWalletVerified(true);
         } catch (signError: any) {
           if (signError?.code === 4001 || signError?.message?.includes('rejected')) {
             setLoading(false);
-            return; // User rejected — stop silently
+            return;
           }
-          // Sign failed for other reason — proceed without proof
           console.warn('Wallet signature failed:', signError.message);
         }
       }
@@ -288,6 +309,11 @@ export function SendForm() {
           {isConnected && (
             <span className="text-xs text-gray-500">
               Balance: {balanceLoading ? '...' : `${formattedBalance} ${chain.symbol}`}
+              {tokenPriceUSD && parseFloat(formattedBalance) > 0 && (
+                <span className="text-gray-600 ml-1">
+                  (≈ ${(parseFloat(formattedBalance) * tokenPriceUSD).toFixed(2)} USD)
+                </span>
+              )}
             </span>
           )}
         </div>
