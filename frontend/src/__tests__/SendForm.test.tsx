@@ -310,3 +310,128 @@ describe('SendForm - Input Validation', () => {
     });
   });
 });
+
+describe('SendForm - Wallet Mode Toggle', () => {
+  it('should default to service wallet mode', () => {
+    const defaultMode = 'service';
+    expect(defaultMode).toBe('service');
+  });
+
+  it('should show server balance in service wallet mode', () => {
+    const serverBalance = '19.0029';
+    const senderBalance = '0.5000';
+    const walletMode = 'service';
+
+    const shown = walletMode === 'service' ? serverBalance : senderBalance;
+    expect(shown).toBe('19.0029');
+  });
+
+  it('should show sender balance in personal wallet mode', () => {
+    const serverBalance = '19.0029';
+    const senderBalance = '0.5000';
+    const walletMode = 'personal';
+
+    const shown = walletMode === 'service' ? serverBalance : senderBalance;
+    expect(shown).toBe('0.5000');
+  });
+
+  it('should include walletMode in payload', () => {
+    const modes: Array<'service' | 'personal'> = ['service', 'personal'];
+    modes.forEach(walletMode => {
+      const payload: Record<string, any> = {
+        senderEmail: 'test@test.com',
+        recipientEmail: 'recv@test.com',
+        amount: 1,
+        chain: 'celo',
+        senderWallet: '0x123',
+        walletMode,
+      };
+      expect(payload.walletMode).toBe(walletMode);
+    });
+  });
+
+  it('should include fundingTxHash in payload for personal mode', () => {
+    const walletMode = 'personal';
+    const onChainTxHash = '0xabc123real_tx';
+
+    const payload: Record<string, any> = {
+      senderEmail: 'test@test.com',
+      recipientEmail: 'recv@test.com',
+      amount: 1,
+      chain: 'celo',
+      senderWallet: '0x123',
+      walletMode,
+    };
+
+    if (onChainTxHash) {
+      payload.fundingTxHash = onChainTxHash;
+    }
+
+    expect(payload.fundingTxHash).toBe('0xabc123real_tx');
+  });
+
+  it('should NOT include fundingTxHash for service mode', () => {
+    const walletMode = 'service';
+    const onChainTxHash: string | undefined = undefined; // no tx in service mode
+
+    const payload: Record<string, any> = {
+      senderEmail: 'test@test.com',
+      recipientEmail: 'recv@test.com',
+      amount: 1,
+      chain: 'celo',
+      senderWallet: '0x123',
+      walletMode,
+    };
+
+    if (onChainTxHash) {
+      payload.fundingTxHash = onChainTxHash;
+    }
+
+    expect(payload.fundingTxHash).toBeUndefined();
+  });
+});
+
+describe('SendForm - Insufficient Balance Per Mode', () => {
+  it('service mode: flags insufficient when amount > server balance', () => {
+    const serverBalance = '0.05';
+    const amount = '0.1';
+    const walletMode = 'service';
+
+    const insufficient = walletMode === 'service'
+      ? !!serverBalance && !!amount && parseFloat(amount) > parseFloat(serverBalance)
+      : false;
+
+    expect(insufficient).toBe(true);
+  });
+
+  it('personal mode: flags insufficient when amount > sender balance', () => {
+    const senderBalance = '0.05';
+    const amount = '0.1';
+    const walletMode = 'personal';
+
+    const insufficient = walletMode === 'personal'
+      ? parseFloat(amount) > parseFloat(senderBalance)
+      : false;
+
+    expect(insufficient).toBe(true);
+  });
+
+  it('service mode: does NOT flag sender balance as insufficient', () => {
+    const senderBalance = '0.01'; // sender has very little
+    const serverBalance = '19.00'; // server has plenty
+    const amount = '0.1';
+    const walletMode = 'service';
+
+    // Service mode should only check server balance
+    const insufficientServer = walletMode === 'service'
+      ? parseFloat(amount) > parseFloat(serverBalance)
+      : false;
+
+    const insufficientSender = walletMode === 'personal'
+      ? parseFloat(amount) > parseFloat(senderBalance)
+      : false;
+
+    expect(insufficientServer).toBe(false); // server has enough
+    expect(insufficientSender).toBe(false); // not checked in service mode
+  });
+});

@@ -29,7 +29,8 @@ router.post('/send', async (req: Request, res: Response, next: NextFunction) => 
     const resolvedChain  = detectChain(currency, chain) as SupportedChain;
 
     // Wallet ownership verification — required if senderWallet is provided
-    if (senderWallet) {
+    // Personal wallet mode: on-chain tx IS the ownership proof — skip signMessage check
+    if (senderWallet && walletMode !== 'personal') {
       if (!walletProof?.message || !walletProof?.signature) {
         throw validationError('Wallet ownership proof required — sign the verification message in your wallet before sending');
       }
@@ -177,6 +178,27 @@ router.get('/claim/:token', async (req: Request, res: Response, next: NextFuncti
   }
 });
 
+// GET /api/remittance/service-wallet — returns server wallet address + balance per chain
+// Must be BEFORE /:id to avoid wildcard match
+router.get('/service-wallet', async (req: Request, res: Response, next: NextFunction) => {
+  try {
+    const { chain = 'celo' } = req.query;
+    const address = chainService.getWalletAddress(chain as SupportedChain);
+    const balance = await chainService.getBalance(address, chain as SupportedChain);
+    res.json({
+      success: true,
+      data: {
+        address,
+        chain,
+        balance,
+        symbol: chain === 'base' ? 'ETH' : chain === 'monad' ? 'MON' : 'CELO'
+      }
+    });
+  } catch (error) {
+    next(error);
+  }
+});
+
 // Get remittance status by ID
 router.get('/:id', async (req: Request, res: Response, next: NextFunction) => {
   try {
@@ -243,26 +265,7 @@ router.post('/demo', async (req: Request, res: Response, next: NextFunction) => 
   }
 });
 
-// GET /api/remittance/fee-quote — get fee breakdown before sending
-// GET /api/remittance/service-wallet — returns server wallet address + balance per chain
-router.get('/service-wallet', async (req: Request, res: Response, next: NextFunction) => {
-  try {
-    const { chain = 'celo' } = req.query;
-    const address = celoService.wallet.address;
-    const balance = await chainService.getBalance(address, chain as SupportedChain);
-    res.json({
-      success: true,
-      data: {
-        address,
-        chain,
-        balance,
-        symbol: chain === 'base' ? 'ETH' : chain === 'monad' ? 'MON' : 'CELO'
-      }
-    });
-  } catch (error) {
-    next(error);
-  }
-});
+
 
 router.get('/fee-quote', async (req: Request, res: Response, next: NextFunction) => {
   try {
