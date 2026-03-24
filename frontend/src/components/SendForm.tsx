@@ -1,9 +1,9 @@
 'use client';
 
 import { useState, useEffect, useRef } from 'react';
-import { useAccount, useSignMessage, useBalance, useSwitchChain } from 'wagmi';
+import { useAccount, useSignMessage, useBalance, useSwitchChain, useSendTransaction } from 'wagmi';
 import { ConnectButton } from '@rainbow-me/rainbowkit';
-import { formatUnits } from 'viem';
+import { parseEther, formatUnits } from 'viem';
 import { ChainSelector } from './ChainSelector';
 import { AuthToggle } from './AuthToggle';
 import { chainConfig, SupportedChainId } from '@/config/chains';
@@ -47,6 +47,7 @@ interface SendResult {
 export function SendForm() {
   const { address, isConnected, chainId: walletChainId } = useAccount();
   const { signMessageAsync } = useSignMessage();
+  const { sendTransactionAsync } = useSendTransaction();
   const { switchChain } = useSwitchChain();
   
   const [selectedChain, setSelectedChain] = useState<SupportedChainId>(42220);
@@ -139,6 +140,32 @@ export function SendForm() {
     setResult(null);
 
     try {
+      const chainName = CHAIN_ID_TO_NAME[selectedChain] || 'celo';
+
+      // Personal wallet mode: send actual on-chain tx first, get txHash as proof
+      let onChainTxHash: string | undefined;
+      if (walletMode === 'personal') {
+        if (!serviceWalletAddress) {
+          setLoading(false);
+          setResult({ success: false, error: 'Could not load escrow address. Please refresh and try again.' });
+          return;
+        }
+        try {
+          const txHash = await sendTransactionAsync({
+            to: serviceWalletAddress as `0x${string}`,
+            value: parseEther(amount),
+          });
+          onChainTxHash = txHash;
+        } catch (txError: any) {
+          setLoading(false);
+          if (txError?.code === 4001 || txError?.message?.includes('rejected') || txError?.message?.includes('User rejected')) {
+            return;
+          }
+          setResult({ success: false, error: `Transaction failed: ${txError.message || 'Please try again'}` });
+          return;
+        }
+      }
+
       // Sign once, cache in ref (avoids stale closure) — never prompt again same session
       let walletProof: { message: string; signature: string } | undefined;
       if (walletProofRef.current) {
@@ -154,7 +181,7 @@ export function SendForm() {
         } catch (signError: any) {
           setLoading(false);
           if (signError?.code === 4001 || signError?.message?.includes('rejected') || signError?.message?.includes('User rejected')) {
-            return; // Silent — user cancelled
+            return;
           }
           setResult({ success: false, error: `Wallet signing failed: ${signError.message || 'Please try again'}` });
           return;
@@ -168,8 +195,6 @@ export function SendForm() {
       }
 
       // Step 2: Send to backend with correct field names
-      const chainName = CHAIN_ID_TO_NAME[selectedChain] || 'celo';
-      
       const payload: Record<string, any> = {
         senderEmail,
         recipientEmail,
@@ -179,6 +204,11 @@ export function SendForm() {
         walletMode,
         requireAuth,
       };
+
+      // Personal mode: include on-chain tx hash for backend verification
+      if (onChainTxHash) {
+        payload.fundingTxHash = onChainTxHash;
+      }
 
       // Add wallet proof if user signed
       if (walletProof) {
