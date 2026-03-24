@@ -106,6 +106,60 @@ input:focus{border-color:#3b82f6}
   </div>
 </div>
 
+<!-- WalletConnect Web3Modal v3 — works in all browsers, no extension needed -->
+<script type="module">
+  import { createWeb3Modal, defaultWagmiConfig } from 'https://esm.sh/@web3modal/wagmi@5';
+  import { mainnet } from 'https://esm.sh/wagmi@2/chains';
+  import { reconnect } from 'https://esm.sh/@wagmi/core@2';
+
+  const projectId = '517a14b6d4785b327159fecafa4dd240';
+
+  const metadata = {
+    name: 'Email Remittance Pro',
+    description: 'Send crypto to anyone via email',
+    url: 'https://email-remittance-pro.vercel.app',
+    icons: ['https://email-remittance-pro.vercel.app/icon.png']
+  };
+
+  // Define supported chains inline
+  const celo = { id: 42220, name: 'Celo', nativeCurrency: { name: 'CELO', symbol: 'CELO', decimals: 18 }, rpcUrls: { default: { http: ['https://forno.celo.org'] } } };
+  const base = { id: 8453, name: 'Base', nativeCurrency: { name: 'Ethereum', symbol: 'ETH', decimals: 18 }, rpcUrls: { default: { http: ['https://mainnet.base.org'] } } };
+  const monad = { id: 10143, name: 'Monad', nativeCurrency: { name: 'MON', symbol: 'MON', decimals: 18 }, rpcUrls: { default: { http: ['https://testnet-rpc.monad.xyz'] } } };
+
+  const wagmiConfig = defaultWagmiConfig({
+    chains: [celo, base, monad],
+    projectId,
+    metadata
+  });
+
+  reconnect(wagmiConfig);
+
+  window._web3modal = createWeb3Modal({
+    wagmiConfig,
+    projectId,
+    enableAnalytics: false
+  });
+
+  // Subscribe to account changes
+  import { watchAccount, getAccount } from 'https://esm.sh/@wagmi/core@2';
+  watchAccount(wagmiConfig, {
+    onChange(account) {
+      if (account.address && account.status === 'connected') {
+        window.onWalletConnected(account.address, account.connector);
+      } else if (account.status === 'disconnected') {
+        window.onWalletDisconnected();
+      }
+    }
+  });
+
+  // Expose open modal globally
+  window.openWalletModal = () => window._web3modal.open();
+
+  // Check if already connected on load
+  const existing = getAccount(wagmiConfig);
+  if (existing.address) window.onWalletConnected(existing.address, existing.connector);
+</script>
+
 <script>
 const API = 'https://email-remittance-pro.up.railway.app';
 const COINGECKO_IDS = { celo:'celo', base:'ethereum', monad:'monad-network' };
@@ -187,40 +241,71 @@ function getProvider(){
   return null;
 }
 
+// ── Wallet callbacks from Web3Modal ─────────────────────────
+window.onWalletConnected = async function(address, connector) {
+  walletAddr = address;
+  const btn = document.getElementById('btn-w');
+  btn.textContent = 'Sign to verify…'; btn.disabled = true;
+  try {
+    // Sign to prove ownership
+    const p = getProvider();
+    if (p) {
+      const nonce = Date.now()+'';
+      const msg = `Email Remittance Pro\nProve wallet ownership\n${address}\nNonce:${nonce}\n\nNo funds moved.`;
+      const sig = await p.request({method:'personal_sign', params:[msg, address]});
+      walletProof = {message:msg, signature:sig, nonce, address};
+    }
+    document.getElementById('w-label').textContent = walletProof ? '✓ Verified' : '✓ Connected';
+    document.getElementById('w-addr').textContent = address.slice(0,6)+'…'+address.slice(-4);
+    btn.textContent = address.slice(0,6)+'…'+address.slice(-4);
+    btn.classList.add('ok'); btn.disabled = false;
+    document.getElementById('btn-send').disabled = false;
+    document.getElementById('btn-send').textContent = 'Send';
+  } catch(e) {
+    document.getElementById('w-label').textContent = '✓ Connected (unverified)';
+    document.getElementById('w-addr').textContent = address.slice(0,6)+'…'+address.slice(-4);
+    btn.textContent = address.slice(0,6)+'…'+address.slice(-4);
+    btn.classList.add('ok'); btn.disabled = false;
+    document.getElementById('btn-send').disabled = false;
+    document.getElementById('btn-send').textContent = 'Send';
+  }
+};
+
+window.onWalletDisconnected = function() {
+  walletAddr = null; walletProof = null;
+  const btn = document.getElementById('btn-w');
+  btn.textContent = 'Connect Wallet'; btn.classList.remove('ok'); btn.disabled = false;
+  document.getElementById('w-label').textContent = 'Not connected';
+  document.getElementById('w-addr').textContent = '';
+  document.getElementById('btn-send').disabled = true;
+  document.getElementById('btn-send').textContent = 'Connect wallet to send';
+};
+
 // ── Wallet ──────────────────────────────────────────────────
 async function connectWallet(){
-  // Give injected wallet up to 500ms to load (mobile browsers can be slow)
+  // Try injected wallet first (MetaMask, Brave, Coinbase extension)
   let p = getProvider();
-  if(!p){
-    await new Promise(r=>setTimeout(r,500));
-    p = getProvider();
+  if(!p){ await new Promise(r=>setTimeout(r,500)); p = getProvider(); }
+
+  if(p){
+    // Extension wallet available — use it directly
+    const btn=document.getElementById('btn-w');
+    btn.textContent='Connecting…'; btn.disabled=true;
+    try{
+      const accs=await p.request({method:'eth_requestAccounts'});
+      await window.onWalletConnected(accs[0], null);
+      return;
+    } catch(e) {
+      btn.textContent='Connect Wallet'; btn.disabled=false;
+      if(e.code===4001) return; // user rejected
+    }
   }
-  const btn=document.getElementById('btn-w');
-  if(!p){
-    showError('No wallet detected.\n\nOptions:\n• Install a wallet extension (MetaMask, Coinbase Wallet, or any EIP-1193 wallet)\n• Mobile: use MetaMask, Rainbow, or Coinbase Wallet in-app browser\n• Brave: enable Brave Wallet in Settings → Wallet, or install MetaMask extension\n\nRecipients never need a wallet — only senders do.');
-    return;
-  }
-  btn.textContent='Connecting…'; btn.disabled=true;
-  try{
-    const accs=await p.request({method:'eth_requestAccounts'});
-    walletAddr=accs[0];
-    btn.textContent='Sign to verify…';
-    const nonce=Date.now()+'';
-    const msg=`Email Remittance Pro\nProve wallet ownership\n${walletAddr}\nNonce:${nonce}\n\nNo funds moved.`;
-    const sig=await p.request({method:'personal_sign',params:[msg,walletAddr]});
-    walletProof={message:msg,signature:sig,nonce,address:walletAddr};
-    document.getElementById('w-label').textContent='✓ Verified';
-    document.getElementById('w-addr').textContent=walletAddr.slice(0,6)+'…'+walletAddr.slice(-4);
-    btn.textContent='✓ Verified'; btn.classList.add('ok'); btn.disabled=false;
-    document.getElementById('btn-send').disabled=false;
-    document.getElementById('btn-send').textContent='Send →';
-  }catch(e){
-    walletAddr=null; walletProof=null;
-    btn.textContent='Connect Wallet'; btn.disabled=false;
-    document.getElementById('btn-send').disabled=true;
-    document.getElementById('btn-send').textContent='Connect wallet to send';
-    if(e.code===4001) showError('You must sign to verify wallet ownership.\nNo funds are moved.');
-    else showError('Connection failed: '+e.message);
+
+  // No extension — open Web3Modal (QR code, mobile wallets, WalletConnect)
+  if(window.openWalletModal) {
+    window.openWalletModal();
+  } else {
+    showError('Wallet modal loading… try again in a moment.');
   }
 }
 
