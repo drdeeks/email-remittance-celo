@@ -52,7 +52,10 @@ input:focus{border-color:#3b82f6}
           <div id="w-label">Not connected</div>
           <div class="wallet-addr" id="w-addr"></div>
         </div>
-        <button class="btn-wallet" id="btn-w" onclick="connectWallet()">Connect Wallet</button>
+        <div style="text-align:right">
+          <button class="btn-wallet" id="btn-w" onclick="connectWallet()">Connect Wallet</button>
+          <div id="w-balance" style="font-size:11px;color:#64748b;margin-top:4px;text-align:right"></div>
+        </div>
       </div>
 
       <label>Chain</label>
@@ -228,6 +231,8 @@ function setChain(c,s){
   tokenPrice=null;
   fetchPrice();
   updateHint();
+  // Refresh balance for new chain
+  if(walletAddr) fetchBalance(walletAddr, c);
 }
 
 // ── Wallet detection ────────────────────────────────────────
@@ -241,34 +246,78 @@ function getProvider(){
   return null;
 }
 
+// ── Balance fetch ────────────────────────────────────────────
+const CHAIN_RPC = {
+  celo: 'https://forno.celo.org',
+  base: 'https://mainnet.base.org',
+  monad: 'https://testnet-rpc.monad.xyz'
+};
+
+async function fetchBalance(address, chainKey) {
+  try {
+    const rpc = CHAIN_RPC[chainKey] || CHAIN_RPC.celo;
+    const res = await fetch(rpc, {
+      method: 'POST',
+      headers: {'Content-Type':'application/json'},
+      body: JSON.stringify({jsonrpc:'2.0',method:'eth_getBalance',params:[address,'latest'],id:1})
+    });
+    const data = await res.json();
+    const wei = parseInt(data.result, 16);
+    const bal = (wei / 1e18).toFixed(4);
+    document.getElementById('w-balance').textContent = `${bal} ${chainSym}`;
+  } catch(e) {
+    document.getElementById('w-balance').textContent = '';
+  }
+}
+
 // ── Wallet callbacks from Web3Modal ─────────────────────────
-window.onWalletConnected = async function(address, connector) {
+window.onWalletConnected = async function(address) {
   walletAddr = address;
   const btn = document.getElementById('btn-w');
-  btn.textContent = 'Sign to verify…'; btn.disabled = true;
+
+  // Update UI immediately
+  document.getElementById('w-addr').textContent = address.slice(0,6)+'…'+address.slice(-4);
+  document.getElementById('w-label').textContent = '⚠️ Pending verification';
+  btn.textContent = 'Sign to verify'; btn.disabled = false;
+  btn.onclick = signToVerify;
+
+  // Fetch balance for current chain
+  fetchBalance(address, chain);
+};
+
+async function signToVerify() {
+  if(!walletAddr) return;
+  const btn = document.getElementById('btn-w');
+  btn.textContent = 'Check wallet…'; btn.disabled = true;
   try {
-    // Sign to prove ownership
     const p = getProvider();
-    if (p) {
-      const nonce = Date.now()+'';
-      const msg = `Email Remittance Pro\nProve wallet ownership\n${address}\nNonce:${nonce}\n\nNo funds moved.`;
-      const sig = await p.request({method:'personal_sign', params:[msg, address]});
-      walletProof = {message:msg, signature:sig, nonce, address};
-    }
-    document.getElementById('w-label').textContent = walletProof ? '✓ Verified' : '✓ Connected';
-    document.getElementById('w-addr').textContent = address.slice(0,6)+'…'+address.slice(-4);
-    btn.textContent = address.slice(0,6)+'…'+address.slice(-4);
+    if(!p) throw new Error('No provider');
+    const nonce = Date.now()+'';
+    const msg = `Email Remittance Pro\nProve wallet ownership\n${walletAddr}\nNonce:${nonce}\n\nNo funds moved.`;
+    const sig = await p.request({method:'personal_sign', params:[msg, walletAddr]});
+    walletProof = {message:msg, signature:sig, nonce, address:walletAddr};
+    document.getElementById('w-label').textContent = '✓ Verified';
+    btn.textContent = walletAddr.slice(0,6)+'…'+walletAddr.slice(-4);
     btn.classList.add('ok'); btn.disabled = false;
+    btn.onclick = connectWallet;
     document.getElementById('btn-send').disabled = false;
-    document.getElementById('btn-send').textContent = 'Send';
+    document.getElementById('btn-send').textContent = 'Send →';
   } catch(e) {
-    document.getElementById('w-label').textContent = '✓ Connected (unverified)';
-    document.getElementById('w-addr').textContent = address.slice(0,6)+'…'+address.slice(-4);
-    btn.textContent = address.slice(0,6)+'…'+address.slice(-4);
-    btn.classList.add('ok'); btn.disabled = false;
-    document.getElementById('btn-send').disabled = false;
-    document.getElementById('btn-send').textContent = 'Send';
+    btn.textContent = 'Sign to verify'; btn.disabled = false;
+    if(e.code !== 4001) document.getElementById('w-label').textContent = '⚠️ Sign failed — try again';
   }
+}
+
+window.onWalletDisconnected = function() {
+  walletAddr = null; walletProof = null;
+  const btn = document.getElementById('btn-w');
+  btn.textContent = 'Connect Wallet'; btn.classList.remove('ok'); btn.disabled = false;
+  btn.onclick = connectWallet;
+  document.getElementById('w-label').textContent = 'Not connected';
+  document.getElementById('w-addr').textContent = '';
+  document.getElementById('w-balance').textContent = '';
+  document.getElementById('btn-send').disabled = true;
+  document.getElementById('btn-send').textContent = 'Connect wallet to send';
 };
 
 window.onWalletDisconnected = function() {
