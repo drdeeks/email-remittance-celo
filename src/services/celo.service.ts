@@ -11,7 +11,7 @@ const config = {
 };
 
 export class CeloService {
-  private provider: ethers.JsonRpcProvider;
+  provider: ethers.JsonRpcProvider;
   wallet: ethers.Wallet;
   private stablecoinContract: ethers.Contract | null = null;
   private isInitialized = false;
