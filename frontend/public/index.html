@@ -117,7 +117,9 @@ let _wcProvider = null;
 
 async function getWCProvider() {
   if (_wcProvider) return _wcProvider;
-  _wcProvider = await window.EthereumProvider.init({
+  const EthereumProvider = window["@walletconnect/ethereum-provider"]?.EthereumProvider;
+  if (!EthereumProvider) throw new Error('WalletConnect not loaded');
+  _wcProvider = await EthereumProvider.init({
     projectId: '517a14b6d4785b327159fecafa4dd240',
     chains: [42220],
     optionalChains: [8453, 10143],
@@ -144,15 +146,18 @@ window.openWalletModal = async function() {
 };
 
 window.wagmiSign = async function(message) {
-  // Try WalletConnect provider first if active, then injected
+  // WalletConnect session active
   if (_wcProvider && _wcProvider.connected) {
     const accs = await _wcProvider.request({ method: 'eth_accounts' });
     return _wcProvider.request({ method: 'personal_sign', params: [message, accs[0]] });
   }
+  // Injected wallet (MetaMask, Brave, Coinbase extension)
   const p = getProvider();
-  if (!p) throw new Error('No wallet connected');
-  const accs = await p.request({ method: 'eth_accounts' });
-  return p.request({ method: 'personal_sign', params: [message, accs[0]] });
+  if (p) {
+    const accs = await p.request({ method: 'eth_accounts' });
+    return p.request({ method: 'personal_sign', params: [message, accs[0]] });
+  }
+  throw new Error('No wallet connected');
 };
 </script>
 
