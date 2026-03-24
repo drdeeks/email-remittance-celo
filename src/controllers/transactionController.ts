@@ -4,6 +4,7 @@ import { logger } from '../utils/logger';
 import { ethers } from 'ethers';
 import { remittanceService } from '../services/remittanceService';
 import { detectChain, chainService, type SupportedChain } from '../services/celoService';
+import { celoService } from '../services/celo.service';
 import { uniswapService } from '../services/uniswapService';
 import { feeService, type FeeModel } from '../services/feeService';
 import { uniswapQuoteService } from '../services/uniswapQuoteService';
@@ -15,7 +16,7 @@ const router = Router();
 // Create a new remittance transaction
 router.post('/send', async (req: Request, res: Response, next: NextFunction) => {
   try {
-    const { senderEmail, recipientEmail, amount, message, chain, currency, requireAuth, feeModel, senderWallet, walletProof } = req.body;
+    const { senderEmail, recipientEmail, amount, message, chain, currency, requireAuth, feeModel, senderWallet, walletProof, walletMode, fundingTxHash } = req.body;
 
     // Validate inputs
     if (!senderEmail || !recipientEmail) {
@@ -43,6 +44,34 @@ router.post('/send', async (req: Request, res: Response, next: NextFunction) => 
         throw validationError('Invalid wallet signature — could not verify ownership');
       }
     }
+
+    // Personal wallet mode: verify on-chain tx actually sent funds to server escrow
+    if (walletMode === 'personal') {
+      if (!fundingTxHash) {
+        throw validationError('Personal wallet mode requires a funding transaction hash');
+      }
+      try {
+        const provider = celoService.provider;
+        const tx = await provider.getTransaction(fundingTxHash);
+        if (!tx) throw validationError('Funding transaction not found on-chain');
+        const serverWallet = celoService.wallet.address.toLowerCase();
+        if (tx.to?.toLowerCase() !== serverWallet) {
+          throw validationError(`Funding tx destination mismatch — expected ${serverWallet}`);
+        }
+        const sentAmount = parseFloat(ethers.formatEther(tx.value));
+        if (sentAmount < parseFloat(amount) * 0.999) {
+          throw validationError(`Funding tx amount ${sentAmount} is less than requested ${amount}`);
+        }
+        if (senderWallet && tx.from.toLowerCase() !== senderWallet.toLowerCase()) {
+          throw validationError('Funding tx sender does not match verified wallet');
+        }
+        logger.info('Personal wallet funding tx verified', { txHash: fundingTxHash, from: tx.from, amount: sentAmount });
+      } catch (txErr: any) {
+        if (txErr.statusCode === 400) throw txErr;
+        throw validationError(`Could not verify funding transaction: ${txErr.message}`);
+      }
+    }
+
     const resolvedFeeModel: FeeModel = feeModel === 'premium' ? 'premium' : 'standard';
 
     // Get fee quote + generate per-remittance escrow address
@@ -220,13 +249,13 @@ router.get('/service-wallet', async (req: Request, res: Response, next: NextFunc
   try {
     const { chain = 'celo' } = req.query;
     const address = celoService.wallet.address;
-    const balance = await chainService.getBalance(address, chain as string);
+    const balance = await chainService.getBalance(address, chain as SupportedChain);
     res.json({
       success: true,
       data: {
         address,
         chain,
-        balance: balance.balance,
+        balance,
         symbol: chain === 'base' ? 'ETH' : chain === 'monad' ? 'MON' : 'CELO'
       }
     });
