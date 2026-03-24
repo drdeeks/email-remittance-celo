@@ -128,7 +128,7 @@ export function SendForm() {
         walletProof = walletProofRef.current;
       } else {
         try {
-          const verificationMessage = `Email Remittance - Verify wallet ownership\n\nAddress: ${address}\nTimestamp: ${new Date().toISOString()}\n\nThis signature proves you own this wallet. No funds are moved.`;
+          const verificationMessage = `Email Remittance - Verify wallet ownership\n\nAddress: ${address}\n\nThis signature proves you own this wallet. No funds are moved.`;
           const signature = await signMessageAsync({ message: verificationMessage });
           walletProof = { message: verificationMessage, signature };
           walletProofRef.current = walletProof;
