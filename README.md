@@ -4,7 +4,7 @@
 
 Email Remittance Pro is an autonomous agent-powered remittance system that lets anyone send CELO, ETH, or MON to any email address. The recipient gets a simple email with a claim button — they don't need a wallet, don't need to know what blockchain is, and don't need to install anything. If they want, the app generates a wallet for them automatically and walks them through importing it.
 
-For senders, it's a clean web interface: connect your wallet, pick a chain, enter an email, choose your security level, and send. For recipients, it's a single click.
+For senders, it's a clean web interface: connect your wallet, choose your funding mode, pick a chain, enter an email, choose your security level, and send. For recipients, it's a single click.
 
 Built for the real-world remittance use case — the 1.4 billion unbanked people who can't receive crypto because the UX is broken, not because the technology doesn't work. Email Remittance Pro fixes the last mile.
 
@@ -12,7 +12,7 @@ Built for the real-world remittance use case — the 1.4 billion unbanked people
 
 [![Built by Titan Agent](https://img.shields.io/badge/Built%20by-Titan%20Agent-blue)](https://github.com/drdeeks/email-remittance-pro)
 [![Multi-Chain](https://img.shields.io/badge/Networks-Celo%20%7C%20Base%20%7C%20Monad-FCFF52)](https://celo.org)
-[![Tests](https://img.shields.io/badge/Tests-50%2B%20passing-green)](./package.json)
+[![Tests](https://img.shields.io/badge/Tests-111%20passing-green)](./package.json)
 [![Venice AI](https://img.shields.io/badge/Privacy-Venice%20AI-purple)](https://venice.ai)
 [![Self Protocol](https://img.shields.io/badge/ZK-Self%20Protocol-orange)](https://self.id)
 [![ERC-8004](https://img.shields.io/badge/Identity-ERC--8004-lightblue)](./agent.json)
@@ -69,17 +69,32 @@ The unbanked can't receive crypto because:
 
 **Email IS the identity layer.** Send CELO / ETH / MON to ANY email address. Recipient gets claim link, auto-generates wallet, funds land on-chain. No wallet setup required.
 
+**Service wallet mode (platform fronts the funds):**
 ```
-sender@example.com → "Send 10 CELO to recipient@gmail.com"
+sender@example.com → connects wallet → signs verification → hits Send
                             ↓
-                     Agent processes
+                     Agent creates record
                             ↓
                recipient@gmail.com inbox:
                "You received 10 CELO! Click to claim"
                             ↓
                    Claim link → auto-generates wallet
                             ↓
-                   Funds on Celo, Base, or Monad. Done.
+             Service wallet sends CELO to recipient on-chain. Done.
+```
+
+**Personal wallet mode (sender pays directly):**
+```
+sender@example.com → connects wallet → approves on-chain tx (CELO leaves wallet)
+                            ↓
+                     Backend verifies tx hash on-chain
+                            ↓
+                     Agent creates record
+                            ↓
+               recipient@gmail.com inbox:
+               "You received 10 CELO! Click to claim"
+                            ↓
+             Escrowed funds sent to recipient on claim. Done.
 ```
 
 ---
@@ -110,30 +125,33 @@ sender@example.com → "Send 10 CELO to recipient@gmail.com"
 │                     AUTONOMOUS REMITTANCE FLOW                       │
 ├─────────────────────────────────────────────────────────────────────┤
 │                                                                      │
-│  1. WAKE           2. VERIFY           3. ANALYZE         4. SEND   │
-│  ┌─────────┐      ┌─────────┐         ┌─────────┐       ┌─────────┐ │
-│  │ Agent   │ ───► │ Self    │ ───────►│ Venice  │ ────► │ Mandate │ │
-│  │ Wakes   │      │Protocol │         │   AI    │       │ Policy  │ │
-│  │         │      │   ZK    │         │ Fraud   │       │  Gate   │ │
-│  └─────────┘      └─────────┘         └─────────┘       └─────────┘ │
-│       │               │                    │                 │      │
-│       ▼               ▼                    ▼                 ▼      │
+│  1. SENDER CHOOSES FUNDING MODE                                      │
+│  ┌──────────────────────┐   ┌──────────────────────────────────┐    │
+│  │  🤖 SERVICE WALLET   │   │  👤 PERSONAL WALLET              │    │
+│  │  Sign message only   │   │  Send actual on-chain tx         │    │
+│  │  No funds moved yet  │   │  Backend verifies hash on-chain  │    │
+│  └──────────────────────┘   └──────────────────────────────────┘    │
+│           │                              │                           │
+│           └──────────────┬───────────────┘                          │
+│                          ▼                                           │
+│  2. VERIFY           3. ANALYZE           4. POLICY                 │
+│  ┌─────────┐         ┌─────────┐         ┌─────────┐               │
+│  │ Self    │ ───────►│ Venice  │ ────────►│ Mandate │               │
+│  │Protocol │         │   AI    │          │  Gate   │               │
+│  │   ZK    │         │ Fraud   │          │$100/tx  │               │
+│  └─────────┘         └─────────┘         └─────────┘               │
+│       │                    │                  │                     │
+│       ▼                    ▼                  ▼                     │
 │  ┌─────────────────────────────────────────────────────────────┐   │
-│  │                    5. TRANSFER ON CELO                       │   │
-│  │                    viem → Celo Mainnet                       │   │
+│  │          5. ESCROW FUNDED → CLAIM EMAIL SENT                 │   │
+│  │          Resend delivers claim link to recipient             │   │
 │  └─────────────────────────────────────────────────────────────┘   │
-│                               │                                     │
-│                               ▼                                     │
-│                         ┌─────────┐                                 │
-│                         │ Resend  │                                 │
-│                         │  Email  │                                 │
-│                         │ + Claim │                                 │
-│                         └─────────┘                                 │
 │                               │                                     │
 │                               ▼                                     │
 │                        6. RECIPIENT CLAIMS                          │
 │                        Auto-wallet generation                       │
-│                        Funds arrive on-chain                        │
+│                        Service wallet sends funds on-chain          │
+│                        TX hash returned, verifiable on explorer     │
 │                                                                      │
 └─────────────────────────────────────────────────────────────────────┘
 
@@ -157,6 +175,66 @@ Agent ID: 019d14f2-2363-7146-907f-3deb184c0e31
 | **Storage** | SQLite | Lightweight, persistent, zero-config |
 | **API** | Express.js | REST endpoints for remittance flow |
 | **Agent Identity** | ERC-8004 | On-chain agent attestation |
+
+---
+
+## 💳 Wallet Funding Modes
+
+Email Remittance Pro supports two funding flows. Senders choose on every transaction.
+
+### 🤖 Service Wallet Mode (default)
+
+The platform's escrow agent wallet holds and disburses funds. The sender's wallet is used **only for identity verification** (a signed message proving ownership) — no CELO ever leaves their wallet at send time.
+
+```
+Sender signs verification message (no funds moved)
+         ↓
+Backend creates remittance record
+         ↓
+Service wallet (19+ CELO) holds escrow
+         ↓
+Recipient claims → service wallet sends funds on-chain
+```
+
+**Best for:** Recipients who are new to crypto, demos, platform-fronted flows.
+
+### 👤 Personal Wallet Mode
+
+The sender's connected wallet sends an actual on-chain transaction to the service escrow address. The backend verifies the transaction hash on-chain before creating the remittance — cryptographic proof that the sender paid.
+
+```
+Sender approves on-chain tx in browser wallet (CELO leaves their wallet)
+         ↓
+Frontend gets txHash
+         ↓
+Backend verifies on-chain: correct destination, correct amount, correct sender
+         ↓
+Remittance record created
+         ↓
+Recipient claims → service wallet sends funds from escrowed amount
+```
+
+**Best for:** Full provenance, auditable sender payment, hackathon track demos, trustless escrow proof.
+
+### How Balances Are Displayed
+
+| Mode | Balance shown | Insufficient balance check |
+|------|--------------|---------------------------|
+| 🤖 Service Wallet | Server wallet live balance | Checks server wallet |
+| 👤 My Wallet | Connected wallet balance | Checks connected wallet |
+
+The UI fetches the server wallet's live balance from `/api/remittance/service-wallet` on load and whenever the chain changes. Both modes show the correct available balance — no guessing.
+
+### Backend TX Verification (Personal Mode)
+
+When `walletMode: "personal"` is submitted, the backend:
+1. Fetches the transaction from the Celo/Base/Monad RPC by hash
+2. Verifies `tx.to === server escrow address`
+3. Verifies `tx.value >= requested amount` (0.1% tolerance)
+4. Verifies `tx.from === senderWallet` (if wallet proof is present)
+5. Only then creates the remittance record and sends the claim email
+
+Any mismatch returns a 400 with the exact failure reason. No funds are disbursed on a failed verification.
 
 ---
 
@@ -796,7 +874,7 @@ Set `BASE_URL=https://remittance.yourdomain.com` in `.env`.
 npm test
 ```
 
-**50+ tests passing** — covering remittance flow, auth enforcement, multi-chain detection, Uniswap fallback, email delivery, policy enforcement, and claim processing.
+**111 tests passing** across 7 suites — covering remittance flow, auth enforcement, multi-chain detection, wallet mode toggle, service wallet balance, personal wallet TX verification, static proof message caching, Uniswap fallback, email delivery, policy enforcement, and claim processing.
 
 ```bash
 # Test a live end-to-end flow
