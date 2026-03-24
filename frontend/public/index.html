@@ -158,6 +158,13 @@ input:focus{border-color:#3b82f6}
   // Expose open modal globally
   window.openWalletModal = () => window._web3modal.open();
 
+  // Expose signMessage via wagmi (works for ALL wallet types — injected AND WalletConnect)
+  import { signMessage, getWalletClient } from 'https://esm.sh/@wagmi/core@2';
+  window.wagmiSign = async (message) => {
+    const result = await signMessage(wagmiConfig, { message });
+    return result;
+  };
+
   // Check if already connected on load
   const existing = getAccount(wagmiConfig);
   if (existing.address) window.onWalletConnected(existing.address, existing.connector);
@@ -290,11 +297,20 @@ async function signToVerify() {
   const btn = document.getElementById('btn-w');
   btn.textContent = 'Check wallet…'; btn.disabled = true;
   try {
-    const p = getProvider();
-    if(!p) throw new Error('No provider');
     const nonce = Date.now()+'';
     const msg = `Email Remittance Pro\nProve wallet ownership\n${walletAddr}\nNonce:${nonce}\n\nNo funds moved.`;
-    const sig = await p.request({method:'personal_sign', params:[msg, walletAddr]});
+
+    let sig;
+    // Use wagmi signer (works for WalletConnect, injected, all wallet types)
+    if(window.wagmiSign) {
+      sig = await window.wagmiSign(msg);
+    } else {
+      // Fallback to raw provider if wagmi not loaded yet
+      const p = getProvider();
+      if(!p) throw new Error('Wallet not ready — try again in a moment');
+      sig = await p.request({method:'personal_sign', params:[msg, walletAddr]});
+    }
+
     walletProof = {message:msg, signature:sig, nonce, address:walletAddr};
     document.getElementById('w-label').textContent = '✓ Verified';
     btn.textContent = walletAddr.slice(0,6)+'…'+walletAddr.slice(-4);
@@ -304,7 +320,10 @@ async function signToVerify() {
     document.getElementById('btn-send').textContent = 'Send →';
   } catch(e) {
     btn.textContent = 'Sign to verify'; btn.disabled = false;
-    if(e.code !== 4001) document.getElementById('w-label').textContent = '⚠️ Sign failed — try again';
+    const msg = e.message || '';
+    if(!msg.includes('User rejected') && !msg.includes('user rejected') && e.code !== 4001) {
+      document.getElementById('w-label').textContent = '⚠️ Sign failed — try again';
+    }
   }
 }
 
