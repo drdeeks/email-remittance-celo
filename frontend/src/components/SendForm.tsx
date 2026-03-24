@@ -58,6 +58,7 @@ export function SendForm() {
   const [result, setResult] = useState<SendResult | null>(null);
   const [copied, setCopied] = useState(false);
   const [walletVerified, setWalletVerified] = useState(false);
+  const [walletProofCache, setWalletProofCache] = useState<{message: string; signature: string} | null>(null);
 
   const chain = chainConfig[selectedChain];
   const availableTokens = RECIPIENT_TOKENS[selectedChain] || [];
@@ -82,7 +83,7 @@ export function SendForm() {
 
   // Reset verification when wallet disconnects or changes address
   useEffect(() => {
-    if (!isConnected) setWalletVerified(false);
+    if (!isConnected) { setWalletVerified(false); setWalletProofCache(null); }
   }, [isConnected, address]);
 
   const handleSend = async () => {
@@ -92,11 +93,25 @@ export function SendForm() {
     setResult(null);
 
     try {
-      // Wallet proof is signed once on connect — reuse it, don't re-prompt every send
+      // Sign once, cache and reuse — never prompt again for same session
       let walletProof: { message: string; signature: string } | undefined;
-      if (walletVerified && address) {
-        // Already verified — use a lightweight proof with just the address
-        walletProof = { message: `Verified: ${address}`, signature: 'pre-verified' };
+      if (walletProofCache) {
+        walletProof = walletProofCache;
+      } else {
+        try {
+          const verificationMessage = `Email Remittance - Verify wallet ownership\n\nAddress: ${address}\nTimestamp: ${new Date().toISOString()}\n\nThis signature proves you own this wallet. No funds are moved.`;
+          const signature = await signMessageAsync({ message: verificationMessage });
+          walletProof = { message: verificationMessage, signature };
+          setWalletProofCache(walletProof);
+          setWalletVerified(true);
+        } catch (signError: any) {
+          if (signError?.code === 4001 || signError?.message?.includes('rejected')) {
+            setLoading(false);
+            return; // User rejected — stop silently
+          }
+          // Sign failed for other reason — proceed without proof
+          console.warn('Wallet signature failed:', signError.message);
+        }
       }
 
       // Step 2: Send to backend with correct field names
@@ -228,7 +243,7 @@ export function SendForm() {
             <div className="flex items-center gap-2">
               <ConnectButton showBalance={false} />
               <span className="px-3 py-1.5 rounded-lg text-xs font-semibold bg-yellow-500/20 text-yellow-400 border border-yellow-500/30">
-                ⚠️ Verify on send
+                ⚠️ Sign required on first send
               </span>
             </div>
           ) : (
