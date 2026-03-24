@@ -18,12 +18,19 @@ import {
 
 const API_URL = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:3001';
 
+const CHAIN_NAME_TO_ID: Record<string, SupportedChainId> = {
+  celo: 42220,
+  base: 8453,
+  monad: 10143,
+};
+
 interface RemittanceInfo {
   id: string;
   senderAddress: string;
   recipientEmail: string;
   amount: number;
   chainId: SupportedChainId;
+  chain?: string;
   status: 'pending' | 'claimed' | 'expired';
   requireAuth: boolean;
   expiresAt: string;
@@ -71,9 +78,21 @@ export default function ClaimPage() {
       const data = await response.json();
       
       if (response.ok) {
-        setInfo(data);
+        const raw = data.data || data;
+        const chainName = raw.chain || 'celo';
+        const chainId = CHAIN_NAME_TO_ID[chainName] ?? 42220;
+        setInfo({
+          ...raw,
+          chainId,
+          amount: parseFloat(raw.amount_celo || raw.amount || '0'),
+          expiresAt: raw.expires_at || raw.expiresAt,
+          senderAddress: raw.sender_email || raw.senderAddress || '',
+          status: raw.status || 'pending',
+          requireAuth: raw.requireAuth ?? false,
+        });
       } else {
-        setError(data.error || 'Remittance not found');
+        const errData = data.data || data;
+        setError(errData.error?.message || errData.error || errData.message || 'Remittance not found');
       }
     } catch (e) {
       setError('Failed to load remittance info');
