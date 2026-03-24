@@ -109,58 +109,51 @@ input:focus{border-color:#3b82f6}
   </div>
 </div>
 
-<!-- WalletConnect AppKit — single CDN bundle, works on all browsers including iOS/mobile -->
-<script src="https://cdn.jsdelivr.net/npm/@reown/appkit@1/dist/browser/index.js"></script>
+<!-- WalletConnect QR Modal + Ethereum Provider (proven UMD builds) -->
+<script src="https://unpkg.com/@walletconnect/modal@2.7.0/dist/index.umd.js"></script>
+<script src="https://unpkg.com/@walletconnect/ethereum-provider@2.17.0/dist/index.umd.js"></script>
 <script>
-(function() {
-  const projectId = '517a14b6d4785b327159fecafa4dd240';
+let _wcProvider = null;
 
-  // Wait for AppKit to load
-  function initModal() {
-    if (!window.AppKit) { setTimeout(initModal, 200); return; }
+async function getWCProvider() {
+  if (_wcProvider) return _wcProvider;
+  _wcProvider = await window.EthereumProvider.init({
+    projectId: '517a14b6d4785b327159fecafa4dd240',
+    chains: [42220],
+    optionalChains: [8453, 10143],
+    showQrModal: true,
+    qrModalOptions: { themeMode: 'dark' }
+  });
+  _wcProvider.on('accountsChanged', accs => {
+    if (accs.length) window.onWalletConnected(accs[0]);
+    else window.onWalletDisconnected();
+  });
+  _wcProvider.on('disconnect', () => window.onWalletDisconnected());
+  return _wcProvider;
+}
 
-    const { createAppKit, mainnet } = window.AppKit;
-
-    const celo = { id: 42220, name: 'Celo', nativeCurrency: { name: 'CELO', symbol: 'CELO', decimals: 18 }, rpcUrls: { default: { http: ['https://forno.celo.org'] } }, caipNetworkId: 'eip155:42220', chainNamespace: 'eip155' };
-    const base = { id: 8453, name: 'Base', nativeCurrency: { name: 'ETH', symbol: 'ETH', decimals: 18 }, rpcUrls: { default: { http: ['https://mainnet.base.org'] } }, caipNetworkId: 'eip155:8453', chainNamespace: 'eip155' };
-    const monad = { id: 10143, name: 'Monad', nativeCurrency: { name: 'MON', symbol: 'MON', decimals: 18 }, rpcUrls: { default: { http: ['https://testnet-rpc.monad.xyz'] } }, caipNetworkId: 'eip155:10143', chainNamespace: 'eip155' };
-
-    const modal = createAppKit({
-      projectId,
-      networks: [celo, base, monad],
-      metadata: {
-        name: 'Email Remittance Pro',
-        description: 'Send crypto to anyone via email',
-        url: 'https://email-remittance-pro.vercel.app',
-        icons: []
-      },
-      features: { analytics: false }
-    });
-
-    window._appkit = modal;
-    window.openWalletModal = () => modal.open();
-
-    // Subscribe to account state
-    modal.subscribeAccount(account => {
-      if (account.address && account.isConnected) {
-        window.onWalletConnected(account.address);
-      } else if (!account.isConnected) {
-        window.onWalletDisconnected();
-      }
-    });
-
-    // Sign via AppKit's wallet client
-    window.wagmiSign = async (message) => {
-      const provider = await modal.getWalletProvider();
-      if (!provider) throw new Error('No wallet provider');
-      const accounts = await provider.request({ method: 'eth_accounts' });
-      const address = accounts[0];
-      return provider.request({ method: 'personal_sign', params: [message, address] });
-    };
+window.openWalletModal = async function() {
+  try {
+    const wc = await getWCProvider();
+    await wc.connect();
+    const accs = await wc.request({ method: 'eth_accounts' });
+    if (accs[0]) window.onWalletConnected(accs[0]);
+  } catch(e) {
+    if (!e.message?.includes('User closed')) console.error('WC connect error:', e);
   }
+};
 
-  initModal();
-})();
+window.wagmiSign = async function(message) {
+  // Try WalletConnect provider first if active, then injected
+  if (_wcProvider && _wcProvider.connected) {
+    const accs = await _wcProvider.request({ method: 'eth_accounts' });
+    return _wcProvider.request({ method: 'personal_sign', params: [message, accs[0]] });
+  }
+  const p = getProvider();
+  if (!p) throw new Error('No wallet connected');
+  const accs = await p.request({ method: 'eth_accounts' });
+  return p.request({ method: 'personal_sign', params: [message, accs[0]] });
+};
 </script>
 
 <script>
