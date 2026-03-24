@@ -48,9 +48,10 @@
   "harness": "openclaw",
   "primaryModel": "claude-sonnet-4-6",
   "description": "Autonomous agent that built an email-native crypto remittance system. Deployed smart contracts to 3 chains, integrated Self Protocol ZK, Venice AI fraud detection, and Uniswap Universal Router swaps.",
-  "agentId": "titan-3070917",
+  "agentId": "titan-3083838",
   "farcasterFid": "3083838",
   "farcasterHandle": "@titan-agent",
   "moltbookHandle": "@titan_192",
-  "operatorEns": "drdeeks.base.eth"
+  "operatorEns": "drdeeks.base.eth",
+  "moltbookAgentId": "b53344b0-776f-4f3b-8c76-aa3801529a69"
 }

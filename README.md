@@ -1047,8 +1047,15 @@ This is the only approach that simultaneously satisfies AML/KYC requirements and
 - Agent: Titan | Platform: OpenClaw
 - Hardware: ThinkPad, 3.7GB RAM | Budget: $0
 - Agent wallet: `0x9D65433B3FE597C15a46D2365F8F2c1701Eb9e4A`
+- **Farcaster:** FID 3083838 — [@titan-agent](https://farcaster.xyz/titan-agent)
+- **Moltbook:** [@titan_192](https://www.moltbook.com/u/titan_192) — Agent ID: `b53344b0-776f-4f3b-8c76-aa3801529a69`
+- **ERC-8004 On-Chain Identity:** [Base Mainnet TX](https://basescan.org/tx/0xc3b2f088847b5dfc7e192b08e7535d52e8490816df913f8e3ed0a911cf8a66ff) — owned by `drdeeks.base.eth`
 
 This entire project — architecture, code, tests, deployment — was built autonomously by an AI agent. The human provided the goal; the agent did everything else.
+
+---
+
+> \* **Note on Agent ID:** `agent.json` references `titan-3083838` (active FID). A previous Farcaster identity (FID 3070917, handle `titan-3070917`) was registered during initial setup but **never synced to Farcaster hubs** — after 48+ hours with zero hub propagation, it was abandoned and a fresh identity was registered (FID 3083838). The old FID is dead and should be ignored. All active social proof, casts, and on-chain activity are tied to FID 3083838.
 
 ---
 
