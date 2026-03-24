@@ -3,20 +3,13 @@
     {
       "source": "/api/:path*",
       "destination": "https://email-remittance-pro.up.railway.app/api/:path*"
-    },
-    {
-      "source": "/claim/:token",
-      "destination": "/claim.html"
     }
   ],
   "headers": [
     {
       "source": "/(.*)",
       "headers": [
-        {
-          "key": "X-Content-Type-Options",
-          "value": "nosniff"
-        }
+        { "key": "X-Content-Type-Options", "value": "nosniff" }
       ]
     }
   ]
