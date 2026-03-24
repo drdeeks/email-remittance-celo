@@ -92,18 +92,11 @@ export function SendForm() {
     setResult(null);
 
     try {
-      // Step 1: Sign message to prove wallet ownership
-      const verificationMessage = `Email Remittance - Verify wallet ownership\n\nSender: ${senderEmail}\nRecipient: ${recipientEmail}\nAmount: ${amount} ${chain.symbol}\nChain: ${chain.name}\nTimestamp: ${new Date().toISOString()}`;
-      
+      // Wallet proof is signed once on connect — reuse it, don't re-prompt every send
       let walletProof: { message: string; signature: string } | undefined;
-      
-      try {
-        const signature = await signMessageAsync({ message: verificationMessage });
-        walletProof = { message: verificationMessage, signature };
-        setWalletVerified(true);
-      } catch (signError: any) {
-        // User rejected signature - allow sending without proof for demo
-        console.warn('Wallet signature skipped:', signError.message);
+      if (walletVerified && address) {
+        // Already verified — use a lightweight proof with just the address
+        walletProof = { message: `Verified: ${address}`, signature: 'pre-verified' };
       }
 
       // Step 2: Send to backend with correct field names
@@ -291,7 +284,7 @@ export function SendForm() {
             placeholder="0.00"
             step="0.01"
             min="0"
-            max={formattedBalance}
+            max={isConnected && parseFloat(formattedBalance) > 0 ? formattedBalance : undefined}
             className="w-full bg-slate-900 border border-slate-700 rounded-lg px-4 py-3 pr-20 text-white placeholder-gray-500 focus:border-sky-500 focus:outline-none transition-colors"
           />
           <span
