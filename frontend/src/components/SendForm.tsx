@@ -62,6 +62,9 @@ export function SendForm() {
   const [walletProofCache, setWalletProofCache] = useState<{message: string; signature: string} | null>(null);
   const walletProofRef = useRef<{message: string; signature: string} | null>(null);
   const [tokenPriceUSD, setTokenPriceUSD] = useState<number | null>(null);
+  const [walletMode, setWalletMode] = useState<'service' | 'personal'>('service');
+  const [serviceWalletBalance, setServiceWalletBalance] = useState<string | null>(null);
+  const [serviceWalletAddress, setServiceWalletAddress] = useState<string | null>(null);
 
   const chain = chainConfig[selectedChain];
   const availableTokens = RECIPIENT_TOKENS[selectedChain] || [];
@@ -115,6 +118,20 @@ export function SendForm() {
       .catch(() => setTokenPriceUSD(null));
   }, [selectedChain]);
 
+  // Fetch service wallet balance when chain changes
+  useEffect(() => {
+    const chainName = CHAIN_ID_TO_NAME[selectedChain] || 'celo';
+    fetch(`${API_URL}/api/remittance/service-wallet?chain=${chainName}`)
+      .then(r => r.json())
+      .then(d => {
+        if (d.success) {
+          setServiceWalletBalance(parseFloat(d.data.balance).toFixed(4));
+          setServiceWalletAddress(d.data.address);
+        }
+      })
+      .catch(() => {});
+  }, [selectedChain]);
+
   const handleSend = async () => {
     if (!address || !senderEmail || !recipientEmail || !amount) return;
     
@@ -159,6 +176,7 @@ export function SendForm() {
         amount: parseFloat(amount),
         chain: chainName,
         senderWallet: address?.toLowerCase(),
+        walletMode,
         requireAuth,
       };
 
@@ -320,17 +338,58 @@ export function SendForm() {
         />
       </div>
 
+      {/* Wallet Mode Toggle */}
+      <div className="space-y-2">
+        <label className="text-sm text-gray-400">Funded By</label>
+        <div className="flex gap-2">
+          <button
+            onClick={() => setWalletMode('service')}
+            className={`flex-1 py-2 px-3 rounded-lg text-sm font-medium transition-all ${
+              walletMode === 'service'
+                ? 'bg-sky-500/20 border border-sky-500 text-sky-300'
+                : 'bg-slate-800 border border-slate-600 text-gray-400 hover:border-slate-500'
+            }`}
+          >
+            🤖 Service Wallet
+            {serviceWalletBalance && (
+              <span className="block text-xs mt-0.5 opacity-70">{serviceWalletBalance} {chain.symbol}</span>
+            )}
+          </button>
+          <button
+            onClick={() => setWalletMode('personal')}
+            className={`flex-1 py-2 px-3 rounded-lg text-sm font-medium transition-all ${
+              walletMode === 'personal'
+                ? 'bg-emerald-500/20 border border-emerald-500 text-emerald-300'
+                : 'bg-slate-800 border border-slate-600 text-gray-400 hover:border-slate-500'
+            }`}
+          >
+            👤 My Wallet
+            {isConnected && (
+              <span className="block text-xs mt-0.5 opacity-70">{balanceLoading ? '...' : `${formattedBalance} ${chain.symbol}`}</span>
+            )}
+          </button>
+        </div>
+        {walletMode === 'service' && serviceWalletAddress && (
+          <p className="text-xs text-gray-600">Agent escrow: {serviceWalletAddress.slice(0,8)}...{serviceWalletAddress.slice(-6)}</p>
+        )}
+        {walletMode === 'personal' && isConnected && (
+          <p className="text-xs text-gray-600">Sends from your connected wallet → held in escrow until claimed</p>
+        )}
+      </div>
+
       <div className="space-y-2">
         <div className="flex justify-between items-center">
           <label className="text-sm text-gray-400">Amount to Send</label>
-          {isConnected && (
+          {walletMode === 'service' && serviceWalletBalance && (
             <span className="text-xs text-gray-500">
-              Balance: {balanceLoading ? '...' : `${formattedBalance} ${chain.symbol}`}
-              {tokenPriceUSD && parseFloat(formattedBalance) > 0 && (
-                <span className="text-gray-600 ml-1">
-                  (≈ ${(parseFloat(formattedBalance) * tokenPriceUSD).toFixed(2)} USD)
-                </span>
-              )}
+              Available: {serviceWalletBalance} {chain.symbol}
+              {tokenPriceUSD && <span className="text-gray-600 ml-1">(≈ ${(parseFloat(serviceWalletBalance) * tokenPriceUSD).toFixed(2)} USD)</span>}
+            </span>
+          )}
+          {walletMode === 'personal' && isConnected && (
+            <span className="text-xs text-gray-500">
+              Your balance: {balanceLoading ? '...' : `${formattedBalance} ${chain.symbol}`}
+              {tokenPriceUSD && parseFloat(formattedBalance) > 0 && <span className="text-gray-600 ml-1">(≈ ${(parseFloat(formattedBalance) * tokenPriceUSD).toFixed(2)} USD)</span>}
             </span>
           )}
         </div>
@@ -342,7 +401,7 @@ export function SendForm() {
             placeholder="0.00"
             step="0.01"
             min="0"
-            max={isConnected && parseFloat(formattedBalance) > 0 ? formattedBalance : undefined}
+            max={undefined}
             className="w-full bg-slate-900 border border-slate-700 rounded-lg px-4 py-3 pr-20 text-white placeholder-gray-500 focus:border-sky-500 focus:outline-none transition-colors"
           />
           <span
@@ -352,8 +411,11 @@ export function SendForm() {
             {chain.symbol}
           </span>
         </div>
-        {isConnected && parseFloat(amount) > parseFloat(formattedBalance) && (
-          <p className="text-xs text-red-400">Insufficient balance</p>
+        {walletMode === 'personal' && isConnected && !!amount && parseFloat(amount) > parseFloat(formattedBalance) && (
+          <p className="text-xs text-red-400">Insufficient balance in your wallet</p>
+        )}
+        {walletMode === 'service' && !!serviceWalletBalance && !!amount && parseFloat(amount) > parseFloat(serviceWalletBalance) && (
+          <p className="text-xs text-red-400">Insufficient balance in service wallet</p>
         )}
       </div>
 

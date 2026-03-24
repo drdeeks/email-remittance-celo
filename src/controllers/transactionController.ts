@@ -215,6 +215,26 @@ router.post('/demo', async (req: Request, res: Response, next: NextFunction) => 
 });
 
 // GET /api/remittance/fee-quote — get fee breakdown before sending
+// GET /api/remittance/service-wallet — returns server wallet address + balance per chain
+router.get('/service-wallet', async (req: Request, res: Response, next: NextFunction) => {
+  try {
+    const { chain = 'celo' } = req.query;
+    const address = celoService.wallet.address;
+    const balance = await chainService.getBalance(address, chain as string);
+    res.json({
+      success: true,
+      data: {
+        address,
+        chain,
+        balance: balance.balance,
+        symbol: chain === 'base' ? 'ETH' : chain === 'monad' ? 'MON' : 'CELO'
+      }
+    });
+  } catch (error) {
+    next(error);
+  }
+});
+
 router.get('/fee-quote', async (req: Request, res: Response, next: NextFunction) => {
   try {
     const { amount, chain, feeModel } = req.query;
