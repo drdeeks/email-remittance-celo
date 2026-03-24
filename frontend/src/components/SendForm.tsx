@@ -57,6 +57,7 @@ export function SendForm() {
   const [loading, setLoading] = useState(false);
   const [result, setResult] = useState<SendResult | null>(null);
   const [copied, setCopied] = useState(false);
+  const [walletVerified, setWalletVerified] = useState(false);
 
   const chain = chainConfig[selectedChain];
   const availableTokens = RECIPIENT_TOKENS[selectedChain] || [];
@@ -79,6 +80,11 @@ export function SendForm() {
     }
   }, [selectedChain]);
 
+  // Reset verification when wallet disconnects or changes address
+  useEffect(() => {
+    if (!isConnected) setWalletVerified(false);
+  }, [isConnected, address]);
+
   const handleSend = async () => {
     if (!address || !senderEmail || !recipientEmail || !amount) return;
     
@@ -94,6 +100,7 @@ export function SendForm() {
       try {
         const signature = await signMessageAsync({ message: verificationMessage });
         walletProof = { message: verificationMessage, signature };
+        setWalletVerified(true);
       } catch (signError: any) {
         // User rejected signature - allow sending without proof for demo
         console.warn('Wallet signature skipped:', signError.message);
@@ -219,7 +226,28 @@ export function SendForm() {
     <div className="bg-slate-800/50 border border-slate-700 rounded-xl p-6 space-y-6">
       <div className="flex justify-between items-center">
         <h2 className="text-xl font-bold text-white">Send Crypto via Email</h2>
-        <ConnectButton showBalance={false} />
+        <div className="flex items-center gap-2">
+          {!isConnected ? (
+            // State 1: Not connected
+            <ConnectButton showBalance={false} />
+          ) : !walletVerified ? (
+            // State 2: Connected but not verified — show ConnectButton (shows address) + verify badge
+            <div className="flex items-center gap-2">
+              <ConnectButton showBalance={false} />
+              <span className="px-3 py-1.5 rounded-lg text-xs font-semibold bg-yellow-500/20 text-yellow-400 border border-yellow-500/30">
+                ⚠️ Verify on send
+              </span>
+            </div>
+          ) : (
+            // State 3: Connected + verified
+            <div className="flex items-center gap-2">
+              <ConnectButton showBalance={false} />
+              <span className="px-3 py-1.5 rounded-lg text-xs font-semibold bg-emerald-500/20 text-emerald-400 border border-emerald-500/30">
+                ✓ Verified
+              </span>
+            </div>
+          )}
+        </div>
       </div>
 
       <ChainSelector selectedChain={selectedChain} onChainSelect={setSelectedChain} />
