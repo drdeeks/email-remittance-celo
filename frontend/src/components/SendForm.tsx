@@ -128,7 +128,7 @@ export function SendForm() {
         walletProof = walletProofRef.current;
       } else {
         try {
-          const verificationMessage = `Email Remittance - Verify wallet ownership\n\nAddress: ${address}\n\nThis signature proves you own this wallet. No funds are moved.`;
+          const verificationMessage = `Email Remittance - Verify wallet ownership\n\nAddress: ${address?.toLowerCase()}\n\nThis signature proves you own this wallet. No funds are moved.`;
           const signature = await signMessageAsync({ message: verificationMessage });
           walletProof = { message: verificationMessage, signature };
           walletProofRef.current = walletProof;
@@ -158,7 +158,7 @@ export function SendForm() {
         recipientEmail,
         amount: parseFloat(amount),
         chain: chainName,
-        senderWallet: address,
+        senderWallet: address?.toLowerCase(),
         requireAuth,
       };
 
@@ -221,17 +221,11 @@ export function SendForm() {
           <p className="text-gray-400">Claim link sent to {recipientEmail}</p>
         </div>
 
-        {result.escrowAddress && (
-          <div className="bg-amber-500/10 border border-amber-500/30 rounded-lg p-4">
-            <p className="text-amber-300 text-sm font-medium mb-2">⚠️ Action Required</p>
-            <p className="text-gray-300 text-sm mb-2">
-              Send <strong>{result.sendAmount || amount} {chain.symbol}</strong> to:
-            </p>
-            <code className="block bg-slate-900 p-2 rounded text-xs text-gray-300 break-all">
-              {result.escrowAddress}
-            </code>
-          </div>
-        )}
+        <div className="bg-emerald-500/10 border border-emerald-500/30 rounded-lg p-3">
+          <p className="text-emerald-300 text-sm text-center">
+            ✓ Funds reserved · Transfer executes automatically when recipient claims
+          </p>
+        </div>
 
         <div className="bg-slate-900 rounded-lg p-4">
           <label className="text-xs text-gray-500 block mb-2">Claim URL</label>
