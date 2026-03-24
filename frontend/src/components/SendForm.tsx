@@ -135,12 +135,19 @@ export function SendForm() {
           setWalletProofCache(walletProof);
           setWalletVerified(true);
         } catch (signError: any) {
-          if (signError?.code === 4001 || signError?.message?.includes('rejected')) {
-            setLoading(false);
-            return;
+          setLoading(false);
+          if (signError?.code === 4001 || signError?.message?.includes('rejected') || signError?.message?.includes('User rejected')) {
+            return; // Silent — user cancelled
           }
-          console.warn('Wallet signature failed:', signError.message);
+          setResult({ success: false, error: `Wallet signing failed: ${signError.message || 'Please try again'}` });
+          return;
         }
+      }
+
+      if (!walletProof) {
+        setLoading(false);
+        setResult({ success: false, error: 'Wallet signature required. Please connect your wallet and try again.' });
+        return;
       }
 
       // Step 2: Send to backend with correct field names
