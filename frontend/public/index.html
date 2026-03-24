@@ -109,65 +109,58 @@ input:focus{border-color:#3b82f6}
   </div>
 </div>
 
-<!-- WalletConnect Web3Modal v3 — works in all browsers, no extension needed -->
-<script type="module">
-  import { createWeb3Modal, defaultWagmiConfig } from 'https://esm.sh/@web3modal/wagmi@5';
-  import { mainnet } from 'https://esm.sh/wagmi@2/chains';
-  import { reconnect } from 'https://esm.sh/@wagmi/core@2';
-
+<!-- WalletConnect AppKit — single CDN bundle, works on all browsers including iOS/mobile -->
+<script src="https://cdn.jsdelivr.net/npm/@reown/appkit@1/dist/browser/index.js"></script>
+<script>
+(function() {
   const projectId = '517a14b6d4785b327159fecafa4dd240';
 
-  const metadata = {
-    name: 'Email Remittance Pro',
-    description: 'Send crypto to anyone via email',
-    url: 'https://email-remittance-pro.vercel.app',
-    icons: ['https://email-remittance-pro.vercel.app/icon.png']
-  };
+  // Wait for AppKit to load
+  function initModal() {
+    if (!window.AppKit) { setTimeout(initModal, 200); return; }
 
-  // Define supported chains inline
-  const celo = { id: 42220, name: 'Celo', nativeCurrency: { name: 'CELO', symbol: 'CELO', decimals: 18 }, rpcUrls: { default: { http: ['https://forno.celo.org'] } } };
-  const base = { id: 8453, name: 'Base', nativeCurrency: { name: 'Ethereum', symbol: 'ETH', decimals: 18 }, rpcUrls: { default: { http: ['https://mainnet.base.org'] } } };
-  const monad = { id: 10143, name: 'Monad', nativeCurrency: { name: 'MON', symbol: 'MON', decimals: 18 }, rpcUrls: { default: { http: ['https://testnet-rpc.monad.xyz'] } } };
+    const { createAppKit, mainnet } = window.AppKit;
 
-  const wagmiConfig = defaultWagmiConfig({
-    chains: [celo, base, monad],
-    projectId,
-    metadata
-  });
+    const celo = { id: 42220, name: 'Celo', nativeCurrency: { name: 'CELO', symbol: 'CELO', decimals: 18 }, rpcUrls: { default: { http: ['https://forno.celo.org'] } }, caipNetworkId: 'eip155:42220', chainNamespace: 'eip155' };
+    const base = { id: 8453, name: 'Base', nativeCurrency: { name: 'ETH', symbol: 'ETH', decimals: 18 }, rpcUrls: { default: { http: ['https://mainnet.base.org'] } }, caipNetworkId: 'eip155:8453', chainNamespace: 'eip155' };
+    const monad = { id: 10143, name: 'Monad', nativeCurrency: { name: 'MON', symbol: 'MON', decimals: 18 }, rpcUrls: { default: { http: ['https://testnet-rpc.monad.xyz'] } }, caipNetworkId: 'eip155:10143', chainNamespace: 'eip155' };
 
-  reconnect(wagmiConfig);
+    const modal = createAppKit({
+      projectId,
+      networks: [celo, base, monad],
+      metadata: {
+        name: 'Email Remittance Pro',
+        description: 'Send crypto to anyone via email',
+        url: 'https://email-remittance-pro.vercel.app',
+        icons: []
+      },
+      features: { analytics: false }
+    });
 
-  window._web3modal = createWeb3Modal({
-    wagmiConfig,
-    projectId,
-    enableAnalytics: false
-  });
+    window._appkit = modal;
+    window.openWalletModal = () => modal.open();
 
-  // Subscribe to account changes
-  import { watchAccount, getAccount } from 'https://esm.sh/@wagmi/core@2';
-  watchAccount(wagmiConfig, {
-    onChange(account) {
-      if (account.address && account.status === 'connected') {
-        window.onWalletConnected(account.address, account.connector);
-      } else if (account.status === 'disconnected') {
+    // Subscribe to account state
+    modal.subscribeAccount(account => {
+      if (account.address && account.isConnected) {
+        window.onWalletConnected(account.address);
+      } else if (!account.isConnected) {
         window.onWalletDisconnected();
       }
-    }
-  });
+    });
 
-  // Expose open modal globally
-  window.openWalletModal = () => window._web3modal.open();
+    // Sign via AppKit's wallet client
+    window.wagmiSign = async (message) => {
+      const provider = await modal.getWalletProvider();
+      if (!provider) throw new Error('No wallet provider');
+      const accounts = await provider.request({ method: 'eth_accounts' });
+      const address = accounts[0];
+      return provider.request({ method: 'personal_sign', params: [message, address] });
+    };
+  }
 
-  // Expose signMessage via wagmi (works for ALL wallet types — injected AND WalletConnect)
-  import { signMessage, getWalletClient } from 'https://esm.sh/@wagmi/core@2';
-  window.wagmiSign = async (message) => {
-    const result = await signMessage(wagmiConfig, { message });
-    return result;
-  };
-
-  // Check if already connected on load
-  const existing = getAccount(wagmiConfig);
-  if (existing.address) window.onWalletConnected(existing.address, existing.connector);
+  initModal();
+})();
 </script>
 
 <script>
