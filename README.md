@@ -168,6 +168,28 @@ Agent ID: 019d14f2-2363-7146-907f-3deb184c0e31
 - Resend API key (free tier works — 3,000 emails/month)
 - Venice AI API key (optional — for fraud analysis)
 
+### 🔌 Wallet Connection (Frontend)
+
+The frontend uses [RainbowKit](https://rainbowkit.com) for wallet connections. It works with **any browser and any wallet** — no Brave or MetaMask hardcoding.
+
+**Supported wallets (out of the box):**
+- MetaMask (extension)
+- Coinbase Wallet (extension + mobile)
+- Rainbow (mobile)
+- Brave Wallet (built-in)
+- Any injected EIP-1193 wallet
+- Any WalletConnect-compatible mobile wallet (via QR code)
+
+**For full mobile/QR wallet support**, set `NEXT_PUBLIC_WALLETCONNECT_PROJECT_ID` in your frontend env:
+
+```bash
+# frontend/.env.local
+NEXT_PUBLIC_WALLETCONNECT_PROJECT_ID=your_project_id  # Get free at cloud.walletconnect.com
+NEXT_PUBLIC_API_URL=https://email-remittance-pro.up.railway.app
+```
+
+Without the WalletConnect Project ID, browser extension wallets still work — only QR-based mobile connections are limited.
+
 ### Installation
 
 ```bash
