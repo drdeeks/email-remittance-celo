@@ -1,7 +1,7 @@
 'use client';
 
 import { useState, useEffect, useRef } from 'react';
-import { useAccount, useSignMessage, useBalance } from 'wagmi';
+import { useAccount, useSignMessage, useBalance, useSwitchChain } from 'wagmi';
 import { ConnectButton } from '@rainbow-me/rainbowkit';
 import { formatUnits } from 'viem';
 import { ChainSelector } from './ChainSelector';
@@ -45,8 +45,9 @@ interface SendResult {
 }
 
 export function SendForm() {
-  const { address, isConnected } = useAccount();
+  const { address, isConnected, chainId: walletChainId } = useAccount();
   const { signMessageAsync } = useSignMessage();
+  const { switchChain } = useSwitchChain();
   
   const [selectedChain, setSelectedChain] = useState<SupportedChainId>(42220);
   const [senderEmail, setSenderEmail] = useState('');
@@ -82,6 +83,13 @@ export function SendForm() {
       setRecipientToken(tokens[0].symbol);
     }
   }, [selectedChain]);
+
+  // Sync wallet chain → selector (when user switches chain in wallet)
+  useEffect(() => {
+    if (walletChainId && walletChainId in CHAIN_ID_TO_NAME) {
+      setSelectedChain(walletChainId as SupportedChainId);
+    }
+  }, [walletChainId]);
 
   // Reset verification when wallet disconnects or changes address
   useEffect(() => {
@@ -279,7 +287,15 @@ export function SendForm() {
         </div>
       </div>
 
-      <ChainSelector selectedChain={selectedChain} onChainSelect={setSelectedChain} />
+      <ChainSelector
+        selectedChain={selectedChain}
+        onChainSelect={(chainId) => {
+          setSelectedChain(chainId);
+          if (isConnected && switchChain) {
+            switchChain({ chainId });
+          }
+        }}
+      />
 
       <div className="space-y-2">
         <label className="text-sm text-gray-400">Your Email</label>
