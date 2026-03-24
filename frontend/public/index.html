@@ -109,6 +109,8 @@ input:focus{border-color:#3b82f6}
   </div>
 </div>
 
+<!-- process polyfill required by WalletConnect UMD build -->
+<script>window.process = { env: {}, browser: true, version: '', versions: {} };</script>
 <!-- WalletConnect QR Modal + Ethereum Provider (proven UMD builds) -->
 <script src="https://unpkg.com/@walletconnect/modal@2.7.0/dist/index.umd.js"></script>
 <script src="https://unpkg.com/@walletconnect/ethereum-provider@2.17.0/dist/index.umd.js"></script>
@@ -356,11 +358,12 @@ async function connectWallet(){
       return;
     } catch(e) {
       btn.textContent='Connect Wallet'; btn.disabled=false;
-      if(e.code===4001) return; // user rejected
+      if(e.code===4001) return; // user explicitly rejected — stop here
+      // Any other error (extension not found, locked, wrong network) → fall through to WalletConnect modal
     }
   }
 
-  // No extension — open Web3Modal (QR code, mobile wallets, WalletConnect)
+  // No extension OR extension failed — open WalletConnect QR modal
   if(window.openWalletModal) {
     window.openWalletModal();
   } else {
