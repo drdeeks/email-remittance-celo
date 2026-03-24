@@ -224,10 +224,10 @@ export default function ClaimPage() {
                 </div>
 
                 <div className="text-sm text-gray-400 space-y-2">
-                  <p className="font-medium text-white">Import to MetaMask:</p>
+                  <p className="font-medium text-white">Import to any wallet:</p>
                   <ol className="list-decimal list-inside space-y-1">
-                    <li>Open MetaMask</li>
-                    <li>Click account icon → Import Account</li>
+                    <li>Open your wallet app (MetaMask, Coinbase Wallet, Brave Wallet, Rainbow, or any EVM wallet)</li>
+                    <li>Find &quot;Import Account&quot; or &quot;Add Account&quot; → &quot;Import with Private Key&quot;</li>
                     <li>Paste your private key</li>
                     <li>Click Import</li>
                   </ol>
