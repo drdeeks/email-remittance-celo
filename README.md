@@ -101,6 +101,20 @@ sender connects wallet → signs verification message (no funds move)
 
 ## 🔥 LIVE PROOF (Not a Simulation)
 
+### Personal Wallet Mode — Full Cycle (Latest)
+
+| Evidence | Link/Value |
+|----------|------------|
+| **Send to Escrow TX** | [0x835a196c...](https://celoscan.io/tx/0x835a196c2f623fb7255cfb744226683697c4b7b8a0b7c3b448f3c47d49011f96) |
+| **Claim TX** | [0x28606575...](https://celoscan.io/tx/0x286065753240aac433f3c69f7af57d94fb4d73ad507cd088ff5a230807a1bb02) |
+| **Sender** | `drdeeks.base.eth` (`0x12f1b38dc35aa65b50e5849d02559078953ae24b`) |
+| **Escrow** | Server wallet `0x9d65433b3fe597c15a46d2365f8f2c1701eb9e4a` |
+| **Blocks** | Send: 62515229 → Claim: 62515279 |
+
+**Sender wallet → escrow → claimed back. Two mainnet TXs, full personal wallet cycle confirmed.**
+
+### Service Wallet Mode — Original Proof
+
 | Evidence | Link/Value |
 |----------|------------|
 | **Funding TX** | [0x711d274b...](https://celoscan.io/tx/0x711d274b60fdfb4d084d6e72aeb9f9b7039e6a17fb9180b108836acf9ece6d06) |
@@ -108,13 +122,10 @@ sender connects wallet → signs verification message (no funds move)
 | **Email delivered** | drdeeks@outlook.com |
 | **Email subject** | "You received 0.05 CELO from titan@openclaw.ai" |
 | **PDF proof** | [proof/email-claim-drdeeks-outlook.pdf](./proof/email-claim-drdeeks-outlook.pdf) |
-| **Claim screenshot** | [proof/screenshots/claim-response-tx-success.jpg](./proof/screenshots/claim-response-tx-success.jpg) |
-| **Wallet screenshot** | [proof/screenshots/claim-wallet-0.05celo-received.jpg](./proof/screenshots/claim-wallet-0.05celo-received.jpg) |
-| **Auto-generated wallet** | `0x21634e2Ed9C04B4745Bcb268E3289A59c7AF075a` (remit-received#1) |
+| **Auto-generated wallet** | `0x21634e2Ed9C04B4745Bcb268E3289A59c7AF075a` |
 | **Remittance ID** | `fc820475-7dab-48b1-b616-aa67b8178287` |
-| **Claim endpoint** | `GET /api/remittance/claim/:id?wallet=0x...` |
 
-**Two live mainnet transactions. Real email delivered. Real wallet auto-generated. Real native tokens claimed — from a mobile phone, via a public URL, with zero wallet setup by the recipient.**
+**Four live mainnet transactions across two funding modes. Real email delivered. Real native tokens claimed.**
 
 ---
 
@@ -500,15 +511,44 @@ Resend delivers the claim emails to recipients.
 
 1. Sign up free at **https://resend.com** (3,000 emails/month free, no credit card)
 2. Go to **API Keys** → **Create API Key**
-3. Name it (e.g. `remittance-prod`), set permission: **Sending access**
+3. Name it (e.g. `remittance-prod`), set permission: **Full access** (not send-only — full access lets you verify delivery status)
 4. Copy the key — it starts with `re_`
-5. **(Recommended for production)** Add and verify your sending domain:
-   - Go to **Domains** → **Add Domain**
-   - Add the DNS records Resend gives you to your domain registrar
-   - Verified domain avoids spam filters on claim emails
 
 ```env
 RESEND_API_KEY=re_xxxxxxxxxxxxxxxx
+```
+
+> ⚠️ **Critical: Sandbox delivery restriction**
+> Without a verified domain, Resend's sandbox (`onboarding@resend.dev`) **only delivers to the email address registered on your Resend account**. Emails to any other address are silently accepted by the API but never delivered.
+
+**To receive emails at your own address (no domain needed):**
+- The email you signed up to Resend with will receive all sandbox emails
+- That's the only address that works in sandbox mode
+
+**To send to any email address (production, no domain required if <100/day):**
+- Resend allows up to 100 emails/day to any recipient once your account is verified
+- Go to **Settings → Account** and complete email verification
+- Or add individual recipient emails under **Contacts → Add Contact**
+
+**To send to anyone at scale (domain required, ~$10/yr):**
+1. Buy any domain (Namecheap, Porkbun, Cloudflare)
+2. Go to **Domains → Add Domain** in Resend dashboard
+3. Add the DNS records Resend gives you (takes ~10 min to propagate)
+4. Update `from` address in `src/services/emailService.ts`:
+   ```typescript
+   from: 'Titan Remittance <noreply@yourdomain.com>',
+   ```
+5. Verified domain removes sandbox restrictions entirely
+
+**Webhook setup (optional — for delivery tracking):**
+1. Go to **Webhooks → Add Webhook**
+2. URL: `https://your-backend.up.railway.app/api/webhooks/resend`
+3. Select events: `email.delivered`, `email.bounced`, `email.complained`
+4. Copy the signing secret
+
+```env
+RESEND_API_KEY=re_xxxxxxxxxxxxxxxx
+RESEND_WEBHOOK_SECRET=whsec_xxxxxxxxxxxxxxxx
 ```
 
 ---
