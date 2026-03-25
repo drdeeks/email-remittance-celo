@@ -416,7 +416,9 @@ export function SendForm() {
 
       <div className="space-y-2">
         <div className="flex justify-between items-center">
-          <label className="text-sm text-gray-400">Amount to Send</label>
+          <label className="text-sm text-gray-400">
+            Amount to Send <span className="text-amber-400 font-medium">({chain.symbol} native — not USDC)</span>
+          </label>
           {walletMode === 'service' && serviceWalletBalance && (
             <span className="text-xs text-gray-500">
               Available: {serviceWalletBalance} {chain.symbol}
