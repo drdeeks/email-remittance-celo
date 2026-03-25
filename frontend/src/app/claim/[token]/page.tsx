@@ -109,8 +109,10 @@ export default function ClaimPage() {
 
     try {
       const params = new URLSearchParams();
-      if (!useGenerated && walletInput) {
-        params.append('wallet', walletInput);
+      // Use typed wallet address, or fall back to connected wallet — never silently generate
+      const effectiveWallet = !useGenerated ? (walletInput || address) : undefined;
+      if (effectiveWallet) {
+        params.append('wallet', effectiveWallet);
       }
       
       const response = await fetch(
