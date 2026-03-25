@@ -119,18 +119,23 @@ export function SendForm() {
       .catch(() => setTokenPriceUSD(null));
   }, [selectedChain]);
 
-  // Fetch service wallet balance when chain changes
+  // Fetch service wallet info — returns address fresh from backend
+  const fetchServiceWallet = async (chain?: string) => {
+    const chainName = chain || CHAIN_ID_TO_NAME[selectedChain] || 'celo';
+    try {
+      const r = await fetch(`${API_URL}/api/remittance/service-wallet?chain=${chainName}`);
+      const d = await r.json();
+      if (d.success) {
+        setServiceWalletBalance(parseFloat(d.data.balance).toFixed(4));
+        setServiceWalletAddress(d.data.address);
+        return d.data.address as string;
+      }
+    } catch {}
+    return null;
+  };
+
   useEffect(() => {
-    const chainName = CHAIN_ID_TO_NAME[selectedChain] || 'celo';
-    fetch(`${API_URL}/api/remittance/service-wallet?chain=${chainName}`)
-      .then(r => r.json())
-      .then(d => {
-        if (d.success) {
-          setServiceWalletBalance(parseFloat(d.data.balance).toFixed(4));
-          setServiceWalletAddress(d.data.address);
-        }
-      })
-      .catch(() => {});
+    fetchServiceWallet();
   }, [selectedChain]);
 
   const handleSend = async () => {
@@ -167,14 +172,16 @@ export function SendForm() {
       // Step 2 (personal mode only): send actual on-chain tx after identity is verified
       let onChainTxHash: string | undefined;
       if (walletMode === 'personal') {
-        if (!serviceWalletAddress) {
+        // Always fetch fresh escrow address from backend — never use stale cached value
+        const freshEscrowAddress = await fetchServiceWallet();
+        if (!freshEscrowAddress) {
           setLoading(false);
           setResult({ success: false, error: 'Could not load escrow address. Please refresh and try again.' });
           return;
         }
         try {
           const txHash = await sendTransactionAsync({
-            to: serviceWalletAddress as `0x${string}`,
+            to: freshEscrowAddress as `0x${string}`,
             value: parseEther(amount),
           });
           onChainTxHash = txHash;
