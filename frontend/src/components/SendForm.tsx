@@ -18,20 +18,41 @@ const CHAIN_ID_TO_NAME: Record<number, string> = {
   143: 'monad',
 };
 
-// Available tokens per chain for recipient to receive
-const RECIPIENT_TOKENS: Record<number, { symbol: string; name: string }[]> = {
+// Sender token options per chain (what they can send)
+const SENDER_TOKENS: Record<number, { symbol: string; name: string; isNative: boolean }[]> = {
   42220: [
-    { symbol: 'CELO', name: 'Celo (Native)' },
-    { symbol: 'cUSD', name: 'Celo Dollar' },
-    { symbol: 'USDC', name: 'USD Coin' },
+    { symbol: 'CELO', name: 'CELO (Native)', isNative: true },
+    { symbol: 'USDC', name: 'USDC (Stablecoin)', isNative: false },
+    { symbol: 'cUSD', name: 'cUSD (Celo Dollar)', isNative: false },
   ],
   8453: [
-    { symbol: 'ETH', name: 'Ethereum (Native)' },
-    { symbol: 'USDC', name: 'USD Coin' },
-    { symbol: 'USDT', name: 'Tether USD' },
+    { symbol: 'ETH', name: 'ETH (Native)', isNative: true },
+    { symbol: 'USDC', name: 'USDC (Stablecoin)', isNative: false },
   ],
   143: [
-    { symbol: 'MON', name: 'Monad (Native)' },
+    { symbol: 'MON', name: 'MON (Native)', isNative: true },
+  ],
+};
+
+// Recipient token options — same chain + cross-chain
+const RECIPIENT_TOKENS: Record<number, { symbol: string; name: string; crossChain?: string }[]> = {
+  42220: [
+    { symbol: 'CELO', name: 'CELO (Native)' },
+    { symbol: 'cUSD', name: 'cUSD (Celo Dollar)' },
+    { symbol: 'USDC', name: 'USDC on Celo' },
+    { symbol: 'base→ETH', name: 'ETH on Base ↗', crossChain: 'base' },
+    { symbol: 'base→USDC', name: 'USDC on Base ↗', crossChain: 'base' },
+  ],
+  8453: [
+    { symbol: 'ETH', name: 'ETH (Native)' },
+    { symbol: 'USDC', name: 'USDC on Base' },
+    { symbol: 'USDT', name: 'USDT on Base' },
+    { symbol: 'celo→CELO', name: 'CELO on Celo ↗', crossChain: 'celo' },
+    { symbol: 'celo→cUSD', name: 'cUSD on Celo ↗', crossChain: 'celo' },
+  ],
+  143: [
+    { symbol: 'MON', name: 'MON (Native)' },
+    { symbol: 'celo→CELO', name: 'CELO on Celo ↗', crossChain: 'celo' },
   ],
 };
 
@@ -55,6 +76,7 @@ export function SendForm() {
   const [recipientEmail, setRecipientEmail] = useState('');
   const [amount, setAmount] = useState('');
   const [recipientToken, setRecipientToken] = useState('');
+  const [senderToken, setSenderToken] = useState('');
   const [requireAuth, setRequireAuth] = useState(false);
   const [loading, setLoading] = useState(false);
   const [result, setResult] = useState<SendResult | null>(null);
@@ -80,12 +102,12 @@ export function SendForm() {
     ? parseFloat(formatUnits(balanceData.value, balanceData.decimals)).toFixed(4)
     : '0.0000';
 
-  // Set default recipient token when chain changes
+  // Set default tokens when chain changes
   useEffect(() => {
-    const tokens = RECIPIENT_TOKENS[selectedChain];
-    if (tokens && tokens.length > 0) {
-      setRecipientToken(tokens[0].symbol);
-    }
+    const recvTokens = RECIPIENT_TOKENS[selectedChain];
+    if (recvTokens && recvTokens.length > 0) setRecipientToken(recvTokens[0].symbol);
+    const sendTokens = SENDER_TOKENS[selectedChain];
+    if (sendTokens && sendTokens.length > 0) setSenderToken(sendTokens[0].symbol);
   }, [selectedChain]);
 
   // Sync wallet chain → selector (when user switches chain in wallet)
@@ -222,10 +244,10 @@ export function SendForm() {
         payload.walletProof = walletProof;
       }
 
-      // Add recipient token if different from native (for swap/bridge)
-      if (recipientToken && recipientToken !== chain.symbol) {
-        payload.receiverToken = recipientToken;
-      }
+      // Always send receiverToken so backend knows what to deliver
+      if (recipientToken) payload.receiverToken = recipientToken;
+      // Send senderToken if not native
+      if (senderToken && senderToken !== chain.symbol) payload.senderToken = senderToken;
 
       const response = await fetch(`${API_URL}/api/remittance/send`, {
         method: 'POST',
@@ -458,8 +480,29 @@ export function SendForm() {
         )}
       </div>
 
+      {/* Sender Token Selector */}
+      {(SENDER_TOKENS[selectedChain] || []).length > 1 && (
+        <div className="space-y-2">
+          <label className="text-sm text-gray-400">You Send</label>
+          <select
+            value={senderToken}
+            onChange={(e) => setSenderToken(e.target.value)}
+            className="w-full bg-slate-900 border border-slate-700 rounded-lg px-4 py-3 text-white focus:border-sky-500 focus:outline-none transition-colors"
+          >
+            {(SENDER_TOKENS[selectedChain] || []).map((token) => (
+              <option key={token.symbol} value={token.symbol}>
+                {token.name}
+              </option>
+            ))}
+          </select>
+          {senderToken && senderToken !== chain.symbol && (
+            <p className="text-xs text-amber-400">⚠️ ERC-20 send — your wallet will prompt for token approval + transfer</p>
+          )}
+        </div>
+      )}
+
       {/* Recipient Token Selector */}
-      {availableTokens.length > 1 && (
+      {(RECIPIENT_TOKENS[selectedChain] || []).length > 1 && (
         <div className="space-y-2">
           <label className="text-sm text-gray-400">Recipient Receives</label>
           <select
@@ -467,12 +510,15 @@ export function SendForm() {
             onChange={(e) => setRecipientToken(e.target.value)}
             className="w-full bg-slate-900 border border-slate-700 rounded-lg px-4 py-3 text-white focus:border-sky-500 focus:outline-none transition-colors"
           >
-            {availableTokens.map((token) => (
+            {(RECIPIENT_TOKENS[selectedChain] || []).map((token) => (
               <option key={token.symbol} value={token.symbol}>
-                {token.name} ({token.symbol})
+                {token.name}
               </option>
             ))}
           </select>
+          {recipientToken && recipientToken.includes('→') && (
+            <p className="text-xs text-sky-400">↗ Cross-chain bridge — recipient gets funds on a different network</p>
+          )}
         </div>
       )}
 

@@ -16,7 +16,7 @@ const router = Router();
 // Create a new remittance transaction
 router.post('/send', async (req: Request, res: Response, next: NextFunction) => {
   try {
-    const { senderEmail, recipientEmail, amount, message, chain, currency, requireAuth, feeModel, senderWallet, walletProof, walletMode, fundingTxHash } = req.body;
+    const { senderEmail, recipientEmail, amount, message, chain, currency, requireAuth, feeModel, senderWallet, walletProof, walletMode, fundingTxHash, receiverToken, senderToken } = req.body;
 
     // Validate inputs
     if (!senderEmail || !recipientEmail) {
@@ -90,6 +90,8 @@ router.post('/send', async (req: Request, res: Response, next: NextFunction) => 
       escrowPrivateKey: feeQuote.escrowPrivateKey,
       senderWallet: senderWallet || '',
       feeAmount: feeQuote.feeAmount,
+      receiverToken: receiverToken || null,
+      senderToken: senderToken || null,
     });
 
     logger.info('Remittance created', {
