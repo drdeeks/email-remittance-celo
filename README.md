@@ -71,30 +71,30 @@ The unbanked can't receive crypto because:
 
 **Service wallet mode (platform fronts the funds):**
 ```
-sender@example.com → connects wallet → signs verification → hits Send
+sender connects wallet → signs verification message (no funds move)
                             ↓
                      Agent creates record
                             ↓
-               recipient@gmail.com inbox:
-               "You received 10 CELO! Click to claim"
+               recipient inbox: "You received 10 CELO!"
                             ↓
                    Claim link → auto-generates wallet
                             ↓
-             Service wallet sends CELO to recipient on-chain. Done.
+             Service wallet sends CELO to recipient on claim. Done.
 ```
 
 **Personal wallet mode (sender pays directly):**
 ```
-sender@example.com → connects wallet → approves on-chain tx (CELO leaves wallet)
+1. Sign message → proves wallet ownership (no funds move yet)
                             ↓
-                     Backend verifies tx hash on-chain
+2. Fresh escrow address fetched from server
                             ↓
-                     Agent creates record
+3. Approve on-chain TX → CELO leaves sender wallet → server escrow
                             ↓
-               recipient@gmail.com inbox:
-               "You received 10 CELO! Click to claim"
+4. Backend verifies TX hash on-chain (destination, amount, sender)
                             ↓
-             Escrowed funds sent to recipient on claim. Done.
+5. Agent creates record → claim email sent with correct URL
+                            ↓
+6. Recipient claims → server wallet sends escrowed CELO. Done.
 ```
 
 ---
@@ -676,6 +676,22 @@ Public RPCs work fine for demos. For production, use paid nodes to avoid rate li
 
 ---
 
+## 🔒 Production Hardening
+
+Key decisions made to ensure the system is bulletproof in production:
+
+| Issue | Root Cause | Fix |
+|-------|-----------|-----|
+| Wrong escrow address | `CELO_PRIVATE_KEY` env var mismatch → placeholder key `0x111...` | Reads `WALLET_PRIVATE_KEY`, throws hard if missing |
+| TX verification fails | `celo.service.ts` defaulted to Alfajores testnet RPC | Default is now `https://forno.celo.org` (mainnet) |
+| Sign after funds sent | UX flow had TX before identity proof | Sign first, TX second — enforced in frontend |
+| Stale escrow address | Frontend cached address from old deployment | Fresh fetch from `/service-wallet` before every TX |
+| Wrong claim URL in emails | `BASE_URL` pointed to placeholder domain | Set to `https://email-remittance-pro.vercel.app` on Railway |
+| Self verify on every claim | `requireAuth` defaulted to `true` | Defaults to `false`, opt-in only |
+| Silent email failures | `onboarding@resend.dev` only delivers to verified address | Confirmed delivery to `drdeeks@outlook.com` ✓ |
+
+---
+
 ## 🌐 Deployment — Making Claim Links Work
 
 The single most important config for this to work in the real world is `BASE_URL`. Claim links are emailed to recipients and **must be publicly accessible**. Here are your options:
@@ -916,7 +932,7 @@ email-remittance-pro/
 ├── agent.json              # ERC-8004 agent manifest
 ├── agent_log.json          # Decision audit trail
 ├── .env.example            # Config template
-└── tests/                  # Jest test suite (50+ passing)
+└── tests/                  # Jest test suite (111 passing)
 ```
 
 ---
