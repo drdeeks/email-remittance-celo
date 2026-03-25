@@ -121,15 +121,17 @@ export default function ClaimPage() {
       const data = await response.json();
       
       if (response.ok) {
+        const d = data.data || data;
         setClaimResult({
           success: true,
-          txHash: data.txHash,
-          wallet: data.wallet,
-          privateKey: data.privateKey,
+          txHash: d.txHash || d.claimTxHash,
+          wallet: d.wallet || d.recipientWallet,
+          privateKey: d.privateKey,
         });
         fetchInfo();
       } else {
-        setClaimResult({ success: false, error: data.error });
+        const d = data.data || data;
+        setClaimResult({ success: false, error: d.error?.message || d.error || d.message || 'Claim failed' });
       }
     } catch (e) {
       setClaimResult({ success: false, error: 'Network error' });
