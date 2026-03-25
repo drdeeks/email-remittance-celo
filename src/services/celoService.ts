@@ -330,7 +330,16 @@ class ChainService {
 
   async getTransaction(txHash: string, chainName: SupportedChain = 'celo') {
     const { publicClient } = this.getClients(chainName);
-    return publicClient.getTransaction({ hash: txHash as `0x${string}` });
+    const hash = txHash as `0x${string}`;
+
+    // Wait for receipt first (confirms tx is mined), then fetch full tx
+    // This prevents "not found" errors when tx is submitted but not yet indexed
+    try {
+      await publicClient.waitForTransactionReceipt({ hash, timeout: 60_000, confirmations: 1 });
+    } catch {
+      // If waitForTransactionReceipt times out, still try getTransaction below
+    }
+    return publicClient.getTransaction({ hash });
   }
 
   async getTransactionReceipt(hash: string, chainName: SupportedChain = 'celo') {
