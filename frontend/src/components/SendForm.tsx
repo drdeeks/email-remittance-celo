@@ -142,7 +142,29 @@ export function SendForm() {
     try {
       const chainName = CHAIN_ID_TO_NAME[selectedChain] || 'celo';
 
-      // Personal wallet mode: send actual on-chain tx first, get txHash as proof
+      // Step 1: Sign first — verify wallet ownership before any funds move
+      let walletProof: { message: string; signature: string } | undefined;
+      if (walletProofRef.current) {
+        walletProof = walletProofRef.current;
+      } else {
+        try {
+          const verificationMessage = `Email Remittance - Verify wallet ownership\n\nAddress: ${address?.toLowerCase()}\n\nThis signature proves you own this wallet. No funds are moved.`;
+          const signature = await signMessageAsync({ message: verificationMessage });
+          walletProof = { message: verificationMessage, signature };
+          walletProofRef.current = walletProof;
+          setWalletProofCache(walletProof);
+          setWalletVerified(true);
+        } catch (signError: any) {
+          setLoading(false);
+          if (signError?.code === 4001 || signError?.message?.includes('rejected') || signError?.message?.includes('User rejected')) {
+            return;
+          }
+          setResult({ success: false, error: `Wallet signing failed: ${signError.message || 'Please try again'}` });
+          return;
+        }
+      }
+
+      // Step 2 (personal mode only): send actual on-chain tx after identity is verified
       let onChainTxHash: string | undefined;
       if (walletMode === 'personal') {
         if (!serviceWalletAddress) {
@@ -162,28 +184,6 @@ export function SendForm() {
             return;
           }
           setResult({ success: false, error: `Transaction failed: ${txError.message || 'Please try again'}` });
-          return;
-        }
-      }
-
-      // Sign once, cache in ref (avoids stale closure) — never prompt again same session
-      let walletProof: { message: string; signature: string } | undefined;
-      if (walletProofRef.current) {
-        walletProof = walletProofRef.current;
-      } else {
-        try {
-          const verificationMessage = `Email Remittance - Verify wallet ownership\n\nAddress: ${address?.toLowerCase()}\n\nThis signature proves you own this wallet. No funds are moved.`;
-          const signature = await signMessageAsync({ message: verificationMessage });
-          walletProof = { message: verificationMessage, signature };
-          walletProofRef.current = walletProof;
-          setWalletProofCache(walletProof);
-          setWalletVerified(true);
-        } catch (signError: any) {
-          setLoading(false);
-          if (signError?.code === 4001 || signError?.message?.includes('rejected') || signError?.message?.includes('User rejected')) {
-            return;
-          }
-          setResult({ success: false, error: `Wallet signing failed: ${signError.message || 'Please try again'}` });
           return;
         }
       }
