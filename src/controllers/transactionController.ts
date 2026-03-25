@@ -52,14 +52,14 @@ router.post('/send', async (req: Request, res: Response, next: NextFunction) => 
         throw validationError('Personal wallet mode requires a funding transaction hash');
       }
       try {
-        const provider = celoService.provider;
-        const tx = await provider.getTransaction(fundingTxHash);
+        // Use chainService (viem) — already has correct RPC per chain, no testnet confusion
+        const tx = await chainService.getTransaction(fundingTxHash, resolvedChain);
         if (!tx) throw validationError('Funding transaction not found on-chain');
         const serverWallet = celoService.wallet.address.toLowerCase();
         if (tx.to?.toLowerCase() !== serverWallet) {
           throw validationError(`Funding tx destination mismatch — expected ${serverWallet}`);
         }
-        const sentAmount = parseFloat(ethers.formatEther(tx.value));
+        const sentAmount = parseFloat((Number(tx.value) / 1e18).toString());
         if (sentAmount < parseFloat(amount) * 0.999) {
           throw validationError(`Funding tx amount ${sentAmount} is less than requested ${amount}`);
         }

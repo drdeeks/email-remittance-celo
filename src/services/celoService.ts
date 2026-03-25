@@ -328,6 +328,11 @@ class ChainService {
     return this.getClients(chainName).publicClient.getGasPrice();
   }
 
+  async getTransaction(txHash: string, chainName: SupportedChain = 'celo') {
+    const { publicClient } = this.getClients(chainName);
+    return publicClient.getTransaction({ hash: txHash as `0x${string}` });
+  }
+
   async getTransactionReceipt(hash: string, chainName: SupportedChain = 'celo') {
     return this.getClients(chainName).publicClient.getTransactionReceipt({ hash: hash as `0x${string}` });
   }
