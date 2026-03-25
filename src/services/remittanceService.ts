@@ -19,6 +19,8 @@ interface CreateRemittanceParams {
   senderWallet?: string;
   feeAmount?: string;
   requireAuth?: boolean;
+  receiverToken?: string;  // token recipient wants to receive (e.g. 'USDC', 'cUSD', 'ETH')
+  senderToken?: string;    // token sender sent (e.g. 'USDC', 'ETH', 'CELO') — native if undefined
 }
 
 interface CreateRemittanceResult {
@@ -54,6 +56,8 @@ interface Remittance {
   self_verification_id: string | null;
   self_verified: number;
   email_sent: number;
+  receiver_token: string | null;
+  sender_token: string | null;
 }
 
 class RemittanceService {
@@ -61,7 +65,7 @@ class RemittanceService {
    * Create a new remittance
    */
   async createRemittance(params: CreateRemittanceParams): Promise<CreateRemittanceResult> {
-    const { senderEmail, recipientEmail, amountCelo, message, chain = 'celo', requireAuth = false, feeModel = 'standard', escrowAddress = '', escrowPrivateKey = '', senderWallet = '', feeAmount = '0' } = params;
+    const { senderEmail, recipientEmail, amountCelo, message, chain = 'celo', requireAuth = false, feeModel = 'standard', escrowAddress = '', escrowPrivateKey = '', senderWallet = '', feeAmount = '0', receiverToken, senderToken } = params;
 
     logger.info(`Creating remittance: ${amountCelo} CELO from ${senderEmail} to ${recipientEmail}`);
 
@@ -121,8 +125,9 @@ class RemittanceService {
         INSERT INTO remittances (
           id, claim_token, sender_email, recipient_email, amount_celo,
           message, status, escrow_tx_hash, expires_at, require_auth, chain,
-          fee_model, escrow_address, sender_wallet, fee_amount
-        ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+          fee_model, escrow_address, sender_wallet, fee_amount,
+          receiver_token, sender_token
+        ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
       `);
 
       stmt.run(
@@ -140,7 +145,9 @@ class RemittanceService {
         feeModel,
         escrowAddress,
         senderWallet,
-        feeAmount
+        feeAmount,
+        receiverToken || null,
+        senderToken || null
       );
 
       logger.info(`Remittance stored in database: ${remittanceId}`);
@@ -231,15 +238,58 @@ class RemittanceService {
       logger.info(`Generated new wallet for recipient: ${targetWallet}`);
     }
 
-    // Send the native token on the correct chain
+    // Send funds — with optional swap or bridge if receiver wants a different token
     let claimTxHash: string;
     try {
       const remittanceChain = (remittance.chain || 'celo') as SupportedChain;
-      const sendResult = await chainService.sendNative(targetWallet, amount, remittanceChain);
-      claimTxHash = sendResult.txHash;
-      logger.info(`${remittanceChain.toUpperCase()} transferred: ${claimTxHash}`);
+      const receiverToken = remittance.receiver_token;
+
+      // Determine native symbol for this chain
+      const NATIVE_SYMBOLS: Record<string, string> = { celo: 'CELO', base: 'ETH', monad: 'MON' };
+      const nativeSymbol = NATIVE_SYMBOLS[remittanceChain] || 'CELO';
+
+      // Check if receiver wants a different token on the same chain (swap)
+      const wantsSwap = receiverToken &&
+        receiverToken.toUpperCase() !== nativeSymbol.toUpperCase() &&
+        !receiverToken.includes('→'); // not a cross-chain request
+
+      // Check if receiver wants a token on a different chain (bridge)
+      const wantsBridge = receiverToken && receiverToken.includes('→');
+
+      if (wantsBridge) {
+        // Format: "base→USDC" or "celo→CELO"
+        const [targetChain, targetToken] = receiverToken.split('→');
+        logger.info(`Bridge: ${amount} ${nativeSymbol} on ${remittanceChain} → ${targetToken} on ${targetChain}`);
+        const bridgeResult = await chainService.executeBridge(
+          remittanceChain,
+          targetChain as SupportedChain,
+          amount,
+          targetWallet
+        );
+        claimTxHash = bridgeResult.txHash;
+        logger.info(`Bridge TX: ${claimTxHash}`);
+
+      } else if (wantsSwap) {
+        const { uniswapService } = await import('./uniswapService');
+        logger.info(`Swap: ${amount} ${nativeSymbol} → ${receiverToken} on ${remittanceChain}`);
+        // Execute swap from server wallet, then send output to recipient
+        const swapResult = await uniswapService.executeSwap({
+          chain: remittanceChain,
+          tokenIn: 'NATIVE',
+          tokenOut: receiverToken as string,
+          amountIn: amount.toString(),
+        });
+        claimTxHash = swapResult.txHash;
+        logger.info(`Swap TX: ${claimTxHash}`);
+
+      } else {
+        // Default: send native token directly
+        const sendResult = await chainService.sendNative(targetWallet, amount, remittanceChain);
+        claimTxHash = sendResult.txHash;
+        logger.info(`${remittanceChain.toUpperCase()} native transferred: ${claimTxHash}`);
+      }
     } catch (error) {
-      logger.error('Failed to transfer funds', error);
+      logger.error('Failed to transfer/swap/bridge funds', error);
       throw error;
     }
 

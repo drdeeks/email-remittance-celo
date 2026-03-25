@@ -50,7 +50,9 @@ class DatabaseManager {
         sender_wallet TEXT,
         fee_amount TEXT DEFAULT '0',
         deposit_tx_hash TEXT,
-        deposit_confirmed INTEGER DEFAULT 0
+        deposit_confirmed INTEGER DEFAULT 0,
+        receiver_token TEXT DEFAULT NULL,
+        sender_token TEXT DEFAULT NULL
       );
 
       CREATE INDEX IF NOT EXISTS idx_claim_token ON remittances(claim_token);
@@ -76,6 +78,8 @@ class DatabaseManager {
       { column: 'self_verification_id', sql: 'ALTER TABLE remittances ADD COLUMN self_verification_id TEXT' },
       { column: 'self_verified', sql: 'ALTER TABLE remittances ADD COLUMN self_verified INTEGER DEFAULT 0' },
       { column: 'email_sent', sql: 'ALTER TABLE remittances ADD COLUMN email_sent INTEGER DEFAULT 0' },
+      { column: 'receiver_token', sql: 'ALTER TABLE remittances ADD COLUMN receiver_token TEXT DEFAULT NULL' },
+      { column: 'sender_token', sql: 'ALTER TABLE remittances ADD COLUMN sender_token TEXT DEFAULT NULL' },
     ];
 
     for (const migration of migrations) {
