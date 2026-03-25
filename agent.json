@@ -9,7 +9,9 @@
     "registrationTx": "0xc3b2f088847b5dfc7e192b08e7535d52e8490816df913f8e3ed0a911cf8a66ff",
     "ownerWallet": "drdeeks.base.eth",
     "ownerAddress": "0x12F1B38DC35AA65B50E5849d02559078953aE24b",
-    "explorerUrl": "https://basescan.org/tx/0xc3b2f088847b5dfc7e192b08e7535d52e8490816df913f8e3ed0a911cf8a66ff"
+    "explorerUrl": "https://basescan.org/tx/0xc3b2f088847b5dfc7e192b08e7535d52e8490816df913f8e3ed0a911cf8a66ff",
+    "tokenId": 30260,
+    "tokenIdNote": "tokenId 30260 from registration TX 0xc3b2f088847b5dfc7e192b08e7535d52e8490816df913f8e3ed0a911cf8a66ff on Base Mainnet"
   },
   "capabilities": {
     "tools": [
@@ -48,10 +50,11 @@
   "harness": "openclaw",
   "primaryModel": "claude-sonnet-4-6",
   "description": "Autonomous agent that built an email-native crypto remittance system. Deployed smart contracts to 3 chains, integrated Self Protocol ZK, Venice AI fraud detection, and Uniswap Universal Router swaps.",
-  "agentId": "titan-3083838",
+  "agentId": "titan-30260",
   "farcasterFid": "3083838",
   "farcasterHandle": "@titan-agent",
   "moltbookHandle": "@titan_192",
   "operatorEns": "drdeeks.base.eth",
-  "moltbookAgentId": "b53344b0-776f-4f3b-8c76-aa3801529a69"
+  "moltbookAgentId": "b53344b0-776f-4f3b-8c76-aa3801529a69",
+  "agentIdNote": "agentId is the ERC-8004 tokenId (#30260) from Base Mainnet registration. Previously incorrectly set to Farcaster FID (3083838) \u2014 two separate identity systems. farcasterFid field remains correct."
 }
