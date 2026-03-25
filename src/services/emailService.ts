@@ -36,9 +36,19 @@ class EmailService {
     senderEmail: string,
     amountCelo: number,
     claimToken: string,
-    message?: string
+    message?: string,
+    chain: string = 'celo'
   ): Promise<void> {
     this.ensureInitialized();
+
+    // Derive correct symbol and explorer from chain
+    const CHAIN_META: Record<string, { symbol: string; explorer: string; name: string }> = {
+      celo:  { symbol: 'CELO', explorer: 'https://celoscan.io',    name: 'Celo' },
+      base:  { symbol: 'ETH',  explorer: 'https://basescan.org',   name: 'Base' },
+      monad: { symbol: 'MON',  explorer: 'https://monadscan.com',  name: 'Monad' },
+    };
+    const { symbol, explorer, name: chainName } = CHAIN_META[chain] || CHAIN_META['celo'];
+
     try {
       const claimUrl = `https://email-remittance-pro.vercel.app/claim/${claimToken}`;
       // Backup: Railway direct claim URL (if Vercel is down)
@@ -63,11 +73,12 @@ class EmailService {
         <body>
           <div class="container">
             <div class="header">
-              <h1>💰 You've Received CELO!</h1>
+              <h1>💰 You've Received ${symbol}!</h1>
             </div>
             <div class="content">
               <p><strong>${senderEmail}</strong> sent you:</p>
-              <div class="amount">${amountCelo} CELO</div>
+              <div class="amount">${amountCelo} ${symbol}</div>
+              <p style="color:#888;font-size:13px;">on ${chainName} network</p>
               ${message ? `
                 <div class="message-box">
                   <strong>Message:</strong>
@@ -76,7 +87,7 @@ class EmailService {
               ` : ''}
               <p>Click the button below to claim your funds. You can receive them to your own wallet, or we'll generate a new wallet for you.</p>
               <div style="text-align: center;">
-                <a href="${claimUrl}" class="button">Claim Your CELO</a>
+                <a href="${claimUrl}" class="button">Claim Your ${symbol}</a>
               </div>
               <p style="color: #666; font-size: 14px;">
                 ⚠️ This link expires in 24 hours
@@ -91,11 +102,11 @@ class EmailService {
                 <code style="word-break:break-all;font-weight:bold">${claimToken}</code>
               </div>
               <p style="color:#888;font-size:12px;">
-                Your funds are locked in a smart contract on Celo — they cannot be lost or stolen. 
+                Your funds are held in escrow on ${chainName} — they cannot be lost or stolen.
                 Even if these links stop working, your funds remain safe and claimable as long as you have the claim token above.
               </p>
               <div class="footer">
-                <p>Powered by Titan Remittance on Celo Network</p>
+                <p>Powered by Titan Remittance on ${chainName} Network</p>
                 <p>If you didn't expect this email, you can safely ignore it.</p>
               </div>
             </div>
@@ -107,7 +118,7 @@ class EmailService {
       await this.resend.emails.send({
         from: 'Titan Remittance <onboarding@resend.dev>',
         to: [recipientEmail],
-        subject: `You received ${amountCelo} CELO from ${senderEmail}`,
+        subject: `You received ${amountCelo} ${symbol} from ${senderEmail}`,
         html: emailHtml,
       });
 

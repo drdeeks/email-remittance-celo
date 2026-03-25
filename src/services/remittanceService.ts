@@ -157,7 +157,8 @@ class RemittanceService {
         senderEmail,
         amountCelo,
         claimToken,
-        message
+        message,
+        chain
       );
       emailSent = true;
 
