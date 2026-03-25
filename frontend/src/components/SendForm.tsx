@@ -55,7 +55,7 @@ export function SendForm() {
   const [recipientEmail, setRecipientEmail] = useState('');
   const [amount, setAmount] = useState('');
   const [recipientToken, setRecipientToken] = useState('');
-  const [requireAuth, setRequireAuth] = useState(true);
+  const [requireAuth, setRequireAuth] = useState(false);
   const [loading, setLoading] = useState(false);
   const [result, setResult] = useState<SendResult | null>(null);
   const [copied, setCopied] = useState(false);
