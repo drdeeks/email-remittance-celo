@@ -1,13 +1,14 @@
 'use client';
 
 import { useState, useEffect, useRef } from 'react';
-import { useAccount, useSignMessage, useBalance, useSwitchChain, useSendTransaction, useDisconnect } from 'wagmi';
+import { useAccount, useBalance, useSwitchChain, useSendTransaction, useDisconnect } from 'wagmi';
 import { ConnectButton } from '@rainbow-me/rainbowkit';
 import { parseEther, formatUnits } from 'viem';
+import { SelfQRcodeWrapper, SelfAppBuilder } from '@selfxyz/qrcode';
 import { ChainSelector } from './ChainSelector';
 import { AuthToggle } from './AuthToggle';
 import { chainConfig, SupportedChainId } from '@/config/chains';
-import { PaperAirplaneIcon, ClipboardIcon, CheckIcon } from '@heroicons/react/24/solid';
+import { PaperAirplaneIcon, ClipboardIcon, CheckIcon, ShieldCheckIcon, XMarkIcon } from '@heroicons/react/24/solid';
 
 const API_URL = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:3001';
 
@@ -67,7 +68,6 @@ interface SendResult {
 
 export function SendForm() {
   const { address, isConnected, chainId: walletChainId } = useAccount();
-  const { signMessageAsync } = useSignMessage();
   const { disconnect } = useDisconnect();
   const { sendTransactionAsync } = useSendTransaction();
   const { switchChain } = useSwitchChain();
@@ -82,13 +82,21 @@ export function SendForm() {
   const [loading, setLoading] = useState(false);
   const [result, setResult] = useState<SendResult | null>(null);
   const [copied, setCopied] = useState(false);
-  const [walletVerified, setWalletVerified] = useState(false);
-  const [walletProofCache, setWalletProofCache] = useState<{message: string; signature: string} | null>(null);
-  const walletProofRef = useRef<{message: string; signature: string} | null>(null);
   const [tokenPriceUSD, setTokenPriceUSD] = useState<number | null>(null);
   const [walletMode, setWalletMode] = useState<'service' | 'personal'>('service');
   const [serviceWalletBalance, setServiceWalletBalance] = useState<string | null>(null);
   const [serviceWalletAddress, setServiceWalletAddress] = useState<string | null>(null);
+
+  // Self Protocol sender verification — cached per session
+  const [selfVerified, setSelfVerified] = useState(false);
+  const [showSelfQR, setShowSelfQR] = useState(false);
+  const [selfVerifiedData, setSelfVerifiedData] = useState<{ name?: string; nationality?: string } | null>(null);
+  // Unique userId per session for Self QR
+  const selfUserIdRef = useRef<string>(
+    typeof crypto !== 'undefined'
+      ? crypto.randomUUID().replace(/-/g, '')
+      : Math.random().toString(16).slice(2).padStart(32, '0')
+  );
 
   const chain = chainConfig[selectedChain];
   const availableTokens = RECIPIENT_TOKENS[selectedChain] || [];
@@ -171,40 +179,25 @@ export function SendForm() {
   }, [selectedChain]);
 
   const handleSend = async () => {
-    if (!address || !senderEmail || !recipientEmail || !amount) return;
-    
+    // Service wallet: must be Self-verified first
+    if (walletMode === 'service' && !selfVerified) {
+      setShowSelfQR(true);
+      return;
+    }
+    // Personal wallet: must be connected
+    if (walletMode === 'personal' && !isConnected) return;
+
+    if (!senderEmail || !recipientEmail || !amount) return;
+
     setLoading(true);
     setResult(null);
 
     try {
       const chainName = CHAIN_ID_TO_NAME[selectedChain] || 'celo';
 
-      // Step 1: Sign first — verify wallet ownership before any funds move
-      let walletProof: { message: string; signature: string } | undefined;
-      if (walletProofRef.current) {
-        walletProof = walletProofRef.current;
-      } else {
-        try {
-          const verificationMessage = `Email Remittance - Verify wallet ownership\n\nAddress: ${address?.toLowerCase()}\n\nThis signature proves you own this wallet. No funds are moved.`;
-          const signature = await signMessageAsync({ message: verificationMessage });
-          walletProof = { message: verificationMessage, signature };
-          walletProofRef.current = walletProof;
-          setWalletProofCache(walletProof);
-          setWalletVerified(true);
-        } catch (signError: any) {
-          setLoading(false);
-          if (signError?.code === 4001 || signError?.message?.includes('rejected') || signError?.message?.includes('User rejected')) {
-            return;
-          }
-          setResult({ success: false, error: `Wallet signing failed: ${signError.message || 'Please try again'}` });
-          return;
-        }
-      }
-
-      // Step 2 (personal mode only): send actual on-chain tx after identity is verified
+      // Personal wallet mode: send on-chain TX to escrow
       let onChainTxHash: string | undefined;
       if (walletMode === 'personal') {
-        // Always fetch fresh escrow address from backend — never use stale cached value
         const freshEscrowAddress = await fetchServiceWallet();
         if (!freshEscrowAddress) {
           setLoading(false);
@@ -227,36 +220,25 @@ export function SendForm() {
         }
       }
 
-      if (!walletProof) {
-        setLoading(false);
-        setResult({ success: false, error: 'Wallet signature required. Please connect your wallet and try again.' });
-        return;
-      }
-
-      // Step 2: Send to backend with correct field names
       const payload: Record<string, any> = {
         senderEmail,
         recipientEmail,
         amount: parseFloat(amount),
         chain: chainName,
-        senderWallet: address?.toLowerCase(),
         walletMode,
         requireAuth,
+        // Service wallet: attach Self verification identity
+        ...(walletMode === 'service' && selfVerifiedData ? {
+          senderName: selfVerifiedData.name,
+          senderNationality: selfVerifiedData.nationality,
+          selfVerified: true,
+        } : {}),
+        // Personal wallet: attach wallet address + tx hash
+        ...(walletMode === 'personal' && address ? { senderWallet: address.toLowerCase() } : {}),
+        ...(onChainTxHash ? { fundingTxHash: onChainTxHash } : {}),
       };
 
-      // Personal mode: include on-chain tx hash for backend verification
-      if (onChainTxHash) {
-        payload.fundingTxHash = onChainTxHash;
-      }
-
-      // Add wallet proof if user signed
-      if (walletProof) {
-        payload.walletProof = walletProof;
-      }
-
-      // Always send receiverToken so backend knows what to deliver
       if (recipientToken) payload.receiverToken = recipientToken;
-      // Send senderToken if not native
       if (senderToken && senderToken !== chain.symbol) payload.senderToken = senderToken;
 
       const response = await fetch(`${API_URL}/api/remittance/send`, {
@@ -352,28 +334,94 @@ export function SendForm() {
       <div className="flex justify-between items-center">
         <h2 className="text-xl font-bold text-white">Send Crypto via Email</h2>
         <div className="flex items-center gap-2">
-          {!isConnected ? (
-            // State 1: Not connected
+          {walletMode === 'personal' ? (
+            // Personal wallet mode: show MetaMask connect button
             <ConnectButton showBalance={false} />
-          ) : !walletVerified ? (
-            // State 2: Connected but not verified — show ConnectButton (shows address) + verify badge
+          ) : selfVerified ? (
+            // Service wallet mode: verified via Self
             <div className="flex items-center gap-2">
-              <ConnectButton showBalance={false} />
-              <span className="px-3 py-1.5 rounded-lg text-xs font-semibold bg-yellow-500/20 text-yellow-400 border border-yellow-500/30">
-                ⚠️ Sign required on first send
+              <ShieldCheckIcon className="w-4 h-4 text-emerald-400" />
+              <span className="px-3 py-1.5 rounded-lg text-xs font-semibold bg-emerald-500/20 text-emerald-400 border border-emerald-500/30">
+                ✓ Identity Verified
+                {selfVerifiedData?.name && ` · ${Array.isArray(selfVerifiedData.name) ? selfVerifiedData.name.join(' ') : selfVerifiedData.name}`}
               </span>
             </div>
           ) : (
-            // State 3: Connected + verified
-            <div className="flex items-center gap-2">
-              <ConnectButton showBalance={false} />
-              <span className="px-3 py-1.5 rounded-lg text-xs font-semibold bg-emerald-500/20 text-emerald-400 border border-emerald-500/30">
-                ✓ Verified
-              </span>
-            </div>
+            // Service wallet mode: not yet verified
+            <button
+              onClick={() => setShowSelfQR(true)}
+              className="flex items-center gap-2 px-3 py-1.5 rounded-lg text-xs font-semibold bg-sky-500/20 text-sky-400 border border-sky-500/30 hover:bg-sky-500/30 transition-colors"
+            >
+              <ShieldCheckIcon className="w-4 h-4" />
+              Verify Identity to Send
+            </button>
           )}
         </div>
       </div>
+
+      {/* Self Protocol Verification Modal — service wallet mode only */}
+      {showSelfQR && walletMode === 'service' && (
+        <div className="fixed inset-0 bg-black/70 backdrop-blur-sm z-50 flex items-center justify-center p-4">
+          <div className="bg-slate-900 border border-slate-700 rounded-2xl p-6 max-w-sm w-full space-y-4 relative">
+            <button
+              onClick={() => setShowSelfQR(false)}
+              className="absolute top-4 right-4 text-gray-500 hover:text-white transition-colors"
+            >
+              <XMarkIcon className="w-5 h-5" />
+            </button>
+            <div className="text-center">
+              <ShieldCheckIcon className="w-10 h-10 text-sky-400 mx-auto mb-3" />
+              <h3 className="text-lg font-bold text-white mb-1">Verify Your Identity</h3>
+              <p className="text-sm text-gray-400">
+                Since the service wallet fronts the funds, we require a one-time identity check. Scan with the Self app.
+              </p>
+            </div>
+            <div className="bg-slate-800/50 rounded-lg p-3 text-xs text-gray-500 space-y-1">
+              <p>✓ Name &amp; date of birth</p>
+              <p>✓ Nationality</p>
+              <p>✓ Zero data stored · ZK proof only</p>
+              <p>✓ One-time per session</p>
+            </div>
+            <div className="flex justify-center">
+              {(() => {
+                const selfApp = new SelfAppBuilder({
+                  appName: 'Email Remittance Pro',
+                  scope: 'email-remittance-sender',
+                  endpoint: `${process.env.NEXT_PUBLIC_API_URL || 'https://email-remittance-pro.up.railway.app'}/api/verifications/sender-callback`,
+                  endpointType: 'https',
+                  version: 2,
+                  userId: selfUserIdRef.current,
+                  userIdType: 'hex',
+                  disclosures: {
+                    name: true,
+                    date_of_birth: true,
+                    nationality: true,
+                    ofac: true,
+                  },
+                }).build();
+                return (
+                  <SelfQRcodeWrapper
+                    selfApp={selfApp}
+                    onSuccess={(data: any) => {
+                      setSelfVerified(true);
+                      setSelfVerifiedData({
+                        name: data?.credentialSubject?.name || data?.discloseOutput?.name,
+                        nationality: data?.credentialSubject?.nationality || data?.discloseOutput?.nationality,
+                      });
+                      setShowSelfQR(false);
+                    }}
+                    type="websocket"
+                    darkMode={true}
+                  />
+                );
+              })()}
+            </div>
+            <p className="text-xs text-center text-gray-600">
+              Open the <strong className="text-gray-400">Self app</strong> → tap passport icon 5× for demo mode
+            </p>
+          </div>
+        </div>
+      )}
 
       <ChainSelector
         selectedChain={selectedChain}
@@ -542,7 +590,10 @@ export function SendForm() {
 
       <button
         onClick={handleSend}
-        disabled={!isConnected || !senderEmail || !recipientEmail || !amount || loading}
+        disabled={
+          !senderEmail || !recipientEmail || !amount || loading ||
+          (walletMode === 'personal' && !isConnected)
+        }
         className="w-full py-4 bg-gradient-to-r from-sky-500 to-teal-500 hover:from-sky-600 hover:to-teal-600 disabled:from-slate-600 disabled:to-slate-600 disabled:cursor-not-allowed rounded-lg font-bold text-lg transition-all flex items-center justify-center gap-2"
       >
         {loading ? (
@@ -550,7 +601,11 @@ export function SendForm() {
         ) : (
           <>
             <PaperAirplaneIcon className="w-5 h-5" />
-            {isConnected ? 'Send' : 'Connect Wallet to Send'}
+            {walletMode === 'service' && !selfVerified
+              ? 'Verify Identity to Send'
+              : walletMode === 'personal' && !isConnected
+              ? 'Connect Wallet to Send'
+              : 'Send'}
           </>
         )}
       </button>

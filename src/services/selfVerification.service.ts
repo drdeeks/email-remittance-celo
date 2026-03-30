@@ -46,8 +46,6 @@ function getVerifier(): SelfBackendVerifier | null {
       AllIds,           // Accept all document types (passport, EU ID, Aadhaar, KYC)
       new DefaultConfigStore({
         minimumAge: 18,
-        ofac: true,
-        nationality: true,
       }),
       'hex'             // userIdentifierType — claim token is hex
     );
