@@ -88,6 +88,18 @@ jest.mock('../src/services/uniswapService', () => ({
   },
 }));
 
+// Mock Self Protocol session store — all auth tests use service wallet with valid session
+jest.mock('../src/services/selfSessionStore', () => ({
+  validateSenderSession: jest.fn((token: string) => {
+    if (token === 'test-self-session') {
+      return { userId: '0xtest', nationality: 'USA', name: ['TEST', 'USER'], documentType: 'passport', verifiedAt: Date.now() };
+    }
+    return null;
+  }),
+  createSenderSession: jest.fn(() => 'test-self-session'),
+  revokeSenderSession: jest.fn(),
+}));
+
 jest.mock('../src/services/feeService', () => ({
   feeService: {
     getFeeQuote: jest.fn(async (amount: number, chain: string, feeModel: string) => ({
@@ -135,6 +147,7 @@ describe('Remittance Auth Enforcement', () => {
         senderEmail: 'sender@example.com',
         recipientEmail: 'recipient@example.com',
         amount: '1.0',
+        senderSessionToken: 'test-self-session',
         requireAuth: true,
       });
 
@@ -151,6 +164,7 @@ describe('Remittance Auth Enforcement', () => {
         senderEmail: 'sender@example.com',
         recipientEmail: 'recipient@example.com',
         amount: '1.0',
+        senderSessionToken: 'test-self-session',
         requireAuth: false,
       });
 
@@ -168,6 +182,7 @@ describe('Remittance Auth Enforcement', () => {
         senderEmail: 'sender@example.com',
         recipientEmail: 'recipient@example.com',
         amount: '1.0',
+        senderSessionToken: 'test-self-session',
         requireAuth: true,
       });
 
@@ -190,6 +205,7 @@ describe('Remittance Auth Enforcement', () => {
         senderEmail: 'sender@example.com',
         recipientEmail: 'recipient@example.com',
         amount: '1.0',
+        senderSessionToken: 'test-self-session',
         requireAuth: false,
       });
 
@@ -211,6 +227,7 @@ describe('Remittance Auth Enforcement', () => {
         senderEmail: 'sender@example.com',
         recipientEmail: 'recipient@example.com',
         amount: '1.0',
+        senderSessionToken: 'test-self-session',
         requireAuth: true,
       });
 
@@ -239,6 +256,7 @@ describe('Remittance Auth Enforcement', () => {
         senderEmail: 'sender@example.com',
         recipientEmail: 'recipient@example.com',
         amount: '1.0',
+        senderSessionToken: 'test-self-session',
         requireAuth: true,
       });
 
@@ -262,6 +280,7 @@ describe('Remittance Auth Enforcement', () => {
         senderEmail: 'sender@example.com',
         recipientEmail: 'recipient@example.com',
         amount: '2.5',
+        senderSessionToken: 'test-self-session',
         requireAuth: true,
       });
 
@@ -290,6 +309,7 @@ describe('Remittance Auth Enforcement', () => {
         senderEmail: 'sender@example.com',
         recipientEmail: 'recipient@example.com',
         amount: '1.0',
+        senderSessionToken: 'test-self-session',
         requireAuth: true,
         chain: 'base',
       });

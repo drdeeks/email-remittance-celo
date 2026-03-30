@@ -15,6 +15,19 @@ import { errorHandler } from '../src/middleware/errorHandler';
 
 const SERVER_WALLET = '0x9D65433B3FE597C15a46D2365F8F2c1701Eb9e4A';
 const SENDER_WALLET = '0xabc1234567890abcdef1234567890abcdef12345';
+const VALID_SENDER_SESSION = 'valid-self-session-token-abc123';
+
+// Mock Self Protocol session store — service wallet sends require a valid session token
+jest.mock('../src/services/selfSessionStore', () => ({
+  validateSenderSession: jest.fn((token: string) => {
+    if (token === VALID_SENDER_SESSION) {
+      return { userId: '0xtest', nationality: 'USA', name: ['JOHN', 'DOE'], documentType: 'passport', verifiedAt: Date.now() };
+    }
+    return null;
+  }),
+  createSenderSession: jest.fn(() => VALID_SENDER_SESSION),
+  revokeSenderSession: jest.fn(),
+}));
 
 // Mock celoService (ethers-based, celo.service.ts)
 // Note: jest.mock is hoisted — use inline strings, not outer const references inside factory
@@ -137,7 +150,7 @@ describe('Service Wallet Mode', () => {
 
   beforeEach(() => jest.clearAllMocks());
 
-  test('POST /api/remittance/send with walletMode=service creates remittance without fundingTxHash', async () => {
+  test('POST /api/remittance/send with walletMode=service creates remittance with valid senderSessionToken', async () => {
     const res = await request(app)
       .post('/api/remittance/send')
       .send({
@@ -146,6 +159,7 @@ describe('Service Wallet Mode', () => {
         amount: '0.1',
         chain: 'celo',
         walletMode: 'service',
+        senderSessionToken: VALID_SENDER_SESSION,
       });
 
     expect(res.status).toBe(201);
@@ -154,7 +168,7 @@ describe('Service Wallet Mode', () => {
     expect(res.body.data.txHash).toBe('pending_escrow');
   });
 
-  test('POST /api/remittance/send with no walletMode defaults to service (no fundingTxHash required)', async () => {
+  test('POST /api/remittance/send with no walletMode defaults to service (requires senderSessionToken)', async () => {
     const res = await request(app)
       .post('/api/remittance/send')
       .send({
@@ -162,10 +176,43 @@ describe('Service Wallet Mode', () => {
         recipientEmail: 'recipient@example.com',
         amount: '0.1',
         chain: 'celo',
+        senderSessionToken: VALID_SENDER_SESSION,
       });
 
     expect(res.status).toBe(201);
     expect(res.body.success).toBe(true);
+  });
+
+  test('POST /api/remittance/send with walletMode=service rejects missing senderSessionToken', async () => {
+    const res = await request(app)
+      .post('/api/remittance/send')
+      .send({
+        senderEmail: 'sender@example.com',
+        recipientEmail: 'recipient@example.com',
+        amount: '0.1',
+        chain: 'celo',
+        walletMode: 'service',
+        // No senderSessionToken
+      });
+
+    expect(res.status).toBe(400);
+    expect(res.body.error.message).toMatch(/identity verification required/i);
+  });
+
+  test('POST /api/remittance/send with walletMode=service rejects invalid senderSessionToken', async () => {
+    const res = await request(app)
+      .post('/api/remittance/send')
+      .send({
+        senderEmail: 'sender@example.com',
+        recipientEmail: 'recipient@example.com',
+        amount: '0.1',
+        chain: 'celo',
+        walletMode: 'service',
+        senderSessionToken: 'invalid-token-xyz',
+      });
+
+    expect(res.status).toBe(400);
+    expect(res.body.error.message).toMatch(/expired or invalid/i);
   });
 
   test('GET /api/remittance/service-wallet returns server wallet address and balance', async () => {
@@ -403,7 +450,7 @@ describe('Wallet Proof — Static Message (no timestamp)', () => {
 describe('Service wallet mode — Self verification identity passthrough', () => {
   const app = createTestApp();
 
-  it('accepts service wallet send with selfVerified=true and senderName', async () => {
+  it('accepts service wallet send with valid senderSessionToken', async () => {
     const res = await request(app)
       .post('/api/remittance/send')
       .send({
@@ -412,23 +459,20 @@ describe('Service wallet mode — Self verification identity passthrough', () =>
         amount: 0.5,
         chain: 'celo',
         walletMode: 'service',
-        selfVerified: true,
+        senderSessionToken: VALID_SENDER_SESSION,
         senderName: 'JOHN DOE',
         senderNationality: 'USA',
       });
 
-    // Should proceed (not reject for missing wallet proof)
     expect([200, 201]).toContain(res.status);
     if (res.body.success) {
       expect(res.body.data).toHaveProperty('claimToken');
     } else {
-      // May fail for balance reasons but not for wallet auth reasons
-      expect(res.body.error?.code).not.toBe('WALLET_VERIFICATION_REQUIRED');
       expect(res.body.error?.message).not.toMatch(/wallet.*required/i);
     }
   });
 
-  it('service wallet send does not require walletProof or fundingTxHash', async () => {
+  it('service wallet send with valid session does not require walletProof or fundingTxHash', async () => {
     const res = await request(app)
       .post('/api/remittance/send')
       .send({
@@ -437,13 +481,10 @@ describe('Service wallet mode — Self verification identity passthrough', () =>
         amount: 0.1,
         chain: 'celo',
         walletMode: 'service',
-        selfVerified: true,
-        senderName: 'JANE DOE',
-        senderNationality: 'GBR',
-        // Deliberately omitting walletProof and fundingTxHash
+        senderSessionToken: VALID_SENDER_SESSION,
+        // No walletProof, no fundingTxHash
       });
 
-    // Should not fail with wallet-related error
     expect(res.status).not.toBe(401);
     if (!res.body.success) {
       expect(res.body.error?.message).not.toMatch(/signature/i);

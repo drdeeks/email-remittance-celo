@@ -4,6 +4,7 @@ import { validateEmail, validationError } from '../utils/errors';
 import { logger } from '../utils/logger';
 import { selfVerificationService } from '../services/selfVerification.service';
 import { senderVerificationService } from '../services/selfSenderVerification.service';
+import { createSenderSession } from '../services/selfSessionStore';
 
 const router = Router();
 
@@ -182,11 +183,20 @@ router.post('/sender-callback', async (req: Request, res: Response, next: NextFu
       });
     }
 
+    // Issue a server-side session token — frontend must send this with /send
+    // This proves the ZK verification was genuinely completed server-side
+    const senderSessionToken = createSenderSession(userContextData, {
+      nationality: result.nationality,
+      name: result.discloseOutput?.name,
+      documentType: result.documentType,
+    });
+
     res.json({
       status: 'success',
       result: true,
       credentialSubject: result.discloseOutput,
       documentType: result.documentType,
+      senderSessionToken,
       timestamp: new Date().toISOString(),
     });
   } catch (error) {
