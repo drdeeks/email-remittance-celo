@@ -1254,7 +1254,7 @@ Agent wallet for tips (Celo/Base): `0x9D65433B3FE597C15a46D2365F8F2c1701Eb9e4A`
 
 Full end-to-end demo of Email Remittance Pro — personal wallet mode, service wallet mode, claim flow:
 
-[📹 Watch Demo Video](https://github.com/drdeeks/email-remittance-pro/raw/afterwork/proof/demo-email-remittance-pro.mp4)
+[📹 Watch Demo Video](https://youtube.com/shorts/PqpikcI95UQ?si=CmP7q37dKw9DNqs4)
 
 ---
 
@@ -1827,7 +1827,7 @@ Content: Venice Reply Composer announcement for Synthesis hackathon
 - Repo: github.com/drdeeks/venice-reply-composer (renamed from Synthesis-Hackathon)
 - Submission: PUBLISHED on Devfolio, repoURL updated, commitCount 26
 - Tracks: Venice Private Agents, Bankr LLM Gateway, Let the Agent Cook, ERC-8004
-- VIDEO STILL MISSING — Dr Deeks needs to record when ready
+- VIDEO STILL https://youtube.com/shorts/PqpikcI95UQ?si=CmP7q37dKw9DNqs4 — Dr Deeks needs to record when ready
 - X post live: https://x.com/drdeeks/status/2035304235190153636
 
 ### Key Session Events Tonight (00:37-05:26 MST):
