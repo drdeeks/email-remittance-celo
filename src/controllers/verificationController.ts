@@ -2,6 +2,7 @@ import { Router, Request, Response, NextFunction } from 'express';
 import { v4 as uuidv4 } from 'uuid';
 import { validateEmail, validationError } from '../utils/errors';
 import { logger } from '../utils/logger';
+import { selfVerificationService } from '../services/selfVerification.service';
 
 const router = Router();
 
@@ -68,31 +69,50 @@ router.get('/:id', async (req: Request, res: Response, next: NextFunction) => {
   }
 });
 
-// Verification callback (called by Self protocol)
+// Verification callback — called by Self Protocol app with ZK proof
+// Self app sends: { proof, publicSignals } directly to this endpoint
 router.post('/callback', async (req: Request, res: Response, next: NextFunction) => {
   try {
-    const { verificationId, verified, attributes, proof } = req.body;
+    const { proof, publicSignals, verificationId } = req.body;
 
-    const verification = verifications.get(verificationId);
+    // Run ZK proof verification via SelfBackendVerifier
+    const result = await selfVerificationService.verifyProof(proof, publicSignals);
 
-    if (!verification) {
-      return res.status(404).json({
+    logger.info('Self Protocol callback', {
+      verified: result.verified,
+      nationality: result.nationality,
+      isMinimumAgeValid: result.isMinimumAgeValid,
+      isOfacValid: result.isOfacValid,
+    });
+
+    if (!result.verified) {
+      return res.status(400).json({
         success: false,
-        error: { code: 'NOT_FOUND', message: 'Verification not found' },
+        error: { message: result.error || 'Verification failed' },
         timestamp: new Date().toISOString(),
       });
     }
 
-    verification.status = verified ? 'verified' : 'failed';
-    verification.verifiedAt = verified ? new Date() : undefined;
-    verification.attributes = attributes;
-    verification.proof = proof;
-
-    logger.info('Verification callback received', { verificationId, verified });
+    // Update in-memory store if verificationId provided
+    if (verificationId) {
+      const verification = verifications.get(verificationId);
+      if (verification) {
+        verification.status = 'verified';
+        verification.verifiedAt = new Date();
+        verification.nullifier = result.nullifier;
+        verification.nationality = result.nationality;
+      }
+    }
 
     res.json({
       success: true,
-      data: verification,
+      data: {
+        verified: true,
+        nullifier: result.nullifier,
+        nationality: result.nationality,
+        isMinimumAgeValid: result.isMinimumAgeValid,
+        isOfacValid: result.isOfacValid,
+      },
       timestamp: new Date().toISOString(),
     });
   } catch (error) {

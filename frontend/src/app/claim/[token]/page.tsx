@@ -3,6 +3,7 @@
 import { useEffect, useState } from 'react';
 import { useParams } from 'next/navigation';
 import { ConnectButton } from '@rainbow-me/rainbowkit';
+import { SelfQRcodeWrapper, SelfAppBuilder } from '@selfxyz/qrcode';
 import { useAccount } from 'wagmi';
 import { chainConfig, SupportedChainId } from '@/config/chains';
 import { 
@@ -337,23 +338,36 @@ export default function ClaimPage() {
               </div>
             </div>
 
-            {/* QR Placeholder */}
-            <div className="border-2 border-dashed border-slate-600 rounded-xl p-8 text-center">
-              <div className="w-48 h-48 mx-auto bg-slate-900 rounded-lg flex items-center justify-center mb-4">
-                <QrCodeIcon className="w-24 h-24 text-slate-600" />
-              </div>
-              <p className="text-sm text-gray-500">
-                Scan with Self Protocol app to verify
-              </p>
-            </div>
+            {/* Self Protocol QR Code */}
+            <div className="flex justify-center">
+              {(() => {
+                const selfApp = new SelfAppBuilder({
+                  appName: 'Email Remittance Pro',
+                  scope: 'email-remittance-pro',
+                  endpoint: `${process.env.NEXT_PUBLIC_API_URL || 'https://email-remittance-pro.up.railway.app'}/api/verifications/callback`,
+                  endpointType: 'https',
+                  userId: token,
+                  userIdType: 'hex',
+                  disclosures: {
+                    minimumAge: 18,
+                    ofac: true,
+                    nationality: true,
+                  },
+                }).build();
 
-            {/* Demo skip button */}
-            <button
-              onClick={() => setSelfVerified(true)}
-              className="w-full py-3 bg-emerald-500 hover:bg-emerald-600 rounded-lg font-medium transition-colors"
-            >
-              ✓ I&apos;ve Verified (Demo)
-            </button>
+                return (
+                  <SelfQRcodeWrapper
+                    selfApp={selfApp}
+                    onSuccess={() => setSelfVerified(true)}
+                    type="websocket"
+                    darkMode={true}
+                  />
+                );
+              })()}
+            </div>
+            <p className="text-xs text-center text-gray-500">
+              Open the <strong className="text-white">Self app</strong> on your phone and scan to verify your identity
+            </p>
           </div>
         </div>
       </main>
