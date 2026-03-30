@@ -351,8 +351,6 @@ export default function ClaimPage() {
                   userIdType: 'hex',
                   disclosures: {
                     minimumAge: 18,
-                    ofac: true,
-                    nationality: true,
                   },
                 }).build();
 

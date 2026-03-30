@@ -3,6 +3,7 @@ import { v4 as uuidv4 } from 'uuid';
 import { validateEmail, validationError } from '../utils/errors';
 import { logger } from '../utils/logger';
 import { selfVerificationService } from '../services/selfVerification.service';
+import { senderVerificationService } from '../services/selfSenderVerification.service';
 
 const router = Router();
 
@@ -132,6 +133,60 @@ router.get('/attributes/supported', async (req: Request, res: Response, next: Ne
         attributes: ['email', 'phone', 'name', 'address', 'birthdate', 'nationality'],
         required: ['email'],
       },
+      timestamp: new Date().toISOString(),
+    });
+  } catch (error) {
+    next(error);
+  }
+});
+
+// Sender verification callback — service wallet mode
+// Requires: name + date_of_birth + nationality + OFAC check
+// Separate scope from claim callback so disclosures don't conflict
+router.post('/sender-callback', async (req: Request, res: Response, next: NextFunction) => {
+  try {
+    const { attestationId, proof, pubSignals, userContextData } = req.body;
+
+    if (!proof || !pubSignals || !attestationId || !userContextData) {
+      return res.status(200).json({
+        success: false,
+        message: 'proof, pubSignals, attestationId and userContextData are required',
+        timestamp: new Date().toISOString(),
+      });
+    }
+
+    // Verify via sender-specific verifier (name + dob + nationality disclosures)
+    const result = await senderVerificationService.verifyProof(
+      attestationId,
+      proof,
+      pubSignals,
+      userContextData
+    );
+
+    logger.info('Self Protocol sender verification', {
+      verified: result.verified,
+      documentType: result.documentType,
+      nationality: result.nationality,
+      isMinimumAgeValid: result.isMinimumAgeValid,
+      isOfacValid: result.isOfacValid,
+    });
+
+    if (!result.verified) {
+      return res.status(200).json({
+        status: 'error',
+        result: false,
+        reason: result.error || 'Sender verification failed',
+        error_code: 'VERIFICATION_FAILED',
+        details: { isMinimumAgeValid: result.isMinimumAgeValid, isOfacValid: result.isOfacValid },
+        timestamp: new Date().toISOString(),
+      });
+    }
+
+    res.json({
+      status: 'success',
+      result: true,
+      credentialSubject: result.discloseOutput,
+      documentType: result.documentType,
       timestamp: new Date().toISOString(),
     });
   } catch (error) {
