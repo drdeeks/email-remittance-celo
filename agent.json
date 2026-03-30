@@ -2,59 +2,43 @@
   "name": "Titan",
   "version": "1.0.0",
   "operatorWallet": "0x9D65433B3FE597C15a46D2365F8F2c1701Eb9e4A",
-  "erc8004": {
-    "chain": "base",
-    "chainId": 8453,
-    "contractAddress": "0x...",
-    "registrationTx": "0xc3b2f088847b5dfc7e192b08e7535d52e8490816df913f8e3ed0a911cf8a66ff",
-    "ownerWallet": "drdeeks.base.eth",
-    "ownerAddress": "0x12F1B38DC35AA65B50E5849d02559078953aE24b",
-    "explorerUrl": "https://basescan.org/tx/0xc3b2f088847b5dfc7e192b08e7535d52e8490816df913f8e3ed0a911cf8a66ff",
-    "tokenId": 30260,
-    "tokenIdNote": "tokenId 30260 from registration TX 0xc3b2f088847b5dfc7e192b08e7535d52e8490816df913f8e3ed0a911cf8a66ff on Base Mainnet"
-  },
-  "capabilities": {
-    "tools": [
-      "celo-sdk",
-      "self-protocol-sdk",
-      "venice-ai",
-      "nodemailer",
-      "x402-payments"
-    ],
-    "models": [
-      "venice-uncensored"
-    ],
-    "chains": [
-      "celo",
-      "base",
-      "monad"
-    ],
-    "techStack": [
-      "typescript",
-      "express",
-      "jest"
-    ]
-  },
-  "taskCategories": [
-    "crypto-remittance",
-    "email-native-payments",
-    "zk-identity",
-    "fraud-detection",
-    "multi-chain-defi"
+  "erc8004": [
+    {
+      "chain": "base",
+      "chainId": 8453,
+      "contractAddress": "0x...",
+      "registrationTx": "0xc3b2f088847b5dfc7e192b08e7535d52e8490816df913f8e3ed0a911cf8a66ff",
+      "ownerWallet": "drdeeks.base.eth",
+      "ownerAddress": "0x12F1B38DC35AA65B50E5849d02559078953aE24b",
+      "explorerUrl": "https://basescan.org/tx/0xc3b2f088847b5dfc7e192b08e7535d52e8490816df913f8e3ed0a911cf8a66ff",
+      "tokenId": 30260
+    },
+    {
+      "chain": "monad",
+      "chainId": 143,
+      "contractAddress": "0x8004A169FB4a3325136EB29fA0ceB6D2e539a432",
+      "registrationTx": "0x4317aed38248d4a878f47282093a6adfffd864205aa5716990efef380e3d99ac",
+      "setAgentURITx": "0xbfb21d4e7b9c3535aacd50e7b5e29b4b3b241176774858a973d3f3d1efe0d889",
+      "agentCardURI": "https://email-remittance-pro.up.railway.app/.well-known/agent-card.json",
+      "explorerUrl": "https://monadvision.com/tx/0x4317aed38248d4a878f47282093a6adfffd864205aa5716990efef380e3d99ac",
+      "tokenId": 8368,
+      "block": 64785224
+    }
   ],
-  "computeConstraints": {
-    "hardware": "ThinkPad laptop, 3.7GB RAM",
-    "budget": "zero-budget build",
-    "runtime": "openclaw-agent"
+  "agentId": "titan-8368",
+  "capabilities": {
+    "tools": ["celo-sdk", "self-protocol-sdk", "venice-ai", "nodemailer", "x402-payments"],
+    "models": ["venice-uncensored"],
+    "chains": ["celo", "base", "monad"],
+    "techStack": ["typescript", "express", "jest"]
   },
+  "taskCategories": ["crypto-remittance", "email-native-payments", "zk-identity", "fraud-detection", "multi-chain-defi"],
   "harness": "openclaw",
   "primaryModel": "claude-sonnet-4-6",
   "description": "Autonomous agent that built an email-native crypto remittance system. Deployed smart contracts to 3 chains, integrated Self Protocol ZK, Venice AI fraud detection, and Uniswap Universal Router swaps.",
-  "agentId": "titan-30260",
   "farcasterFid": "3083838",
   "farcasterHandle": "@titan-agent",
   "moltbookHandle": "@titan_192",
   "operatorEns": "drdeeks.base.eth",
-  "moltbookAgentId": "b53344b0-776f-4f3b-8c76-aa3801529a69",
-  "agentIdNote": "agentId is the ERC-8004 tokenId (#30260) from Base Mainnet registration. Previously incorrectly set to Farcaster FID (3083838) \u2014 two separate identity systems. farcasterFid field remains correct."
+  "moltbookAgentId": "b53344b0-776f-4f3b-8c76-aa3801529a69"
 }
