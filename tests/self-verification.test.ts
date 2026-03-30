@@ -347,7 +347,7 @@ describe('Self Protocol V2 API response contract', () => {
     expect(res.body).toHaveProperty('timestamp');
   });
 
-  it('sender success response shape matches claim response shape', async () => {
+  it('sender success response shape contains all claim fields plus senderSessionToken', async () => {
     const claimRes = await request(app)
       .post('/api/verifications/callback')
       .send(VALID_PROOF_BODY);
@@ -356,7 +356,17 @@ describe('Self Protocol V2 API response contract', () => {
       .post('/api/verifications/sender-callback')
       .send(VALID_PROOF_BODY);
 
-    // Both should have same top-level shape
-    expect(Object.keys(claimRes.body).sort()).toEqual(Object.keys(senderRes.body).sort());
+    // Sender has all claim fields plus senderSessionToken
+    const claimKeys = Object.keys(claimRes.body);
+    const senderKeys = Object.keys(senderRes.body);
+    for (const key of claimKeys) {
+      expect(senderKeys).toContain(key);
+    }
+    // Sender additionally has senderSessionToken
+    if (senderRes.body.status === 'success') {
+      expect(senderRes.body).toHaveProperty('senderSessionToken');
+      expect(typeof senderRes.body.senderSessionToken).toBe('string');
+      expect(senderRes.body.senderSessionToken).toHaveLength(64); // 32 bytes hex
+    }
   });
 });

@@ -1,6 +1,7 @@
 import { Router, Request, Response } from 'express';
 import { chainService } from '../services/celoService';
 import { selfVerificationService } from '../services/selfVerification.service';
+import { senderVerificationService } from '../services/selfSenderVerification.service';
 import { uniswapService } from '../services/uniswapService';
 
 const router = Router();
@@ -35,12 +36,20 @@ router.get('/integrations', async (req: Request, res: Response) => {
       // ── Self Protocol (ZK Identity) ──────────────────────────────────────────
       selfProtocol: {
         track: 'Best Self Protocol Integration ($1k)',
-        ...selfVerificationService.getStatus(),
+        claim: {
+          ...selfVerificationService.getStatus(),
+          description: 'Claim side — age 18+ only',
+        },
+        sender: {
+          ...senderVerificationService.getStatus(),
+          description: 'Send side (service wallet) — name + DOB + nationality + OFAC',
+        },
         endpoints: [
-          'POST /api/verifications/request',
-          'GET  /api/verifications/:id',
-          'POST /api/verifications/callback/:id',
+          'POST /api/verifications/callback        (claim — minimumAge:18)',
+          'POST /api/verifications/sender-callback (send — name+dob+nationality+OFAC)',
         ],
+        library: '@selfxyz/core SelfBackendVerifier + @selfxyz/qrcode SelfQRcodeWrapper',
+        version: 'V2',
       },
 
       // ── Mandate (Policy Engine) ──────────────────────────────────────────────
@@ -86,8 +95,14 @@ router.get('/integrations', async (req: Request, res: Response) => {
         track: 'Agents With Receipts / ERC-8004 ($4k)',
         agentJsonPresent: true,
         agentLogPresent: true,
-        agentId: 'titan-3070917',
+        agentId: 'titan-30260',
+        primaryChain: 'base',
+        registrations: {
+          base: { tokenId: 30260, tx: '0xc3b2f088847b5dfc7e192b08e7535d52e8490816df913f8e3ed0a911cf8a66ff' },
+          monad: { tokenId: 8368, tx: '0x4317aed38248d4a878f47282093a6adfffd864205aa5716990efef380e3d99ac', note: 'transferred to drdeeks.base.eth' },
+        },
         onChainIdentity: 'drdeeks.base.eth',
+        agentCard: '/.well-known/agent-card.json',
       },
     },
   });

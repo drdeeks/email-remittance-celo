@@ -91,6 +91,7 @@ export function SendForm() {
   const [selfVerified, setSelfVerified] = useState(false);
   const [showSelfQR, setShowSelfQR] = useState(false);
   const [selfVerifiedData, setSelfVerifiedData] = useState<{ name?: string; nationality?: string } | null>(null);
+  const [senderSessionToken, setSenderSessionToken] = useState<string | null>(null);
   // Unique userId per session for Self QR
   const selfUserIdRef = useRef<string>(
     typeof crypto !== 'undefined'
@@ -227,11 +228,11 @@ export function SendForm() {
         chain: chainName,
         walletMode,
         requireAuth,
-        // Service wallet: attach Self verification identity
-        ...(walletMode === 'service' && selfVerifiedData ? {
-          senderName: selfVerifiedData.name,
-          senderNationality: selfVerifiedData.nationality,
-          selfVerified: true,
+        // Service wallet: send server-issued Self session token for backend validation
+        ...(walletMode === 'service' && senderSessionToken ? {
+          senderSessionToken,
+          senderName: selfVerifiedData?.name,
+          senderNationality: selfVerifiedData?.nationality,
         } : {}),
         // Personal wallet: attach wallet address + tx hash
         ...(walletMode === 'personal' && address ? { senderWallet: address.toLowerCase() } : {}),
@@ -404,10 +405,15 @@ export function SendForm() {
                     selfApp={selfApp}
                     onSuccess={(data: any) => {
                       setSelfVerified(true);
+                      // V2: discloseOutput. Fallback to credentialSubject for compat.
                       setSelfVerifiedData({
-                        name: data?.credentialSubject?.name || data?.discloseOutput?.name,
-                        nationality: data?.credentialSubject?.nationality || data?.discloseOutput?.nationality,
+                        name: data?.discloseOutput?.name || data?.credentialSubject?.name,
+                        nationality: data?.discloseOutput?.nationality || data?.credentialSubject?.nationality,
                       });
+                      // Store server-issued session token for gating /send
+                      if (data?.senderSessionToken) {
+                        setSenderSessionToken(data.senderSessionToken);
+                      }
                       setShowSelfQR(false);
                     }}
                     type="websocket"

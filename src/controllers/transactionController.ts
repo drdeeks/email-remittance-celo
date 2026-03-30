@@ -10,13 +10,14 @@ import { feeService, type FeeModel } from '../services/feeService';
 import { uniswapQuoteService } from '../services/uniswapQuoteService';
 import { swapService } from '../services/swapService';
 import { getTokensByChain, getChainIdFromName, resolveTokenAddress } from '../config/tokens';
+import { validateSenderSession } from '../services/selfSessionStore';
 
 const router = Router();
 
 // Create a new remittance transaction
 router.post('/send', async (req: Request, res: Response, next: NextFunction) => {
   try {
-    const { senderEmail, recipientEmail, amount, message, chain, currency, requireAuth, feeModel, senderWallet, walletProof, walletMode, fundingTxHash, receiverToken, senderToken } = req.body;
+    const { senderEmail, recipientEmail, amount, message, chain, currency, requireAuth, feeModel, senderWallet, walletMode, fundingTxHash, receiverToken, senderToken, senderSessionToken } = req.body;
 
     // Validate inputs
     if (!senderEmail || !recipientEmail) {
@@ -24,26 +25,25 @@ router.post('/send', async (req: Request, res: Response, next: NextFunction) => 
     }
     validateEmail(senderEmail);
     validateEmail(recipientEmail);
-    const amountCelo = parseFloat(amount); // parse first so validateAmount gets a number
+    const amountCelo = parseFloat(amount);
     validateAmount(amountCelo);
-    const resolvedChain  = detectChain(currency, chain) as SupportedChain;
+    const resolvedChain = detectChain(currency, chain) as SupportedChain;
 
-    // Wallet ownership verification — required if senderWallet is provided
-    // Personal wallet mode: on-chain tx IS the ownership proof — skip signMessage check
-    if (senderWallet && walletMode !== 'personal') {
-      if (!walletProof?.message || !walletProof?.signature) {
-        throw validationError('Wallet ownership proof required — sign the verification message in your wallet before sending');
+    // Service wallet mode: require a valid server-side Self Protocol session token
+    // This proves the sender actually completed ZK verification — not just a client flag
+    let selfSession: ReturnType<typeof validateSenderSession> = null;
+    if (walletMode === 'service' || !walletMode) {
+      if (!senderSessionToken) {
+        throw validationError('Identity verification required — please verify your identity with Self Protocol before sending via service wallet');
       }
-      try {
-        const recovered = ethers.verifyMessage(walletProof.message, walletProof.signature);
-        if (recovered.toLowerCase() !== senderWallet.toLowerCase()) {
-          throw validationError('Wallet signature mismatch — the signature does not match the provided wallet address');
-        }
-        logger.info('Wallet ownership verified', { address: senderWallet });
-      } catch (sigErr: any) {
-        if (sigErr.statusCode === 400) throw sigErr;
-        throw validationError('Invalid wallet signature — could not verify ownership');
+      selfSession = validateSenderSession(senderSessionToken);
+      if (!selfSession) {
+        throw validationError('Identity verification expired or invalid — please re-verify with Self Protocol (sessions last 30 minutes)');
       }
+      logger.info('Self Protocol sender session validated', {
+        nationality: selfSession.nationality,
+        documentType: selfSession.documentType,
+      });
     }
 
     // Personal wallet mode: verify on-chain tx actually sent funds to server escrow
