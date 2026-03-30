@@ -2,30 +2,30 @@
   "name": "Titan",
   "version": "1.0.0",
   "operatorWallet": "0x9D65433B3FE597C15a46D2365F8F2c1701Eb9e4A",
-  "erc8004": [
-    {
-      "chain": "base",
-      "chainId": 8453,
-      "contractAddress": "0x...",
-      "registrationTx": "0xc3b2f088847b5dfc7e192b08e7535d52e8490816df913f8e3ed0a911cf8a66ff",
-      "ownerWallet": "drdeeks.base.eth",
-      "ownerAddress": "0x12F1B38DC35AA65B50E5849d02559078953aE24b",
-      "explorerUrl": "https://basescan.org/tx/0xc3b2f088847b5dfc7e192b08e7535d52e8490816df913f8e3ed0a911cf8a66ff",
-      "tokenId": 30260
-    },
-    {
+  "agentId": "titan-30260",
+  "erc8004": {
+    "chain": "base",
+    "chainId": 8453,
+    "contractAddress": "0x...",
+    "registrationTx": "0xc3b2f088847b5dfc7e192b08e7535d52e8490816df913f8e3ed0a911cf8a66ff",
+    "ownerWallet": "drdeeks.base.eth",
+    "ownerAddress": "0x12F1B38DC35AA65B50E5849d02559078953aE24b",
+    "explorerUrl": "https://basescan.org/tx/0xc3b2f088847b5dfc7e192b08e7535d52e8490816df913f8e3ed0a911cf8a66ff",
+    "tokenId": 30260,
+    "note": "Primary identity. tokenId 30260 from registration TX on Base Mainnet."
+  },
+  "erc8004Additional": {
+    "monad": {
       "chain": "monad",
       "chainId": 143,
       "contractAddress": "0x8004A169FB4a3325136EB29fA0ceB6D2e539a432",
-      "registrationTx": "0x4317aed38248d4a878f47282093a6adfffd864205aa5716990efef380e3d99ac",
-      "setAgentURITx": "0xbfb21d4e7b9c3535aacd50e7b5e29b4b3b241176774858a973d3f3d1efe0d889",
-      "agentCardURI": "https://email-remittance-pro.up.railway.app/.well-known/agent-card.json",
-      "explorerUrl": "https://monadvision.com/tx/0x4317aed38248d4a878f47282093a6adfffd864205aa5716990efef380e3d99ac",
       "tokenId": 8368,
-      "block": 64785224
+      "owner": "0x12F1B38DC35AA65B50E5849d02559078953aE24b",
+      "registrationTx": "0x4317aed38248d4a878f47282093a6adfffd864205aa5716990efef380e3d99ac",
+      "transferTx": "0x040c12ec2391dacf320f79a6d1e00932d58279bdbf87e68f134b028eebf95782",
+      "note": "Registered and transferred to drdeeks.base.eth. Not primary identity."
     }
-  ],
-  "agentId": "titan-8368",
+  },
   "capabilities": {
     "tools": ["celo-sdk", "self-protocol-sdk", "venice-ai", "nodemailer", "x402-payments"],
     "models": ["venice-uncensored"],
