@@ -70,6 +70,42 @@ app.get('/claim/:token', (req, res) => {
 // Health check endpoint (public)
 app.use('/health', healthRoutes);
 
+// ERC-8004 Agent Card — Monad Identity Registry token #8368
+app.get('/.well-known/agent-card.json', (_req, res) => {
+  res.json({
+    name: 'Titan — Email Remittance Agent',
+    version: '1.0.0',
+    description: 'Autonomous agent that sends crypto to anyone via email. No wallet required to receive. Deployed on Celo, Base, and Monad.',
+    agentId: 'titan-8368',
+    erc8004: {
+      chain: 'monad',
+      chainId: 143,
+      contractAddress: '0x8004A169FB4a3325136EB29fA0ceB6D2e539a432',
+      tokenId: 8368,
+      registrationTx: '0x4317aed38248d4a878f47282093a6adfffd864205aa5716990efef380e3d99ac',
+      explorerUrl: 'https://monadvision.com/tx/0x4317aed38248d4a878f47282093a6adfffd864205aa5716990efef380e3d99ac',
+    },
+    operatorWallet: '0x9D65433B3FE597C15a46D2365F8F2c1701Eb9e4A',
+    operatorEns: 'drdeeks.base.eth',
+    endpoints: {
+      a2a: 'https://email-remittance-pro.up.railway.app/api',
+      health: 'https://email-remittance-pro.up.railway.app/health',
+    },
+    capabilities: {
+      tools: ['email-remittance', 'zk-identity-verification', 'multi-chain-transfers', 'auto-wallet-generation'],
+      chains: ['celo', 'base', 'monad'],
+      models: ['venice-uncensored'],
+    },
+    taskCategories: ['crypto-remittance', 'email-native-payments', 'zk-identity', 'multi-chain-defi'],
+    x402PaymentAddress: '0x9D65433B3FE597C15a46D2365F8F2c1701Eb9e4A',
+    links: {
+      frontend: 'https://email-remittance-pro.vercel.app',
+      farcaster: 'https://warpcast.com/titan-agent',
+      moltbook: 'https://moltbook.com/@titan_192',
+    },
+  });
+});
+
 // Public API routes
 app.use('/api/remittance', transactionRoutes);
 app.use('/api/transactions', transactionRoutes); // Alias for backwards compat
