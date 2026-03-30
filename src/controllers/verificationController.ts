@@ -69,50 +69,53 @@ router.get('/:id', async (req: Request, res: Response, next: NextFunction) => {
   }
 });
 
-// Verification callback — called by Self Protocol app with ZK proof
-// Self app sends: { proof, publicSignals } directly to this endpoint
+// Verification callback — called by Self Protocol app with ZK proof (V2 API)
+// Self app sends: { attestationId, proof, pubSignals, userContextData }
 router.post('/callback', async (req: Request, res: Response, next: NextFunction) => {
   try {
-    const { proof, publicSignals, verificationId } = req.body;
+    const { attestationId, proof, pubSignals, userContextData } = req.body;
 
-    // Run ZK proof verification via SelfBackendVerifier
-    const result = await selfVerificationService.verifyProof(proof, publicSignals);
+    // Validate required V2 fields
+    if (!proof || !pubSignals || !attestationId || !userContextData) {
+      return res.status(200).json({
+        success: false,
+        message: 'proof, pubSignals, attestationId and userContextData are required',
+        timestamp: new Date().toISOString(),
+      });
+    }
 
-    logger.info('Self Protocol callback', {
+    // Run ZK proof verification via SelfBackendVerifier V2
+    const result = await selfVerificationService.verifyProof(
+      attestationId,
+      proof,
+      pubSignals,
+      userContextData
+    );
+
+    logger.info('Self Protocol V2 callback', {
       verified: result.verified,
+      documentType: result.documentType,
       nationality: result.nationality,
       isMinimumAgeValid: result.isMinimumAgeValid,
       isOfacValid: result.isOfacValid,
     });
 
     if (!result.verified) {
-      return res.status(400).json({
-        success: false,
-        error: { message: result.error || 'Verification failed' },
+      return res.status(200).json({
+        status: 'error',
+        result: false,
+        reason: result.error || 'Verification failed',
+        error_code: 'VERIFICATION_FAILED',
+        details: { isMinimumAgeValid: result.isMinimumAgeValid, isOfacValid: result.isOfacValid },
         timestamp: new Date().toISOString(),
       });
     }
 
-    // Update in-memory store if verificationId provided
-    if (verificationId) {
-      const verification = verifications.get(verificationId);
-      if (verification) {
-        verification.status = 'verified';
-        verification.verifiedAt = new Date();
-        verification.nullifier = result.nullifier;
-        verification.nationality = result.nationality;
-      }
-    }
-
     res.json({
-      success: true,
-      data: {
-        verified: true,
-        nullifier: result.nullifier,
-        nationality: result.nationality,
-        isMinimumAgeValid: result.isMinimumAgeValid,
-        isOfacValid: result.isOfacValid,
-      },
+      status: 'success',
+      result: true,
+      credentialSubject: result.discloseOutput,
+      documentType: result.documentType,
       timestamp: new Date().toISOString(),
     });
   } catch (error) {

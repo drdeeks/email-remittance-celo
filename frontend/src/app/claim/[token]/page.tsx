@@ -346,7 +346,8 @@ export default function ClaimPage() {
                   scope: 'email-remittance-pro',
                   endpoint: `${process.env.NEXT_PUBLIC_API_URL || 'https://email-remittance-pro.up.railway.app'}/api/verifications/callback`,
                   endpointType: 'https',
-                  userId: token,
+                  version: 2,
+                  userId: token as string,
                   userIdType: 'hex',
                   disclosures: {
                     minimumAge: 18,
