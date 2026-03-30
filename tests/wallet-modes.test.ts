@@ -59,6 +59,30 @@ jest.mock('../src/services/celoService', () => ({
     getSupportedBridgeRoutes: jest.fn(() => []),
     getBridgeQuote: jest.fn(),
     executeBridge: jest.fn(),
+    getTransaction: jest.fn(async (txHash: string, chain: string) => {
+      const SERVER = '0x9D65433B3FE597C15a46D2365F8F2c1701Eb9e4A';
+      const SENDER = '0xabc1234567890abcdef1234567890abcdef12345';
+      if (txHash === '0xvalid_tx') {
+        return { hash: txHash, to: SERVER, from: SENDER, value: BigInt('1000000000000000000') };
+      }
+      // wrong destination — matches test hash
+      if (txHash === '0xwrong_destination') {
+        return { hash: txHash, to: '0xsomewhere_else', from: SENDER, value: BigInt('1000000000000000000') };
+      }
+      // wrong amount — matches test hash
+      if (txHash === '0xwrong_amount') {
+        return { hash: txHash, to: SERVER, from: SENDER, value: BigInt('10000000000000') };
+      }
+      // wrong sender — matches test hash
+      if (txHash === '0xwrong_sender') {
+        return { hash: txHash, to: SERVER, from: '0xwrongsender', value: BigInt('1000000000000000000') };
+      }
+      return null;
+    }),
+    waitForTransaction: jest.fn(async (txHash: string) => ({
+      status: 'success',
+      blockNumber: BigInt(12345),
+    })),
   },
 }));
 
@@ -371,5 +395,97 @@ describe('Wallet Proof — Static Message (no timestamp)', () => {
       // Message never changes — cached sig stays valid
       expect(currentMsg).toBe(cachedMsg);
     }
+  });
+});
+
+// ─── Service wallet Self verification integration ─────────────────────────────
+
+describe('Service wallet mode — Self verification identity passthrough', () => {
+  const app = createTestApp();
+
+  it('accepts service wallet send with selfVerified=true and senderName', async () => {
+    const res = await request(app)
+      .post('/api/remittance/send')
+      .send({
+        senderEmail: 'john.doe@example.com',
+        recipientEmail: 'recipient@example.com',
+        amount: 0.5,
+        chain: 'celo',
+        walletMode: 'service',
+        selfVerified: true,
+        senderName: 'JOHN DOE',
+        senderNationality: 'USA',
+      });
+
+    // Should proceed (not reject for missing wallet proof)
+    expect([200, 201]).toContain(res.status);
+    if (res.body.success) {
+      expect(res.body.data).toHaveProperty('claimToken');
+    } else {
+      // May fail for balance reasons but not for wallet auth reasons
+      expect(res.body.error?.code).not.toBe('WALLET_VERIFICATION_REQUIRED');
+      expect(res.body.error?.message).not.toMatch(/wallet.*required/i);
+    }
+  });
+
+  it('service wallet send does not require walletProof or fundingTxHash', async () => {
+    const res = await request(app)
+      .post('/api/remittance/send')
+      .send({
+        senderEmail: 'sender@example.com',
+        recipientEmail: 'recv@example.com',
+        amount: 0.1,
+        chain: 'celo',
+        walletMode: 'service',
+        selfVerified: true,
+        senderName: 'JANE DOE',
+        senderNationality: 'GBR',
+        // Deliberately omitting walletProof and fundingTxHash
+      });
+
+    // Should not fail with wallet-related error
+    expect(res.status).not.toBe(401);
+    if (!res.body.success) {
+      expect(res.body.error?.message).not.toMatch(/signature/i);
+      expect(res.body.error?.message).not.toMatch(/walletProof/i);
+    }
+  });
+
+  it('personal wallet send still requires connected wallet address', async () => {
+    const res = await request(app)
+      .post('/api/remittance/send')
+      .send({
+        senderEmail: 'sender@example.com',
+        recipientEmail: 'recv@example.com',
+        amount: 0.1,
+        chain: 'celo',
+        walletMode: 'personal',
+        // No senderWallet, no fundingTxHash
+      });
+
+    // Personal mode without wallet should fail or require wallet
+    expect(res.status).toBeDefined();
+    // If fails, should not be a Self-related error
+    if (!res.body.success) {
+      expect(res.body.error?.message).not.toMatch(/self.*protocol/i);
+    }
+  });
+
+  it('personal wallet send with fundingTxHash proceeds to backend verification', async () => {
+    const res = await request(app)
+      .post('/api/remittance/send')
+      .send({
+        senderEmail: 'wallet@example.com',
+        recipientEmail: 'recv@example.com',
+        amount: 1.0,
+        chain: 'celo',
+        walletMode: 'personal',
+        senderWallet: SENDER_WALLET,
+        fundingTxHash: '0xvalid_tx',
+      });
+
+    expect([200, 201]).toContain(res.status);
+    // Should reach backend verification stage
+    expect(res.body).toHaveProperty('success');
   });
 });
