@@ -1,7 +1,7 @@
 'use client';
 
 import { useState, useEffect, useRef } from 'react';
-import { useAccount, useSignMessage, useBalance, useSwitchChain, useSendTransaction } from 'wagmi';
+import { useAccount, useSignMessage, useBalance, useSwitchChain, useSendTransaction, useDisconnect } from 'wagmi';
 import { ConnectButton } from '@rainbow-me/rainbowkit';
 import { parseEther, formatUnits } from 'viem';
 import { ChainSelector } from './ChainSelector';
@@ -68,6 +68,7 @@ interface SendResult {
 export function SendForm() {
   const { address, isConnected, chainId: walletChainId } = useAccount();
   const { signMessageAsync } = useSignMessage();
+  const { disconnect } = useDisconnect();
   const { sendTransactionAsync } = useSendTransaction();
   const { switchChain } = useSwitchChain();
   
@@ -125,6 +126,15 @@ export function SendForm() {
       walletProofRef.current = null;
     }
   }, [isConnected, address]);
+
+  // Disconnect wallet when page closes/navigates away
+  useEffect(() => {
+    const handleUnload = () => {
+      if (isConnected) disconnect();
+    };
+    window.addEventListener('beforeunload', handleUnload);
+    return () => window.removeEventListener('beforeunload', handleUnload);
+  }, [isConnected, disconnect]);
 
   // Fetch token price in USD when chain changes
   useEffect(() => {
