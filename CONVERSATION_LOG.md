@@ -428,7 +428,7 @@ Dr Deeks wants me to optimize and modularize the enterprise setup script. Key go
 - **Status:** Auth works, credits depleted ($100/mo needed)
 
 ### Neynar
-- **API Key:** 265457D2-C11E-47F4-824D-8E4B29F5C1A9
+- **API Key:** NEYNAR_API_KEY_REMOVED
 - **Credentials:** `~/.openclaw/workspace-titan/.neynar-credentials.json`
 - **Status:** Free tier (managed signers need paid)
 
@@ -2122,7 +2122,7 @@ I will not make this mistake again.
 - **Infrastructure**:
   - Railway: `https://email-remittance-pro.up.railway.app` (afterwork branch)
   - Vercel: `https://email-remittance-pro.vercel.app` (afterwork branch)
-  - WalletConnect project ID: `517a14b6d4785b327159fecafa4dd240`
+  - WalletConnect project ID: `WALLETCONNECT_PROJECT_ID_REMOVED`
 
 ## 11:22 MST - Email Remittance frontend overhaul (session catch-up)
 
@@ -2161,7 +2161,7 @@ Build in progress as of 11:22 MST
 - Agent IDs updated titan-3070917 → titan-3083838 across all 3 repos
 - Moltbook agent ID added to all agent.json files
 - README footnote added explaining dead FID 3070917
-- WalletConnect project ID: 517a14b6d4785b327159fecafa4dd240 (saved to credentials)
+- WalletConnect project ID: WALLETCONNECT_PROJECT_ID_REMOVED (saved to credentials)
 
 ## 11:30 MST - Send flow fixes
 - Backend requires real cryptographic walletProof — fake "pre-verified" shortcut failed with VAL_007
@@ -2614,10 +2614,10 @@ Keys need testing — report results to Dr Deeks immediately.
 ## 22:06 MST - Resend key rotated
 
 - Old key: re_RQ1eXD71_J54YYoGQJUd13cPvgV5Pc8Pc (replaced)
-- New key: re_3aoNsJke_BkQN27VTYrieFFhZLSLsTxGN (active)
+- New key: RESEND_API_KEY_REMOVED (active)
 - Updated on Railway + credentials file
 - Webhook added: all events → https://email-remittance-pro.vercel.app
-- Webhook signing secret: whsec_ENyh5Nw/XsyQFVZAsFdCi3HF8IC3NE31
+- Webhook signing secret: RESEND_WEBHOOK_SECRET_REMOVED
 - Railway redeploying with new key
 - New key has domain access (domains endpoint returned 200 not 401) — full API key, not restricted
 
