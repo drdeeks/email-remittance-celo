@@ -129,7 +129,7 @@ The Devfolio submission update was specified in the task but requires external A
 
 ```bash
 curl -X POST https://synthesis.devfolio.co/projects/d3aa51a09aa747fbbd76c4d927fdfd2c \
-  -H "Authorization: Bearer sk-synth-14ebc8347a36a159e3b76390a2634484ae0c64778d96534b" \
+  -H "Authorization: Bearer VENICE_API_KEY_REMOVED" \
   -H "Content-Type: application/json" \
   -d '{
     "tools": ["Celo", "Self Protocol", "Mandate.md"],
