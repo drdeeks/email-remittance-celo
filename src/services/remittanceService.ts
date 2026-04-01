@@ -7,6 +7,18 @@ import { emailService } from './emailService';
 import { mandateService } from './mandateService';
 import { logger } from '../utils/logger';
 
+// PL_Genesis: Agent log for Lit Protocol signing
+interface AgentLog {
+  agentId: string;
+  operator: string;
+  timestamp: string;
+  action: string;
+  input: Record<string, any>;
+  output: Record<string, any>;
+  decision: string;
+  success: boolean;
+}
+
 interface CreateRemittanceParams {
   senderEmail: string;
   recipientEmail: string;
@@ -28,6 +40,9 @@ interface CreateRemittanceResult {
   claimToken: string;
   txHash: string;
   expiresAt: number;
+  // PL_Genesis integrations
+  agentLog?: AgentLog;
+  litSignature?: string;
 }
 
 interface ClaimRemittanceResult {
@@ -180,11 +195,28 @@ class RemittanceService {
       logger.warn(`⚠️ CLAIM TOKEN FOR RECOVERY: ${claimToken} — email delivery failed but remittance ${remittanceId} is pending`);
     }
 
+    // PL_Genesis: Build agent log and sign with Lit Protocol (mocked)
+    const agentLog: AgentLog = {
+      agentId: process.env.AGENT_ID || 'unknown-agent',
+      operator: process.env.OPERATOR_WALLET || '0x0000000000000000000000000000000000000000',
+      timestamp: new Date().toISOString(),
+      action: 'create_remittance',
+      input: { senderEmail, recipientEmail, amountCelo, chain, requireAuth, feeModel, receiverToken, senderToken },
+      output: { remittanceId, claimToken, txHash, expiresAt },
+      decision: 'auto-approved',
+      success: true,
+    };
+
+    // Mock Lit signature (in production use real Lit Protocol signing)
+    const litSignature = `lit_${Buffer.from(JSON.stringify(agentLog)).toString('hex').slice(0, 64)}`;
+
     return {
       remittanceId,
       claimToken,
       txHash,
       expiresAt,
+      agentLog,
+      litSignature,
     };
   }
 
