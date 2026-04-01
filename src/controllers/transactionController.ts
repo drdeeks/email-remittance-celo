@@ -28,6 +28,7 @@ router.post('/send', async (req: Request, res: Response, next: NextFunction) => 
     const amountCelo = parseFloat(amount);
     validateAmount(amountCelo);
     const resolvedChain = detectChain(currency, chain) as SupportedChain;
+    const worldIdToken = req.headers['x-world-id-token'] as string | undefined;
 
     // Service wallet mode: require a valid server-side Self Protocol session token
     // This proves the sender actually completed ZK verification — not just a client flag
@@ -115,7 +116,6 @@ router.post('/send', async (req: Request, res: Response, next: NextFunction) => 
         chain: resolvedChain,
         requireAuth: requireAuth === true || requireAuth === 'true',
         feeModel: resolvedFeeModel,
-        // Sender needs to transfer funds here — frontend handles the wallet TX
         escrowAddress: feeQuote.escrowAddress,
         sendAmount: feeQuote.sendAmount,
         recipientReceives: feeQuote.recipientAmount,
@@ -123,6 +123,10 @@ router.post('/send', async (req: Request, res: Response, next: NextFunction) => 
         feeDescription: feeService.getFeeModelDescription(resolvedFeeModel, resolvedChain),
       },
       timestamp: new Date().toISOString(),
+      // PL_Genesis integrations at root for easy client access
+      litSignature: result.litSignature,
+      worldIdVerified: !!worldIdToken,
+      agentLog: result.agentLog,
     });
   } catch (error) {
     next(error);
