@@ -64,6 +64,10 @@ interface SendResult {
   escrowAddress?: string;
   sendAmount?: string;
   error?: string;
+  // PL_Genesis fields
+  litSignature?: string;
+  worldIdVerified?: boolean;
+  agentLog?: any;
 }
 
 export function SendForm() {
@@ -98,6 +102,10 @@ export function SendForm() {
       ? crypto.randomUUID().replace(/-/g, '')
       : Math.random().toString(16).slice(2).padStart(32, '0')
   );
+
+  // World ID verification
+  const [worldIdVerified, setWorldIdVerified] = useState(false);
+  const [verifyingWorldId, setVerifyingWorldId] = useState(false);
 
   const chain = chainConfig[selectedChain];
   const availableTokens = RECIPIENT_TOKENS[selectedChain] || [];
@@ -179,9 +187,27 @@ export function SendForm() {
     fetchServiceWallet();
   }, [selectedChain]);
 
+  const verifyWorldId = async () => {
+    setVerifyingWorldId(true);
+    try {
+      // Mock World ID verification - in production use World ID SDK
+      // const verification = await WorldId.verify();
+      // localStorage.setItem('worldIdToken', verification.token);
+      await new Promise(resolve => setTimeout(resolve, 500));
+      const token = 'mock-world-id-token-' + Date.now();
+      localStorage.setItem('worldIdToken', token);
+      setWorldIdVerified(true);
+    } catch (err) {
+      console.error('World ID verification failed', err);
+      alert('Verification failed');
+    } finally {
+      setVerifyingWorldId(false);
+    }
+  };
+
   const handleSend = async () => {
-    // Service wallet: must be Self-verified first
-    if (walletMode === 'service' && !selfVerified) {
+    // Service wallet: must be Self-verified or World ID verified
+    if (walletMode === 'service' && !selfVerified && !worldIdVerified) {
       setShowSelfQR(true);
       return;
     }
@@ -242,9 +268,15 @@ export function SendForm() {
       if (recipientToken) payload.receiverToken = recipientToken;
       if (senderToken && senderToken !== chain.symbol) payload.senderToken = senderToken;
 
+      const worldIdToken = localStorage.getItem('worldIdToken');
+      const headers: Record<string, string> = { 'Content-Type': 'application/json' };
+      if (worldIdToken) {
+        headers['x-world-id-token'] = worldIdToken;
+      }
+
       const response = await fetch(`${API_URL}/api/remittance/send`, {
         method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
+        headers,
         body: JSON.stringify(payload),
       });
 
@@ -259,6 +291,10 @@ export function SendForm() {
           token: responseData.claimToken,
           escrowAddress: responseData.escrowAddress,
           sendAmount: responseData.sendAmount,
+          // PL_Genesis: capture integration fields
+          litSignature: data.litSignature,
+          worldIdVerified: data.worldIdVerified,
+          agentLog: data.agentLog,
         });
       } else {
         // Handle error from backend
@@ -295,6 +331,34 @@ export function SendForm() {
           <p className="text-emerald-300 text-sm text-center">
             ✓ Funds reserved · Transfer executes automatically when recipient claims
           </p>
+        </div>
+
+        {/* PL_Genesis: Show integration status */}
+        <div className="bg-slate-900 rounded-lg p-4 space-y-3">
+          {result.worldIdVerified && (
+            <div className="flex items-center gap-2 text-sm text-cyan-400">
+              <svg className="w-4 h-4" fill="currentColor" viewBox="0 0 20 20">
+                <path fillRule="evenodd" d="M2.166 4.999A11.954 11.954 0 0010 1.944 11.954 11.954 0 0017.834 5c.11.65.166 1.32.166 2.001 0 5.225-3.34 9.67-8 11.317C5.34 16.67 2 12.225 2 7c0-.682.057-1.35.166-2.001zm11.541 3.708a1 1 0 00-1.414-1.414L9 10.586 7.707 9.293a1 1 0 00-1.414 1.414l2 2a1 1 0 001.414 0l4-4z" clipRule="evenodd" />
+              </svg>
+              <span>World ID: Humanity verified</span>
+            </div>
+          )}
+          {result.litSignature && (
+            <div className="text-xs">
+              <p className="text-gray-500 mb-1">Lit Signature (agent receipt):</p>
+              <code className="block bg-slate-800 p-2 rounded text-cyan-300 break-all font-mono text-xs">
+                {result.litSignature}
+              </code>
+            </div>
+          )}
+          {result.agentLog && (
+            <details className="text-xs">
+              <summary className="cursor-pointer text-gray-400 hover:text-white">Agent Log (JSON)</summary>
+              <pre className="bg-slate-800 p-2 rounded mt-1 overflow-auto text-xs text-gray-300">
+                {JSON.stringify(result.agentLog, null, 2)}
+              </pre>
+            </details>
+          )}
         </div>
 
         <div className="bg-slate-900 rounded-lg p-4">
@@ -338,24 +402,46 @@ export function SendForm() {
           {walletMode === 'personal' ? (
             // Personal wallet mode: show MetaMask connect button
             <ConnectButton showBalance={false} />
-          ) : selfVerified ? (
-            // Service wallet mode: verified via Self
-            <div className="flex items-center gap-2">
-              <ShieldCheckIcon className="w-4 h-4 text-emerald-400" />
-              <span className="px-3 py-1.5 rounded-lg text-xs font-semibold bg-emerald-500/20 text-emerald-400 border border-emerald-500/30">
-                ✓ Identity Verified
-                {selfVerifiedData?.name && ` · ${Array.isArray(selfVerifiedData.name) ? selfVerifiedData.name.join(' ') : selfVerifiedData.name}`}
-              </span>
-            </div>
           ) : (
-            // Service wallet mode: not yet verified
-            <button
-              onClick={() => setShowSelfQR(true)}
-              className="flex items-center gap-2 px-3 py-1.5 rounded-lg text-xs font-semibold bg-sky-500/20 text-sky-400 border border-sky-500/30 hover:bg-sky-500/30 transition-colors"
-            >
-              <ShieldCheckIcon className="w-4 h-4" />
-              Verify Identity to Send
-            </button>
+            // Service wallet mode: show verification status
+            <>
+              {selfVerified ? (
+                <div className="flex items-center gap-2">
+                  <ShieldCheckIcon className="w-4 h-4 text-emerald-400" />
+                  <span className="px-3 py-1.5 rounded-lg text-xs font-semibold bg-emerald-500/20 text-emerald-400 border border-emerald-500/30">
+                    ✓ Identity Verified
+                    {selfVerifiedData?.name && ` · ${Array.isArray(selfVerifiedData.name) ? selfVerifiedData.name.join(' ') : selfVerifiedData.name}`}
+                  </span>
+                </div>
+              ) : worldIdVerified ? (
+                <div className="flex items-center gap-2">
+                  <ShieldCheckIcon className="w-4 h-4 text-emerald-400" />
+                  <span className="px-3 py-1.5 rounded-lg text-xs font-semibold bg-emerald-500/20 text-emerald-400 border border-emerald-500/30">
+                    ✓ Humanity Verified (World ID)
+                  </span>
+                </div>
+              ) : (
+                <button
+                  onClick={verifyWorldId}
+                  disabled={verifyingWorldId}
+                  className="flex items-center gap-2 px-3 py-1.5 rounded-lg text-xs font-semibold bg-amber-500/20 text-amber-400 border border-amber-500/30 hover:bg-amber-500/30 transition-colors disabled:opacity-50"
+                >
+                  {verifyingWorldId ? (
+                    <>
+                      <div className="w-3 h-3 border-2 border-amber-400/30 border-t-amber-400 rounded-full animate-spin" />
+                      Verifying...
+                    </>
+                  ) : (
+                    <>
+                      <svg className="w-4 h-4" fill="currentColor" viewBox="0 0 20 20">
+                        <path d="M9.049 2.927c.3-.921 1.603-.921 1.902 0l1.07 3.292a1 1 0 00.95.69h3.462c.969 0 1.371 1.24.588 1.81l-2.8 2.034a1 1 0 00-.364 1.118l1.07 3.292c.3.921-.755 1.688-1.54 1.118l-2.8-2.034a1 1 0 00-1.175 0l-2.8 2.034c-.784.57-1.838-.197-1.539-1.118l1.07-3.292a1 1 0 00-.364-1.118L2.98 8.72c-.783-.57-.38-1.81.588-1.81h3.461a1 1 0 00.951-.69l1.07-3.292z" />
+                      </svg>
+                      Verify Humanity (World ID)
+                    </>
+                  )}
+                </button>
+              )}
+            </>
           )}
         </div>
       </div>
