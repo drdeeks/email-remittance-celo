@@ -4,34 +4,17 @@ export default defineConfig({
   testDir: './tests/e2e',
   fullyParallel: true,
   forbidOnly: !!process.env.CI,
-  retries: process.env.CI ? 2 : 0,
-  workers: process.env.CI ? 1 : undefined,
+  retries: 0,
+  workers: 1,
   reporter: 'list',
   use: {
-    baseURL: 'http://localhost:3000',
+    baseURL: 'https://email-remittance-pro.vercel.app',
     trace: 'on-first-retry',
   },
   projects: [
     {
       name: 'chromium',
       use: { ...devices['Desktop Chrome'] },
-    },
-  ],
-  webServer: [
-    {
-      command: 'npm run dev',
-      cwd: '.',
-      port: 3001,
-      reuseExistingServer: false,
-    },
-    {
-      command: 'npm run dev',
-      cwd: 'frontend',
-      port: 3000,
-      env: {
-        NEXT_PUBLIC_API_URL: 'http://localhost:3001',
-      },
-      reuseExistingServer: false,
     },
   ],
 });
