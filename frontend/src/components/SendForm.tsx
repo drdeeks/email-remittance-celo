@@ -6,11 +6,25 @@ import { ConnectButton } from '@rainbow-me/rainbowkit';
 import { parseEther, formatUnits } from 'viem';
 import { SelfQRcodeWrapper, SelfAppBuilder } from '@selfxyz/qrcode';
 import { ChainSelector } from './ChainSelector';
+import { useSignMessage } from 'wagmi'; // for personal wallet confirmation
 import { AuthToggle } from './AuthToggle';
 import { chainConfig, SupportedChainId } from '@/config/chains';
 import { PaperAirplaneIcon, ClipboardIcon, CheckIcon, ShieldCheckIcon, XMarkIcon } from '@heroicons/react/24/solid';
 
 const API_URL = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:3001';
+
+// ─── Test-Verification mode (Task 1) ──────────────────────────────────────
+interface SendResult {
+  success: boolean;
+  claimUrl?: string;
+  token?: string;
+  escrowAddress?: string;
+  sendAmount?: string;
+  error?: string;
+  litSignature?: string;
+  worldIdVerified?: boolean;
+  agentLog?: any;
+}
 
 // Chain ID to backend chain name mapping
 const CHAIN_ID_TO_NAME: Record<number, string> = {
@@ -75,6 +89,7 @@ export function SendForm() {
   const { disconnect } = useDisconnect();
   const { sendTransactionAsync } = useSendTransaction();
   const { switchChain } = useSwitchChain();
+  const { signMessageAsync } = useSignMessage(); // for wallet ownership confirmation
   
   const [selectedChain, setSelectedChain] = useState<SupportedChainId>(42220);
   const [senderEmail, setSenderEmail] = useState('');
@@ -104,8 +119,20 @@ export function SendForm() {
   );
 
   // World ID verification
+  // World ID verification
   const [worldIdVerified, setWorldIdVerified] = useState(false);
   const [verifyingWorldId, setVerifyingWorldId] = useState(false);
+
+  // Test-Verification state — force fresh verification (for dev/debug)
+  const [forceVerification, setForceVerification] = useState(false);
+
+  // Personal wallet ownership confirmation
+  const [ownVerified, setOwnVerified] = useState(false);
+  const [ownSigning, setOwnSigning] = useState(false);
+  const [ownSignature, setOwnSignature] = useState<string | null>(null);
+
+  // Message to recipient (displayed on claim page)
+  const [recipientNote, setRecipientNote] = useState('');
 
   const chain = chainConfig[selectedChain];
   const availableTokens = RECIPIENT_TOKENS[selectedChain] || [];
@@ -202,14 +229,39 @@ export function SendForm() {
     }
   };
 
+  const handleOwnSign = async () => {
+    if (!address) return;
+    setOwnSigning(true);
+    try {
+      const msg = 'Confirm ownership for Email Remittance Pro';
+      const sig = await signMessageAsync({ message: msg });
+      setOwnSignature(sig);
+      setOwnVerified(true);
+    } catch (err: any) {
+      if (err?.code !== 4001 && !err?.message?.includes('rejected')) {
+        console.error('Ownership signature failed', err);
+        alert('Signature failed — please try again');
+      }
+    } finally {
+      setOwnSigning(false);
+    }
+  };
+
   const handleSend = async () => {
     // Service wallet: must be Self-verified or World ID verified
     if (walletMode === 'service' && !selfVerified && !worldIdVerified) {
       setShowSelfQR(true);
       return;
     }
-    // Personal wallet: must be connected
-    if (walletMode === 'personal' && !isConnected) return;
+    // Personal wallet: must be connected AND must have signed ownership
+    if (walletMode === 'personal') {
+      if (!isConnected) return;
+      if (!ownVerified) {
+        // Auto-trigger the signing prompt
+        alert('Please confirm wallet ownership by signing before sending');
+        return;
+      }
+    }
 
     if (!senderEmail || !recipientEmail || !amount) return;
 
@@ -257,9 +309,12 @@ export function SendForm() {
           senderName: selfVerifiedData?.name,
           senderNationality: selfVerifiedData?.nationality,
         } : {}),
-        // Personal wallet: attach wallet address + tx hash
+        // Personal wallet: attach wallet address + tx hash + ownership signature
         ...(walletMode === 'personal' && address ? { senderWallet: address.toLowerCase() } : {}),
+        ...(ownSignature ? { ownSignature } : {}),
         ...(onChainTxHash ? { fundingTxHash: onChainTxHash } : {}),
+        // Include recipient note/message if provided
+        ...(recipientNote ? { sender_message: recipientNote } : {}),
       };
 
       if (recipientToken) payload.receiverToken = recipientToken;
@@ -398,26 +453,70 @@ export function SendForm() {
         <div className="flex items-center gap-2">
           {walletMode === 'personal' ? (
             // Personal wallet mode: show MetaMask connect button
-            <ConnectButton showBalance={false} />
+            <div className="flex items-center gap-2">
+              <ConnectButton showBalance={false} />
+              {isConnected && !ownVerified && (
+                <button
+                  onClick={handleOwnSign}
+                  disabled={ownSigning}
+                  className="px-3 py-1.5 rounded-lg text-xs font-semibold bg-amber-500/20 text-amber-400 border border-amber-500/30 hover:bg-amber-500/30 transition-colors disabled:opacity-50"
+                >
+                  {ownSigning ? (
+                    <span className="flex items-center gap-1">
+                      <svg className="w-3 h-3 animate-spin" fill="none" viewBox="0 0 24 24">
+                        <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4" />
+                        <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4z" />
+                      </svg>
+                      Signing...
+                    </span>
+                  ) : (
+                    'Confirm Ownership'
+                  )}
+                </button>
+              )}
+              {ownVerified && (
+                <div className="px-3 py-1.5 rounded-lg text-xs font-semibold bg-emerald-500/20 text-emerald-400 border border-emerald-500/30">
+                  ✓ Wallet Confirmed
+                </div>
+              )}
+            </div>
           ) : (
-            // Service wallet mode: show verification status
-            <>
-              {selfVerified ? (
+            // Service wallet mode: show verification status + test mode
+            <div className="flex items-center gap-2">
+              {selfVerified && !worldIdVerified && (
                 <div className="flex items-center gap-2">
                   <ShieldCheckIcon className="w-4 h-4 text-emerald-400" />
                   <span className="px-3 py-1.5 rounded-lg text-xs font-semibold bg-emerald-500/20 text-emerald-400 border border-emerald-500/30">
                     ✓ Identity Verified
                     {selfVerifiedData?.name && ` · ${Array.isArray(selfVerifiedData.name) ? selfVerifiedData.name.join(' ') : selfVerifiedData.name}`}
                   </span>
+                  {/* Test-Verification reset – for dev/debug */}
+                  <button
+                    onClick={() => { setForceVerification(true); setSelfVerified(false); setShowSelfQR(true); }}
+                    className="px-2 py-1 text-[10px] border border-gray-600 rounded hover:bg-slate-700 text-gray-300"
+                    title="Test Verification (forces new verification)"
+                  >
+                    Test
+                  </button>
                 </div>
-              ) : worldIdVerified ? (
+              )}
+              {worldIdVerified && (
                 <div className="flex items-center gap-2">
                   <ShieldCheckIcon className="w-4 h-4 text-emerald-400" />
                   <span className="px-3 py-1.5 rounded-lg text-xs font-semibold bg-emerald-500/20 text-emerald-400 border border-emerald-500/30">
                     ✓ Humanity Verified (World ID)
                   </span>
+                  {/* Test-Verification reset */}
+                  <button
+                    onClick={() => { setForceVerification(true); setWorldIdVerified(false); localStorage.removeItem('worldProof'); verifyWorldId(); }}
+                    className="px-2 py-1 text-[10px] border border-gray-600 rounded hover:bg-slate-700 text-gray-300"
+                    title="Test Verification (forces new verification)"
+                  >
+                    Test
+                  </button>
                 </div>
-              ) : (
+              )}
+              {!selfVerified && !worldIdVerified && (
                 <button
                   onClick={verifyWorldId}
                   disabled={verifyingWorldId}
@@ -433,12 +532,12 @@ export function SendForm() {
                       <svg className="w-4 h-4" fill="currentColor" viewBox="0 0 20 20">
                         <path d="M9.049 2.927c.3-.921 1.603-.921 1.902 0l1.07 3.292a1 1 0 00.95.69h3.462c.969 0 1.371 1.24.588 1.81l-2.8 2.034a1 1 0 00-.364 1.118l1.07 3.292c.3.921-.755 1.688-1.54 1.118l-2.8-2.034a1 1 0 00-1.175 0l-2.8 2.034c-.784.57-1.838-.197-1.539-1.118l1.07-3.292a1 1 0 00-.364-1.118L2.98 8.72c-.783-.57-.38-1.81.588-1.81h3.461a1 1 0 00.951-.69l1.07-3.292z" />
                       </svg>
-                      Verify Humanity (World ID)
+                      Verify via World ID
                     </>
                   )}
                 </button>
               )}
-            </>
+            </div>
           )}
         </div>
       </div>
@@ -668,6 +767,20 @@ export function SendForm() {
           )}
         </div>
       )}
+
+      {/* Message to Recipient */}
+      <div className="space-y-2">
+        <label className="text-sm text-gray-400">Message to Recipient <span className="text-gray-600">(optional)</span></label>
+        <textarea
+          value={recipientNote}
+          onChange={(e) => setRecipientNote(e.target.value)}
+          placeholder="A quick note for the recipient..."
+          rows={3}
+          maxLength={500}
+          className="w-full bg-slate-900 border border-slate-700 rounded-lg px-4 py-3 text-white placeholder-gray-500 focus:border-sky-500 focus:outline-none transition-colors resize-none"
+        />
+        <p className="text-xs text-gray-600 text-right">{recipientNote.length}/500</p>
+      </div>
 
       <AuthToggle requireAuth={requireAuth} onToggle={setRequireAuth} />
 

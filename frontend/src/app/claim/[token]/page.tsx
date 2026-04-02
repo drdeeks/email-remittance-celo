@@ -37,6 +37,10 @@ interface RemittanceInfo {
   expiresAt: string;
   claimedAt?: string;
   txHash?: string;
+  // PL_Genesis v2 fields
+  senderMessage?: string;
+  bridgeTxHash?: string;
+  swapTxHash?: string;
 }
 
 interface ClaimResult {
@@ -51,6 +55,7 @@ export default function ClaimPage() {
   const params = useParams();
   const token = params.token as string;
   const { address } = useAccount();
+  const [claimed, setClaimed] = useState(false);
   
   const [info, setInfo] = useState<RemittanceInfo | null>(null);
   const [loading, setLoading] = useState(true);
@@ -269,20 +274,57 @@ export default function ClaimPage() {
     return (
       <main className="min-h-screen bg-gradient-to-b from-slate-950 via-slate-900 to-slate-950">
         <div className="max-w-lg mx-auto px-4 py-12">
-          <div className="bg-slate-800/50 border border-slate-700 rounded-xl p-8 text-center">
-            <CheckCircleIcon className="w-16 h-16 text-emerald-400 mx-auto mb-4" />
-            <h1 className="text-xl font-bold text-white mb-2">Already Claimed</h1>
-            <p className="text-gray-400">This remittance has already been claimed.</p>
-            {info.txHash && (
-              <a
-                href={`${chain.explorer}/tx/${info.txHash}`}
-                target="_blank"
-                rel="noopener noreferrer"
-                className="text-sky-400 hover:text-sky-300 mt-4 inline-block"
-              >
-                View transaction →
-              </a>
+          <div className="bg-slate-800/50 border border-slate-700 rounded-xl p-8 text-center space-y-4">
+            <div>
+              <CheckCircleIcon className="w-16 h-16 text-emerald-400 mx-auto mb-4" />
+              <h1 className="text-xl font-bold text-white mb-2">Already Claimed</h1>
+              <p className="text-gray-400">This remittance has already been claimed.</p>
+            </div>
+
+            {/* Sender message */}
+            {info.senderMessage && (
+              <div className="bg-slate-900 rounded-lg p-4 border border-slate-700">
+                <label className="text-xs text-gray-500 block mb-2">📝 Message from Sender</label>
+                <p className="text-gray-300 text-sm italic">{info.senderMessage}</p>
+              </div>
             )}
+
+            {/* Claim transaction details */}
+            <div className="bg-slate-900 rounded-lg p-4 space-y-3">
+              {info.txHash && (
+                <a
+                  href={`${chain.explorer}/tx/${info.txHash}`}
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  className="flex items-center gap-2 text-sm text-sky-400 hover:text-sky-300"
+                >
+                  <span>🔗 Claim TX</span>
+                  <code className="text-xs truncate font-mono">{info.txHash}</code>
+                </a>
+              )}
+              {info.bridgeTxHash && (
+                <a
+                  href={`${chain.explorer}/tx/${info.bridgeTxHash}`}
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  className="flex items-center gap-2 text-sm text-amber-400 hover:text-amber-300"
+                >
+                  <span>↗️ Bridge TX</span>
+                  <code className="text-xs truncate font-mono">{info.bridgeTxHash}</code>
+                </a>
+              )}
+              {info.swapTxHash && (
+                <a
+                  href={`${chain.explorer}/tx/${info.swapTxHash}`}
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  className="flex items-center gap-2 text-sm text-violet-400 hover:text-violet-300"
+                >
+                  <span>🔄 Swap TX</span>
+                  <code className="text-xs truncate font-mono">{info.swapTxHash}</code>
+                </a>
+              )}
+            </div>
           </div>
         </div>
       </main>
