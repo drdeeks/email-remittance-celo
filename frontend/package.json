@@ -3,7 +3,27 @@
   "version": "1.0.0",
   "private": true,
   "scripts": {
-    "build": "echo 'Static site — no build needed'",
-    "start": "npx serve public"
+    "build": "next build",
+    "start": "next start",
+    "dev": "next dev"
+  },
+  "dependencies": {
+    "@rainbow-me/rainbowkit": "^2.4.1",
+    "@selfxyz/qrcode": "^0.3.4",
+    "@tanstack/react-query": "^5.59.0",
+    "next": "^14.2.18",
+    "react": "^18.3.1",
+    "react-dom": "^18.3.1",
+    "viem": "^2.47.6",
+    "wagmi": "^2.14.0"
+  },
+  "devDependencies": {
+    "@types/node": "^20.11.19",
+    "@types/react": "^18.3.0",
+    "@types/react-dom": "^18.3.1",
+    "autoprefixer": "^10.4.20",
+    "postcss": "^8.4.49",
+    "tailwindcss": "^3.4.17",
+    "typescript": "^5.3.3"
   }
 }
