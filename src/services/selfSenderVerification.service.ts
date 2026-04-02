@@ -44,9 +44,8 @@ function getVerifier(): SelfBackendVerifier | null {
       MOCK_PASSPORT,
       AllIds,
       new DefaultConfigStore({
+        minimumAge: 18,
         ofac: true,
-        nationality: true,
-        name: true,
       }),
       'hex'
     );
@@ -60,7 +59,7 @@ function getVerifier(): SelfBackendVerifier | null {
 
 export class SelfSenderVerificationService {
   async verifyProof(
-    attestationId: number,
+    attestationId: 1 | 2 | 3 | 4,
     proof: any,
     pubSignals: any,
     userContextData: string
@@ -80,7 +79,12 @@ export class SelfSenderVerificationService {
     }
 
     try {
-      const result = await verifier.verify(attestationId, proof, pubSignals, userContextData);
+      const result = await verifier.verify(
+        attestationId,
+        proof,
+        pubSignals,
+        userContextData
+      );
 
       const docType =
         attestationId === 1 ? 'passport' :
@@ -91,7 +95,7 @@ export class SelfSenderVerificationService {
         return {
           verified: false,
           documentType: docType,
-          isMinimumAgeValid: result.isValidDetails?.isOlderThanValid,
+          isMinimumAgeValid: result.isValidDetails?.isMinimumAgeValid,
           isOfacValid: result.isValidDetails?.isOfacValid,
           error: `Sender verification failed: ofac=${result.isValidDetails?.isOfacValid}`,
         };
@@ -103,7 +107,7 @@ export class SelfSenderVerificationService {
         nationality: result.discloseOutput?.nationality,
         name: result.discloseOutput?.name,
         dateOfBirth: result.discloseOutput?.dateOfBirth,
-        isMinimumAgeValid: result.isValidDetails?.isOlderThanValid,
+        isMinimumAgeValid: result.isValidDetails?.isMinimumAgeValid,
         isOfacValid: result.isValidDetails?.isOfacValid,
         discloseOutput: result.discloseOutput,
       };
