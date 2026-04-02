@@ -115,8 +115,8 @@ export interface BridgeQuote {
 // ─── Chain Service ─────────────────────────────────────────────────────────────
 class ChainService {
   private clients: Partial<Record<SupportedChain, {
-    walletClient: ReturnType<typeof createWalletClient>;
-    publicClient: ReturnType<typeof createPublicClient>;
+    walletClient: any;
+    publicClient: any;
     account: ReturnType<typeof privateKeyToAccount>;
   }>> = {};
 
@@ -132,12 +132,12 @@ class ChainService {
 
     const walletClient = createWalletClient({
       account,
-      chain: config.chain,
+      chain: config.chain as any,
       transport: http(rpcUrl),
     });
 
     const publicClient = createPublicClient({
-      chain: config.chain,
+      chain: config.chain as any,
       transport: http(rpcUrl),
     });
 
@@ -166,11 +166,11 @@ class ChainService {
       try {
         const { walletClient, publicClient, account } = this.getClientsWithRpc(chainName, rpcUrl);
 
-        const hash = await walletClient.sendTransaction({
+        const hash = await (walletClient as any).sendTransaction({
           account,
           to: toAddress as `0x${string}`,
           value: parseEther(amount.toString()),
-          chain: config.chain,
+          chain: config.chain as any,
         });
 
         logger.info(`TX sent: ${hash} (via ${rpcUrl})`);
@@ -197,12 +197,12 @@ class ChainService {
 
     const walletClient = createWalletClient({
       account,
-      chain: config.chain,
+      chain: config.chain as any,
       transport: http(rpcUrl),
     });
 
     const publicClient = createPublicClient({
-      chain: config.chain,
+      chain: config.chain as any,
       transport: http(rpcUrl),
     });
 
@@ -291,12 +291,12 @@ class ChainService {
     const tx = quote?.transactionRequest;
     if (!tx?.to || !tx?.data) throw new Error('LI.FI returned no transaction data');
 
-    const hash = await walletClient.sendTransaction({
+    const hash = await (walletClient as any).sendTransaction({
       account,
       to:    tx.to   as `0x${string}`,
       data:  tx.data as `0x${string}`,
       value: tx.value ? BigInt(tx.value) : undefined,
-      chain: fromConfig.chain,
+      chain: fromConfig.chain as any,
     });
 
     return {
@@ -372,12 +372,12 @@ class ChainService {
 
     const walletClient = createWalletClient({
       account,
-      chain: config.chain,
+      chain: config.chain as any,
       transport: http(rpcUrl),
     });
 
     const publicClient = createPublicClient({
-      chain: config.chain,
+      chain: config.chain as any,
       transport: http(rpcUrl),
     });
 
@@ -387,9 +387,9 @@ class ChainService {
       account,
       to: toAddress as `0x${string}`,
       value: parseEther(amount.toString()),
-      chain: config.chain,
+      chain: config.chain as any,
     };
-    const hash = await walletClient.sendTransaction(txParams);
+    const hash = await (walletClient as any).sendTransaction(txParams);
 
     const receipt = await publicClient.waitForTransactionReceipt({ hash });
     if (receipt.status === 'reverted') throw new Error('Escrow forward transaction reverted');

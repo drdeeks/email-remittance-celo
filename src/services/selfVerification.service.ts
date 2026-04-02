@@ -64,7 +64,7 @@ export class SelfVerificationService {
    * Called by POST /api/verifications/callback
    */
   async verifyProof(
-    attestationId: number,
+    attestationId: 1 | 2 | 3 | 4,
     proof: any,
     pubSignals: any,
     userContextData: string
@@ -97,7 +97,7 @@ export class SelfVerificationService {
 
       logger.info('Self Protocol V2 verification result', {
         isValid: result.isValidDetails?.isValid,
-        isOlderThanValid: result.isValidDetails?.isOlderThanValid,
+        isMinimumAgeValid: result.isValidDetails?.isMinimumAgeValid,
         isOfacValid: result.isValidDetails?.isOfacValid,
         documentType: docType,
         nationality: result.discloseOutput?.nationality,
@@ -107,9 +107,9 @@ export class SelfVerificationService {
         return {
           verified: false,
           documentType: docType,
-          isMinimumAgeValid: result.isValidDetails?.isOlderThanValid,
+          isMinimumAgeValid: result.isValidDetails?.isMinimumAgeValid,
           isOfacValid: result.isValidDetails?.isOfacValid,
-          error: `Verification failed: age=${result.isValidDetails?.isOlderThanValid} ofac=${result.isValidDetails?.isOfacValid}`,
+          error: `Verification failed: age=${result.isValidDetails?.isMinimumAgeValid} ofac=${result.isValidDetails?.isOfacValid}`,
         };
       }
 
@@ -117,8 +117,8 @@ export class SelfVerificationService {
         verified: true,
         documentType: docType,
         nationality: result.discloseOutput?.nationality,
-        name: result.discloseOutput?.name,
-        isMinimumAgeValid: result.isValidDetails?.isOlderThanValid,
+        name: result.discloseOutput?.name || '',
+        isMinimumAgeValid: result.isValidDetails?.isMinimumAgeValid,
         isOfacValid: result.isValidDetails?.isOfacValid,
         discloseOutput: result.discloseOutput,
       };
