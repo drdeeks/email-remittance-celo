@@ -129,11 +129,8 @@ export function SendForm() {
 
   // Reset verification when wallet disconnects or changes address
   useEffect(() => {
-    if (!isConnected) {
-      setWalletVerified(false);
-      setWalletProofCache(null);
-      walletProofRef.current = null;
-    }
+    // Self-verification state is independent of wallet connection
+    // No reset needed — service wallet mode uses Self, personal wallet uses wallet auth
   }, [isConnected, address]);
 
   // Disconnect wallet when page closes/navigates away
