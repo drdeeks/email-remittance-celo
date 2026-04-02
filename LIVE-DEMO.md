@@ -36,7 +36,8 @@ Content-Type: application/json
 
 ### Step 2: Mandate Policy Check
 - Endpoint: `POST https://app.mandate.md/api/validate`
-- Auth: `MANDATE_RUNTIME_KEY_REMOVED`
+<<<<<<< HEAD
+- Auth: `MANDATE_API_KEY_REMOVED`
 - Result: ✅ Passed (agent activated, policies set)
 - Agent ID: `019d14f2-2363-7146-907f-3deb184c0e31`
 
