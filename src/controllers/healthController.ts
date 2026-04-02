@@ -1,5 +1,5 @@
 import { Router, Request, Response } from 'express';
-import { chainService } from '../services/celoService';
+import { chainService, getNativeCurrency } from '../services/celoService';
 import { selfVerificationService } from '../services/selfVerification.service';
 import { senderVerificationService } from '../services/selfSenderVerification.service';
 import { uniswapService } from '../services/uniswapService';
@@ -23,7 +23,7 @@ router.get('/integrations', async (req: Request, res: Response) => {
   for (const chain of chains) {
     try {
       const addr = chainService.getWalletAddress(chain);
-      balances[chain] = `${await chainService.getBalance(addr, chain)} ${chainService.getNativeCurrency ? '' : ''}`;
+      balances[chain] = `${await chainService.getBalance(addr, chain)} ${getNativeCurrency(chain)}`;
     } catch {
       balances[chain] = 'unavailable';
     }
