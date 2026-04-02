@@ -17,7 +17,7 @@ const router = Router();
 // Create a new remittance transaction
 router.post('/send', async (req: Request, res: Response, next: NextFunction) => {
   try {
-    const { senderEmail, recipientEmail, amount, message, chain, currency, requireAuth, feeModel, senderWallet, walletMode, fundingTxHash, receiverToken, senderToken, senderSessionToken } = req.body;
+    const { senderEmail, recipientEmail, amount, message, chain, currency, requireAuth, feeModel, senderWallet, walletMode, fundingTxHash, receiverToken, senderToken, senderSessionToken, senderMessage, verificationType, senderVerifiedName, senderVerifiedNationality, senderVerifiedEthnicity } = req.body;
 
     // Validate inputs
     if (!senderEmail || !recipientEmail) {

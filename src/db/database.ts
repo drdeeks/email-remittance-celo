@@ -52,7 +52,14 @@ class DatabaseManager {
         deposit_tx_hash TEXT,
         deposit_confirmed INTEGER DEFAULT 0,
         receiver_token TEXT DEFAULT NULL,
-        sender_token TEXT DEFAULT NULL
+        sender_token TEXT DEFAULT NULL,
+        sender_message TEXT DEFAULT NULL,
+        sender_verification_type TEXT DEFAULT NULL,
+        sender_verified_name TEXT DEFAULT NULL,
+        sender_verified_nationality TEXT DEFAULT NULL,
+        sender_verified_ethnicity TEXT DEFAULT NULL,
+        escrow_agent_wallet TEXT DEFAULT NULL,
+        cross_chain_tx_hashes TEXT DEFAULT NULL
       );
 
       CREATE INDEX IF NOT EXISTS idx_claim_token ON remittances(claim_token);
@@ -80,6 +87,13 @@ class DatabaseManager {
       { column: 'email_sent', sql: 'ALTER TABLE remittances ADD COLUMN email_sent INTEGER DEFAULT 0' },
       { column: 'receiver_token', sql: 'ALTER TABLE remittances ADD COLUMN receiver_token TEXT DEFAULT NULL' },
       { column: 'sender_token', sql: 'ALTER TABLE remittances ADD COLUMN sender_token TEXT DEFAULT NULL' },
+      { column: 'sender_message', sql: 'ALTER TABLE remittances ADD COLUMN sender_message TEXT DEFAULT NULL' },
+      { column: 'sender_verification_type', sql: 'ALTER TABLE remittances ADD COLUMN sender_verification_type TEXT DEFAULT NULL' },
+      { column: 'sender_verified_name', sql: 'ALTER TABLE remittances ADD COLUMN sender_verified_name TEXT DEFAULT NULL' },
+      { column: 'sender_verified_nationality', sql: 'ALTER TABLE remittances ADD COLUMN sender_verified_nationality TEXT DEFAULT NULL' },
+      { column: 'sender_verified_ethnicity', sql: 'ALTER TABLE remittances ADD COLUMN sender_verified_ethnicity TEXT DEFAULT NULL' },
+      { column: 'escrow_agent_wallet', sql: 'ALTER TABLE remittances ADD COLUMN escrow_agent_wallet TEXT DEFAULT NULL' },
+      { column: 'cross_chain_tx_hashes', sql: 'ALTER TABLE remittances ADD COLUMN cross_chain_tx_hashes TEXT DEFAULT NULL' },
     ];
 
     for (const migration of migrations) {

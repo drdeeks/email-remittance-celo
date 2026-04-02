@@ -33,6 +33,12 @@ interface CreateRemittanceParams {
   requireAuth?: boolean;
   receiverToken?: string;  // token recipient wants to receive (e.g. 'USDC', 'cUSD', 'ETH')
   senderToken?: string;    // token sender sent (e.g. 'USDC', 'ETH', 'CELO') — native if undefined
+  senderMessage?: string;  // optional sender message/notes
+  verificationType?: 'self' | 'world-id' | 'none';
+  senderVerifiedName?: string;
+  senderVerifiedNationality?: string;
+  senderVerifiedEthnicity?: string;
+  escrowAgentWallet?: string;
 }
 
 interface CreateRemittanceResult {
@@ -73,6 +79,13 @@ interface Remittance {
   email_sent: number;
   receiver_token: string | null;
   sender_token: string | null;
+  sender_message: string | null;
+  sender_verification_type: string | null;
+  sender_verified_name: string | null;
+  sender_verified_nationality: string | null;
+  sender_verified_ethnicity: string | null;
+  escrow_agent_wallet: string | null;
+  cross_chain_tx_hashes: string | null;
 }
 
 class RemittanceService {
@@ -141,8 +154,11 @@ class RemittanceService {
           id, claim_token, sender_email, recipient_email, amount_celo,
           message, status, escrow_tx_hash, expires_at, require_auth, chain,
           fee_model, escrow_address, sender_wallet, fee_amount,
-          receiver_token, sender_token
-        ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+          receiver_token, sender_token,
+          sender_message, sender_verification_type,
+          sender_verified_name, sender_verified_nationality, sender_verified_ethnicity,
+          escrow_agent_wallet
+        ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
       `);
 
       stmt.run(
@@ -162,7 +178,13 @@ class RemittanceService {
         senderWallet,
         feeAmount,
         receiverToken || null,
-        senderToken || null
+        senderToken || null,
+        senderMessage || null,
+        verificationType || null,
+        senderVerifiedName || null,
+        senderVerifiedNationality || null,
+        senderVerifiedEthnicity || null,
+        escrowAgentWallet || null
       );
 
       logger.info(`Remittance stored in database: ${remittanceId}`);
