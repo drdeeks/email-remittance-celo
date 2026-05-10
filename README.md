@@ -1,19 +1,47 @@
-# 📧 Email Remittance Pro: PLGV2 Agnostic Protocol
+# 📧 Email Remittance Pro: PLGV2 Protocol
 
-Email Remittance Pro is a multi-chain cryptocurrency remittance system that uses email addresses as payment endpoints. Recipient claims funds with zero wallet setup across Celo, Base, and Monad.
+Email Remittance Pro is a production-grade, multi-chain cryptocurrency remittance system that uses email addresses as payment endpoints. It enables non-custodial value transfers to recipients without requiring an existing crypto wallet.
 
-## 🚀 Key Features
-- ✅ **Recipient Choice**: Claim as native tokens, stablecoins, or digital gift cards.
-- ✅ **Auto-Bridging**: Move funds across chains seamlessly on claim.
-- ✅ **ZK Identity**: Privacy-first verification via self.xyz.
-- ✅ **Enterprise Fees**: Integrated 1.5% protocol revenue node.
+## 🚀 Vision
+Built for the new ether, Email Remittance Pro transcends chain loyalty. It is a high-performance protocol engineered for cross-EVM compatibility, currently live on **Monad** and **Base**.
 
-## 🛡️ Protocol Infrastructure
-- **Base App Discovery**: `<meta name="base:app_id" content="6a005e6aef4989446dc30c24" />` integrated.
-- **Agnostic Support**: Full compatibility with Base (8453) and Monad (143).
+## 🏗️ Protocol Infrastructure
 
-## 🧪 Tasting Suite
-Run the rigorous tasting suite to validate system nodes:
+### System Components
+- **RemittanceNode**: The central narrative engine and game loop orchestrator.
+- **Escrow Protocol**: Secure, per-transaction throwaway wallets for non-custodial holding.
+- **Recipient Choice Node**: Fully integrated backend for auto-bridging and auto-swapping upon claim.
+- **Gift Card Offramp**: Integrated Tango Card/Reloadly infrastructure for digital redemption.
+
+### Active Networks
+- **Chain 143**: Monad Mainnet
+- **Chain 8453**: Base Mainnet
+- **Chain 42220**: Celo Mainnet
+
+## 🛡️ Governance & Security
+- **1.5% Revenue Node**: Integrated protocol fee on all transfers.
+- **ZK Identity**: Privacy-first verification via **Self Protocol V2**.
+- **Self-Hosted Escrow**: Funds are held in per-remittance wallets until claimed.
+- **Comprehensive Logging**: Detailed JSON telemetry for all swaps, bridges, and claims.
+
+## 🛠️ Developer Setup
 ```bash
-npm run taste
+# Clone & Install
+git clone https://github.com/drdeeks/email-remittance-pro.git && cd email-remittance-pro
+npm install --legacy-peer-deps
+
+# Start Backend
+npm run dev
+
+# Start Frontend
+cd frontend && npm run dev
 ```
+
+## 🧪 Testing Suite
+Email Remittance Pro includes a rigorous testing suite to validate all system components (Swaps, Bridges, Fees).
+```bash
+npm run test
+```
+
+## 📜 Agnostic Protocol
+Email Remittance Pro does not express a preference for any specific L1 or L2. The protocol is designed to thrive wherever high-performance, community-driven financial infrastructure is built.
