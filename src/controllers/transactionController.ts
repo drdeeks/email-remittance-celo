@@ -321,6 +321,8 @@ router.get('/status/:token', async (req: Request, res: Response, next: NextFunct
         requireAuth: remittance.require_auth === 1,
         chain: remittance.chain || 'celo',
         selfVerified: remittance.self_verified === 1,
+        storage_fee: remittance.storage_fee,
+        returned_to_sender: remittance.returned_to_sender === 1
       },
     });
   } catch (error) {
@@ -659,9 +661,7 @@ router.post('/swap/execute', async (req: Request, res: Response, next: NextFunct
 
 export const transactionRoutes = router;
 
-
-// POST /api/remittance/process-expired — manually process expired remittances (for cron jobs)
-router.post("/process-expired", async (req: Request, res: Response, next: NextFunction) => {
+export async function handleExpiredRemittances(req: Request, res: Response, next: NextFunction) {
   try {
     await remittanceService.handleExpiredRemittances();
     res.json({
@@ -672,4 +672,4 @@ router.post("/process-expired", async (req: Request, res: Response, next: NextFu
   } catch (error) {
     next(error);
   }
-});
+}

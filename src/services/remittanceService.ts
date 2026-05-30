@@ -164,13 +164,13 @@ class RemittanceService {
         feeQuote.feeAmount, // This is the 1.5% protocol fee
         receiverToken || null,
         senderToken || null,
-        senderMessage || null,
-        verificationType || null,
-        senderVerifiedName || null,
-        senderVerifiedNationality || null,
-        senderVerifiedEthnicity || null,
-        escrowAgentWallet || null,
-        feeQuote.feeAmount, // Initial storage fee is 0, will be set when returned
+        params.senderMessage || null,
+        params.verificationType || null,
+        params.senderVerifiedName || null,
+        params.senderVerifiedNationality || null,
+        params.senderVerifiedEthnicity || null,
+        params.escrowAgentWallet || null,
+        '0', // Initial storage fee is 0, will be set when returned
         0 // returned_to_sender flag
       );
 

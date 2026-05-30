@@ -32,6 +32,7 @@ interface RemittanceInfo {
   amount: number;
   chainId: SupportedChainId;
   chain?: string;
+  returned?: boolean;  storageFee?: string;
   status: 'pending' | 'claimed' | 'expired';
   requireAuth: boolean;
   expiresAt: string;
