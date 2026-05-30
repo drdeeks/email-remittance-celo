@@ -658,3 +658,18 @@ router.post('/swap/execute', async (req: Request, res: Response, next: NextFunct
 });
 
 export const transactionRoutes = router;
+
+
+// POST /api/remittance/process-expired — manually process expired remittances (for cron jobs)
+router.post("/process-expired", async (req: Request, res: Response, next: NextFunction) => {
+  try {
+    await remittanceService.handleExpiredRemittances();
+    res.json({
+      success: true,
+      message: 'Expired remittances processed',
+      timestamp: new Date().toISOString(),
+    });
+  } catch (error) {
+    next(error);
+  }
+});

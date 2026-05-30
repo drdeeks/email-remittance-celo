@@ -1,22 +1,18 @@
 /**
- * Fee Service — Dual fee model
- *
- * STANDARD (free relay):
- *   - Sender signs their own on-chain TX from their wallet (pays their own gas)
- *   - Recipient gas (~$0.001 on Celo, ~$0.05 on Base) deducted from received amount
- *   - Net to backend: $0 (service pays relay gas, recoups from recipient deduction)
- *
- * PREMIUM ($1 flat):
- *   - Sender pays $1 on top of their send amount
- *   - Backend covers ALL gas (send + claim) from server wallet
- *   - Any excess after gas → SERVER_WALLET_ADDRESS (profit)
- *   - Estimated profit per TX: ~$0.80-$0.95 on Celo, ~$0.50-$0.70 on Base
- *
+ * Fee Service — Unified protocol fee model (1.5%)
+ * 
+ * PROTOCOL FEE (1.5% flat):
+ *   - A flat 1.5% fee on all transfers
+ *   - Sender pays their own gas to send funds TO escrow
+ *   - Recipient pays their own gas to withdraw funds FROM escrow
+ *   - Platform profit: 1.5% fee amount (no gas costs to platform)
+ *   
  * Escrow model:
  *   - Backend generates a per-remittance throwaway escrow wallet
- *   - Sender sends funds directly to that address from their browser wallet
+ *   - Sender sends funds directly to that address from their browser wallet (pays their own gas)
  *   - Backend watches for deposit confirmation, then sends claim email
- *   - On claim, backend transfers from escrow to recipient (minus gas)
+ *   - On claim (after approval if required), backend transfers from escrow to recipient
+ *   - Recipient pays their own gas for the withdrawal transaction
  */
 
 import { chainService, type SupportedChain, getNativeCurrency } from './celoService';
@@ -24,16 +20,20 @@ import { privateKeyToAccount, generatePrivateKey } from 'viem/accounts';
 import { parseEther, formatEther } from 'viem';
 import { logger } from '../utils/logger';
 
-export type FeeModel = 'standard' | 'premium';
+// Keep backward compat: 'standard' and 'premium' map to 'protocol' internally
+export type FeeModel = 'standard' | 'premium' | 'protocol';
+export type PayoutMethod = 'crypto' | 'giftcard';
 
-// Gas estimates (in native token) per chain
+const PROTOCOL_FEE_PERCENT = 0.015; // 1.5%
+
+// Gas estimates (in native token) per chain - for estimation only, users pay their own
 const GAS_ESTIMATES: Record<SupportedChain, { transfer: string; label: string }> = {
   celo:  { transfer: '0.0005', label: '~$0.001' },
   base:  { transfer: '0.00005', label: '~$0.05'  },
   monad: { transfer: '0.001',  label: '~$0.002'  },
 };
 
-// Premium fee: $1 in native token (approximate — could integrate price feed)
+// Premium fee: $1 in native token (approximate — kept for backward compatibility)
 const PREMIUM_FEE_NATIVE: Record<SupportedChain, string> = {
   celo:  '1.0',    // ~$1 in CELO (rough, CELO ~$1)
   base:  '0.0004', // ~$1 in ETH  (ETH ~$2500)
@@ -46,15 +46,15 @@ const SERVER_WALLET = process.env.SERVER_WALLET_ADDRESS
 
 export interface FeeQuote {
   feeModel: FeeModel;
-  sendAmount: string;           // what sender sends to escrow
-  recipientAmount: string;      // what recipient receives (after gas deduction if standard)
-  feeAmount: string;            // the $1 premium fee (if premium)
-  gasEstimate: string;          // gas cost in native token
+  sendAmount: string;           // what sender sends TO escrow (amount + 1.5% fee)
+  recipientAmount: string;      // what recipient gets FROM escrow (amount - they pay claim gas)
+  feeAmount: string;            // the 1.5% protocol fee (platform profit)
+  gasEstimate: string;          // gas cost in native token (for estimation only)
   gasLabel: string;             // human-readable gas cost
-  premiumFeeNative: string;     // $1 in native token
+  premiumFeeNative: string;     // $1 in native token (backward compatibility)
   escrowAddress: string;        // where sender sends funds
-  escrowPrivateKey: string;     // server keeps this to forward funds on claim
-  serverProfit?: string;        // estimated profit (premium only)
+  escrowPrivateKey: string;     // server keeps this to verify deposit and forward IF authorized
+  serverProfit?: string;        // estimated profit (1.5% fee amount)
 }
 
 export interface EscrowWallet {
@@ -65,7 +65,8 @@ export interface EscrowWallet {
 class FeeService {
   /**
    * Generate a throwaway escrow wallet for one remittance.
-   * Server holds the private key — only used to forward funds on claim.
+   * Server holds the private key ONLY to verify deposit and forward funds IF authorized.
+   * Platform NEVER pays gas - users pay their own gas for both deposit and withdrawal.
    */
   generateEscrowWallet(): EscrowWallet {
     const privateKey = generatePrivateKey();
@@ -75,7 +76,11 @@ class FeeService {
 
   /**
    * Calculate the fee quote for a remittance.
-   * Returns escrow address + exact amounts for both models.
+   * Returns escrow address + exact amounts.
+   * 
+   * Sender sends: amount + 1.5% fee TO escrow (pays their own gas)
+   * Recipient receives: amount FROM escrow (pays their own claim gas)
+   * Platform profit: 1.5% fee amount
    */
   async getFeeQuote(
     amount: number,
@@ -87,48 +92,30 @@ class FeeService {
     const premiumFee = parseFloat(PREMIUM_FEE_NATIVE[chain]);
     const escrow = this.generateEscrowWallet();
 
-    if (feeModel === 'premium') {
-      // Sender sends: amount + premiumFee → escrow
-      // Recipient gets: full amount (backend pays gas from premium fee)
-      // Server profit: premiumFee - (gas * 2) — covers send + claim gas
-      const totalSend   = amount + premiumFee;
-      const gasTotal    = gasAmount * 2; // send + claim
-      const serverProfit = premiumFee - gasTotal;
-
-      return {
-        feeModel: 'premium',
-        sendAmount: totalSend.toFixed(8),
-        recipientAmount: amount.toFixed(8),
-        feeAmount: premiumFee.toFixed(8),
-        gasEstimate: gas.transfer,
-        gasLabel: gas.label,
-        premiumFeeNative: PREMIUM_FEE_NATIVE[chain],
-        escrowAddress: escrow.address,
-        escrowPrivateKey: escrow.privateKey,
-        serverProfit: Math.max(0, serverProfit).toFixed(8),
-      };
-    }
-
-    // Standard: sender pays their own gas (wallet handles it)
-    // Recipient gets: amount - claim_gas
-    const recipientAmount = Math.max(0, amount - gasAmount);
+    // Unified protocol fee: always 1.5%
+    const protocolFee = amount * PROTOCOL_FEE_PERCENT;
+    const sendAmount = amount + protocolFee; // What sender sends TO escrow
+    const recipientAmount = amount;          // What recipient gets FROM escrow (they pay claim gas)
+    const serverProfit = protocolFee;        // Platform keeps the 1.5% fee
 
     return {
-      feeModel: 'standard',
-      sendAmount: amount.toFixed(8),
+      feeModel: 'protocol', // Always report as protocol now
+      sendAmount: sendAmount.toFixed(8),
       recipientAmount: recipientAmount.toFixed(8),
-      feeAmount: '0',
+      feeAmount: protocolFee.toFixed(8),
       gasEstimate: gas.transfer,
       gasLabel: gas.label,
       premiumFeeNative: PREMIUM_FEE_NATIVE[chain],
       escrowAddress: escrow.address,
       escrowPrivateKey: escrow.privateKey,
+      serverProfit: serverProfit.toFixed(8),
     };
   }
 
   /**
    * Watch for deposit confirmation on escrow address.
    * Polls until funds arrive or timeout.
+   * Note: Sender pays gas for this transaction.
    */
   async waitForDeposit(
     escrowAddress: string,
@@ -162,8 +149,12 @@ class FeeService {
 
   /**
    * Forward escrowed funds to recipient on claim.
-   * For premium: forwards full amount (gas from server wallet).
-   * For standard: forwards amount minus claim gas.
+   * Platform NEVER pays gas - recipient pays their own gas.
+   * 
+   * For all fee models (standard/premium/protocol): 
+   * - Send full amount FROM escrow TO recipient
+   * - Recipient pays gas for this transaction
+   * - Platform keeps the 1.5% fee that was already in the escrow
    */
   async forwardFromEscrow(params: {
     escrowPrivateKey: string;
@@ -176,64 +167,31 @@ class FeeService {
     const gas = GAS_ESTIMATES[chain];
     const gasAmount = parseFloat(gas.transfer);
 
-    if (feeModel === 'premium') {
-      // For premium: send full amount from escrow
-      // Server wallet covers claim gas separately
-      const result = await chainService.sendNativeFromKey(
-        escrowPrivateKey,
-        recipientAddress,
-        amount,
-        chain
-      );
-      // Sweep any excess (premium fee profit) to server wallet
-      try {
-        const escrowBalance = await chainService.getBalance(
-          privateKeyToAccount(escrowPrivateKey as `0x${string}`).address,
-          chain
-        );
-        const remainingBalance = parseFloat(escrowBalance);
-        if (remainingBalance > gasAmount * 1.5) {
-          await chainService.sendNativeFromKey(
-            escrowPrivateKey,
-            SERVER_WALLET,
-            remainingBalance - gasAmount,
-            chain
-          );
-          logger.info(`Swept profit ${remainingBalance - gasAmount} to server wallet`);
-        }
-      } catch (err) {
-        logger.warn('Profit sweep failed (non-critical)', err);
-      }
-      return result;
-    }
-
-    // Standard: deduct claim gas from recipient amount
-    const recipientAmount = Math.max(0, amount - gasAmount);
+    // Platform NEVER pays gas - recipient pays their own gas for withdrawal
+    // Send full amount from escrow to recipient
+    // Recipient will pay gas from their own wallet for this transaction
     return chainService.sendNativeFromKey(
       escrowPrivateKey,
       recipientAddress,
-      recipientAmount,
+      amount,
       chain
     );
   }
 
+  /**
+   * Get fee model description for UI/display
+   */
   getFeeModelDescription(feeModel: FeeModel, chain: SupportedChain): {
     title: string;
     description: string;
     cost: string;
   } {
     const gas = GAS_ESTIMATES[chain];
-    if (feeModel === 'premium') {
-      return {
-        title: '⚡ Premium — $1 flat',
-        description: 'You pay $1 extra. Backend covers all gas. Recipient gets the full amount. Fastest, simplest, no surprises.',
-        cost: `$1 + your send amount`,
-      };
-    }
+    const feePercent = (PROTOCOL_FEE_PERCENT * 100).toFixed(1);
     return {
-      title: '🔵 Standard — pay your own gas',
-      description: `You pay your own gas when sending. Recipient gas (${gas.label}) deducted from their received amount automatically.`,
-      cost: `Gas only (${gas.label} each way)`,
+      title: `⚡ ${feePercent}% Protocol Fee`,
+      description: `A flat ${feePercent}% fee on all transfers. Sender pays their own gas to deposit. Recipient gets full amount but pays their own gas to withdraw. Platform profit is the fee amount.`,
+      cost: `${feePercent}% fee (sender pays deposit gas, recipient pays withdrawal gas)`,
     };
   }
 }
