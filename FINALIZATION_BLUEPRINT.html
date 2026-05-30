@@ -1,0 +1,258 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Finalization Blueprint</title>
+    <style>
+        body {
+            font-family: Arial, sans-serif;
+            line-height: 1.6;
+            margin: 0;
+            padding: 20px;
+            background-color: #f4f4f9;
+            color: #333;
+        }
+        .container {
+            max-width: 1200px;
+            margin: 0 auto;
+            background: #fff;
+            padding: 20px;
+            border-radius: 8px;
+            box-shadow: 0 0 10px rgba(0, 0, 0, 0.1);
+        }
+        h1, h2, h3 {
+            color: #2c3e50;
+        }
+        h1 {
+            text-align: center;
+            border-bottom: 2px solid #3498db;
+            padding-bottom: 10px;
+        }
+        h2 {
+            border-bottom: 1px solid #eee;
+            padding-bottom: 5px;
+        }
+        .section {
+            margin-bottom: 30px;
+        }
+        .feature-list {
+            list-style-type: none;
+            padding: 0;
+        }
+        .feature-list li {
+            background: #f9f9f9;
+            margin: 5px 0;
+            padding: 10px;
+            border-radius: 4px;
+            border-left: 4px solid #3498db;
+        }
+        .priority-high {
+            border-left-color: #e74c3c;
+        }
+        .priority-medium {
+            border-left-color: #f39c12;
+        }
+        .priority-low {
+            border-left-color: #2ecc71;
+        }
+        .checklist {
+            list-style-type: none;
+            padding: 0;
+        }
+        .checklist li {
+            padding: 8px 0;
+            position: relative;
+            padding-left: 30px;
+        }
+        .checklist li:before {
+            content: "\2610";
+            position: absolute;
+            left: 0;
+            color: #7f8c8d;
+        }
+        .checklist li.completed:before {
+            content: "\2611";
+            color: #2ecc71;
+        }
+        .rules {
+            background: #e8f4fc;
+            padding: 15px;
+            border-radius: 4px;
+            border-left: 4px solid #3498db;
+        }
+        .validation {
+            background: #f8f9fa;
+            padding: 15px;
+            border-radius: 4px;
+            border-left: 4px solid #2c3e50;
+        }
+        footer {
+            text-align: center;
+            margin-top: 30px;
+            padding-top: 20px;
+            border-top: 1px solid #eee;
+            color: #7f8c8d;
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <h1>Finalization Blueprint</h1>
+        <p>This blueprint outlines the integration of features from PL_Genesis and PL_Genesis-work branches into PLGV2, ensuring a robust, optimized, and fully functional application.</p>
+
+        <div class="section">
+            <h2>Feature Identification and Relevance Assessment</h2>
+            <h3>Unique Features in PL_Genesis</h3>
+            <ul class="feature-list">
+                <li class="priority-high">World ID verification button and Lit signature display in the frontend</li>
+                <li class="priority-high">Lit Protocol signing and World ID verification in the send endpoint</li>
+                <li class="priority-medium">Personal wallet mode with on-chain transactions from sender wallet to escrow</li>
+                <li class="priority-medium">Wallet mode toggle between service wallet and personal wallet</li>
+                <li class="priority-medium">USD/token dual input for entering amounts in dollars or crypto</li>
+                <li class="priority-low">Email resilience with backup claim URLs and raw token in email body</li>
+                <li class="priority-high">Wallet ownership verification via personal_sign</li>
+                <li class="priority-medium">Wallet detection for Brave and enable send without wallet</li>
+                <li class="priority-medium">WalletConnect modal for QR code and mobile wallets</li>
+            </ul>
+
+            <h3>Unique Features in PL_Genesis-work</h3>
+            <ul class="feature-list">
+                <li class="priority-high">Business remittance modes with choice-first architecture</li>
+                <li class="priority-high">Tango Card and Reloadly gift card API key setup instructions</li>
+                <li class="priority-high">Unified 1.5% protocol fee model</li>
+                <li class="priority-medium">Business navigation components</li>
+                <li class="priority-medium">Risk warning banner</li>
+                <li class="priority-high">Admin, owner, and pool controllers</li>
+                <li class="priority-high">Gift card service integration</li>
+                <li class="priority-high">Owner and pool security services</li>
+                <li class="priority-medium">Price feed service</li>
+                <li class="priority-high">Sender verification service</li>
+                <li class="priority-high">Comprehensive test suites for new features</li>
+            </ul>
+
+            <h3>Relevance to PLGV2</h3>
+            <p>All identified features are relevant to PLGV2 as they enhance the application's functionality, security, and user experience. The business remittance modes and gift card services in PL_Genesis-work are particularly valuable for expanding the application's use cases.</p>
+        </div>
+
+        <div class="section">
+            <h2>Integration Checklist</h2>
+            <ul class="checklist">
+                <li class="completed">Identify unique features in PL_Genesis and PL_Genesis-work</li>
+                <li>Determine relevance and priority of each feature</li>
+                <li>Create backup of PLGV2 branch before integration</li>
+                <li>Develop integration plan for high-priority features</li>
+                <li>Implement safety practices and rollback options</li>
+                <li>Integrate World ID verification and Lit Protocol signing</li>
+                <li>Add personal wallet mode and wallet mode toggle</li>
+                <li>Implement USD/token dual input functionality</li>
+                <li>Enhance email resilience with backup claim URLs</li>
+                <li>Add wallet ownership verification</li>
+                <li>Improve wallet detection and WalletConnect modal</li>
+                <li>Integrate business remittance modes</li>
+                <li>Add gift card service integration</li>
+                <li>Implement admin, owner, and pool controllers</li>
+                <li>Add owner and pool security services</li>
+                <li>Integrate price feed service</li>
+                <li>Add sender verification service</li>
+                <li>Update test suites to cover new features</li>
+                <li>Perform comprehensive testing and validation</li>
+                <li>Document integration process and changes</li>
+            </ul>
+        </div>
+
+        <div class="section">
+            <h2>Safety Practices and Rollback Options</h2>
+            <div class="rules">
+                <h3>Safety Practices</h3>
+                <ul>
+                    <li>Create a backup of the PLGV2 branch before starting integration.</li>
+                    <li>Use feature branches for integrating each feature separately.</li>
+                    <li>Implement comprehensive unit and integration tests for new features.</li>
+                    <li>Use continuous integration to run tests automatically on each commit.</li>
+                    <li>Document all changes and integration steps thoroughly.</li>
+                    <li>Perform code reviews for all integrated features.</li>
+                    <li>Monitor application logs and performance metrics post-integration.</li>
+                </ul>
+
+                <h3>Rollback Options</h3>
+                <ul>
+                    <li>Maintain the backup of the original PLGV2 branch.</li>
+                    <li>Use Git tags to mark stable points before and after integration.</li>
+                    <li>Implement feature flags to enable/disable new features dynamically.</li>
+                    <li>Prepare rollback scripts to revert changes quickly if needed.</li>
+                    <li>Document rollback procedures for each integrated feature.</li>
+                    <li>Ensure all team members are familiar with rollback procedures.</li>
+                </ul>
+            </div>
+        </div>
+
+        <div class="section">
+            <h2>Guidelines and Rules</h2>
+            <div class="rules">
+                <h3>Integration Guidelines</h3>
+                <ul>
+                    <li>Adhere to existing code style and conventions.</li>
+                    <li>Ensure all new features are thoroughly tested.</li>
+                    <li>Maintain backward compatibility where possible.</li>
+                    <li>Document all new features and changes.</li>
+                    <li>Update API documentation to reflect new endpoints and changes.</li>
+                    <li>Ensure all dependencies are up-to-date and compatible.</li>
+                    <li>Optimize performance for all new features.</li>
+                </ul>
+
+                <h3>Rules</h3>
+                <ul>
+                    <li>Do not merge changes directly into the main branch.</li>
+                    <li>All changes must go through code review.</li>
+                    <li>All tests must pass before merging.</li>
+                    <li>Document all breaking changes and migration steps.</li>
+                    <li>Ensure all security best practices are followed.</li>
+                    <li>Monitor application performance post-integration.</li>
+                    <li>Address any issues or bugs promptly.</li>
+                </ul>
+            </div>
+        </div>
+
+        <div class="section">
+            <h2>Self-Validation Aspect</h2>
+            <div class="validation">
+                <h3>Validation Process</h3>
+                <ul>
+                    <li>Perform comprehensive testing for each integrated feature.</li>
+                    <li>Validate that all existing functionality remains intact.</li>
+                    <li>Ensure new features integrate seamlessly with existing ones.</li>
+                    <li>Monitor application logs for errors or issues.</li>
+                    <li>Gather feedback from users and stakeholders.</li>
+                    <li>Address any issues or concerns promptly.</li>
+                    <li>Perform load testing to ensure application scalability.</li>
+                </ul>
+
+                <h3>Big-Picture Mindset</h3>
+                <ul>
+                    <li>Consider the long-term impact of each integrated feature.</li>
+                    <li>Ensure features align with the application's overall goals.</li>
+                    <li>Plan for future scalability and maintainability.</li>
+                    <li>Document all decisions and rationale.</li>
+                    <li>Regularly review and update the integration plan.</li>
+                    <li>Ensure all team members are aligned with the integration goals.</li>
+                </ul>
+
+                <h3>Root Cause Analysis</h3>
+                <ul>
+                    <li>Identify the root cause of any issues or bugs.</li>
+                    <li>Develop solutions that address the root cause.</li>
+                    <li>Avoid quick fixes that do not address underlying issues.</li>
+                    <li>Document all root cause analyses and solutions.</li>
+                    <li>Implement preventive measures to avoid similar issues in the future.</li>
+                    <li>Regularly review and update preventive measures.</li>
+                </ul>
+            </div>
+        </div>
+
+        <footer>
+            <p>&copy; 2024 Email Remittance Pro. All rights reserved.</p>
+        </footer>
+    </div>
+</body>
+</html>
