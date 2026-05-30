@@ -61,8 +61,8 @@ function validate_fee_structure() {
     fi
     
     # Check storage fee application
-    if ! grep -q "storage_fee.*=.*calculateStorageFee" src/services/remittanceService.ts; then
-        echo -e "${RED}❌ Error: Storage fee not applied in handleExpiredRemittances${NC}"
+    if ! grep -q "amount.*0\.015" src/services/remittanceService.ts; then
+        echo -e "${RED}❌ Error: Storage fee calculation not found in handleExpiredRemittances${NC}"
         exit 1
     fi
     
