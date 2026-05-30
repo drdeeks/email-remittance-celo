@@ -10,7 +10,7 @@ Email Remittance Pro is an enterprise-grade, autonomous agent-powered remittance
 - **Zero Platform Gas Costs**: Users pay all gas fees - platform never subsidizes transactions
 - **Auto-Generated Wallets**: Recipients without wallets receive auto-generated wallets with clear import instructions
 - **Multi-Chain Support**: Celo, Base, and Monad with automatic chain detection
-- **Enterprise-Grade Compliance**: Self Protocol ZK identity verification, Venice AI fraud analysis, and Mandate policy enforcement
+- **Enterprise-Grade Compliance**: Self Protocol ZK identity verification and Mandate policy enforcement
 - **Two Funding Modes**: Service wallet (platform-fronted) and personal wallet (user-funded) options
 - **Gift Card Integration**: Support for gift card redemption flows
 
@@ -52,7 +52,6 @@ email-remittance-pro/
 | `PORT` | Server port | ❌ No | `3001` |
 | `DB_PATH` | SQLite database path | ❌ No | `./remittance.db` |
 | `MANDATE_RUNTIME_KEY` | Mandate policy engine key | ❌ No | `mndt_live_xxxxxxxxxxxxxxxx` |
-| `VENICE_API_KEY` | Venice AI fraud analysis key | ❌ No | `VENICE_INFERENCE_KEY_xxxxxxxx` |
 | `UNISWAP_API_KEY` | Uniswap API key for swaps | ❌ No | `your-uniswap-developer-api-key` |
 
 ## ⚡ Quickstart
@@ -178,7 +177,6 @@ sudo certbot --nginx -d remittance.yourdomain.com
 | **Monad** | [docs.monad.xyz](https://docs.monad.xyz) | Monad chain documentation |
 | **Resend** | [resend.com/docs](https://resend.com/docs) | Email delivery |
 | **Self Protocol** | [developer.self.xyz](https://developer.self.xyz) | ZK identity verification |
-| **Venice AI** | [venice.ai/docs](https://venice.ai/docs) | Private fraud analysis |
 | **Mandate** | [mandate.md](https://mandate.md) | Policy enforcement |
 | **Uniswap** | [docs.uniswap.org](https://docs.uniswap.org) | Token swaps and bridges |
 | **Express.js** | [expressjs.com](https://expressjs.com) | Backend framework |
@@ -214,7 +212,7 @@ The [Email_Remittance_Pro_Pitch_Deck.pptx](Email_Remittance_Pro_Pitch_Deck.pptx)
 1. **Never commit private keys**: `.env` is in `.gitignore`
 2. **Use environment variables**: All sensitive data should be in `.env`
 3. **Enable Mandate policies**: Set transaction limits to prevent abuse
-4. **Use Venice AI**: Enable fraud analysis for production deployments
+
 5. **Verify Self Protocol**: Enable ZK identity verification for compliance
 6. **Monitor wallet balances**: Set up alerts for low balances
 7. **Use HTTPS**: Always deploy with SSL/TLS encryption
