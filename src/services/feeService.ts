@@ -24,7 +24,8 @@ import { logger } from '../utils/logger';
 export type FeeModel = 'standard' | 'premium' | 'protocol';
 export type PayoutMethod = 'crypto' | 'giftcard';
 
-const PROTOCOL_FEE_PERCENT = 0.015; // 1.5%
+const PROTOCOL_FEE_PERCENT = 0.015; // 1.5% base protocol fee
+const STORAGE_FEE_PERCENT = 0.015;  // 1.5% storage fee (applied only to unclaimed remittances)
 
 // Gas estimates (in native token) per chain - for estimation only, users pay their own
 const GAS_ESTIMATES: Record<SupportedChain, { transfer: string; label: string }> = {
@@ -63,6 +64,14 @@ export interface EscrowWallet {
 }
 
 class FeeService {
+  /**
+   * Calculate storage fee for expired/returned remittances
+   * 1.5% fee applied only when funds are returned after 7 days
+   */
+  async calculateStorageFee(amount: number): Promise<string> {
+    const storageFee = amount * STORAGE_FEE_PERCENT;
+    return storageFee.toFixed(8);
+  }
   /**
    * Generate a throwaway escrow wallet for one remittance.
    * Server holds the private key ONLY to verify deposit and forward funds IF authorized.
