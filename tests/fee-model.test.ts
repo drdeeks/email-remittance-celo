@@ -1,35 +1,36 @@
 /**
  * Fee Model Tests
- * Tests for dual fee model: standard gas / $1 premium with profit
+ * Tests for unified 1.5% protocol fee model
  */
 import { feeService } from '../src/services/feeService';
 
-describe('Fee Service — Standard Model', () => {
-  test('standard quote returns escrow address', async () => {
-    const quote = await feeService.getFeeQuote(1.0, 'celo', 'standard');
+describe('Fee Service — Protocol Model', () => {
+  test('protocol quote returns escrow address', async () => {
+    const quote = await feeService.getFeeQuote(1.0, 'celo', 'standard'); // standard maps to protocol
     expect(quote.escrowAddress).toMatch(/^0x[a-fA-F0-9]{40}$/);
     expect(quote.escrowPrivateKey).toBeTruthy();
-    expect(quote.feeModel).toBe('standard');
+    expect(quote.feeModel).toBe('protocol'); // Always returns protocol now
   });
 
-  test('standard model sendAmount equals input amount', async () => {
-    const quote = await feeService.getFeeQuote(0.5, 'celo', 'standard');
-    expect(parseFloat(quote.sendAmount)).toBeCloseTo(0.5, 4);
-    expect(quote.feeAmount).toBe('0');
+  test('protocol model sendAmount equals input amount + 1.5% fee', async () => {
+    const quote = await feeService.getFeeQuote(0.5, 'celo', 'standard'); // standard maps to protocol
+    const expectedSendAmount = 0.5 * 1.015; // amount + 1.5% fee
+    expect(parseFloat(quote.sendAmount)).toBeCloseTo(expectedSendAmount, 4);
+    expect(parseFloat(quote.feeAmount)).toBeCloseTo(0.5 * 0.015, 4); // 1.5% fee
   });
 
-  test('standard model recipient receives less than sent (gas deducted)', async () => {
-    const quote = await feeService.getFeeQuote(1.0, 'celo', 'standard');
-    expect(parseFloat(quote.recipientAmount)).toBeLessThan(1.0);
-    expect(parseFloat(quote.recipientAmount)).toBeGreaterThan(0.999); // small gas on Celo
+  test('protocol model recipient receives full amount (they pay gas)', async () => {
+    const quote = await feeService.getFeeQuote(1.0, 'celo', 'standard'); // standard maps to protocol
+    expect(parseFloat(quote.recipientAmount)).toBeCloseTo(1.0, 4); // recipient gets full amount
+    expect(parseFloat(quote.sendAmount)).toBeGreaterThan(1.0); // sender pays amount + fee
   });
 
-  test('standard model on Base deducts more gas than Celo', async () => {
+  test('protocol model on Base deducts more gas than Celo', async () => {
     const celoQuote = await feeService.getFeeQuote(1.0, 'celo', 'standard');
     const baseQuote = await feeService.getFeeQuote(1.0, 'base', 'standard');
-    // Base gas in ETH is tiny but Base fees can be higher in USD terms
-    expect(parseFloat(celoQuote.recipientAmount)).toBeGreaterThanOrEqual(0.999);
-    expect(parseFloat(baseQuote.recipientAmount)).toBeGreaterThanOrEqual(0.999);
+    // Both should return full amount to recipient (they pay their own gas)
+    expect(parseFloat(celoQuote.recipientAmount)).toBeCloseTo(1.0, 4);
+    expect(parseFloat(baseQuote.recipientAmount)).toBeCloseTo(1.0, 4);
   });
 
   test('each quote generates unique escrow address', async () => {
@@ -39,12 +40,10 @@ describe('Fee Service — Standard Model', () => {
   });
 });
 
-describe('Fee Service — Premium Model', () => {
-  test('premium quote adds fee on top of send amount', async () => {
+describe('Fee Service — Premium Model (Backward Compatibility)', () => {
+  test('premium quote maps to protocol', async () => {
     const quote = await feeService.getFeeQuote(1.0, 'celo', 'premium');
-    expect(quote.feeModel).toBe('premium');
-    expect(parseFloat(quote.sendAmount)).toBeGreaterThan(1.0);
-    expect(parseFloat(quote.feeAmount)).toBeGreaterThan(0);
+    expect(quote.feeModel).toBe('protocol'); // premium maps to protocol
   });
 
   test('premium model recipient receives full amount', async () => {
@@ -57,19 +56,19 @@ describe('Fee Service — Premium Model', () => {
     expect(parseFloat(quote.serverProfit || '0')).toBeGreaterThan(0);
   });
 
-  test('premium fee amount equals PREMIUM_FEE_NATIVE for chain', async () => {
+  test('premium fee amount equals 1.5% of amount', async () => {
     const celoQuote  = await feeService.getFeeQuote(0.5, 'celo',  'premium');
     const baseQuote  = await feeService.getFeeQuote(0.5, 'base',  'premium');
     const monadQuote = await feeService.getFeeQuote(0.5, 'monad', 'premium');
-    // Fee must be > 0 on all chains
-    expect(parseFloat(celoQuote.feeAmount)).toBeGreaterThan(0);
-    expect(parseFloat(baseQuote.feeAmount)).toBeGreaterThan(0);
-    expect(parseFloat(monadQuote.feeAmount)).toBeGreaterThan(0);
+    // Fee must be 1.5% on all chains
+    expect(parseFloat(celoQuote.feeAmount)).toBeCloseTo(0.5 * 0.015, 4);
+    expect(parseFloat(baseQuote.feeAmount)).toBeCloseTo(0.5 * 0.015, 4);
+    expect(parseFloat(monadQuote.feeAmount)).toBeCloseTo(0.5 * 0.015, 4);
   });
 
-  test('premium sendAmount = requestedAmount + feeAmount', async () => {
+  test('premium sendAmount = requestedAmount + 1.5% fee', async () => {
     const quote = await feeService.getFeeQuote(2.0, 'celo', 'premium');
-    const expected = parseFloat(quote.recipientAmount) + parseFloat(quote.feeAmount);
+    const expected = 2.0 * 1.015; // requestedAmount + 1.5% fee
     expect(parseFloat(quote.sendAmount)).toBeCloseTo(expected, 4);
   });
 });
@@ -90,15 +89,10 @@ describe('Fee Service — Escrow Wallet', () => {
 });
 
 describe('Fee Service — Descriptions', () => {
-  test('standard description mentions gas', () => {
+  test('description mentions protocol fee', () => {
     const desc = feeService.getFeeModelDescription('standard', 'celo');
-    expect(desc.title).toContain('Standard');
-    expect(desc.description.toLowerCase()).toContain('gas');
-  });
-
-  test('premium description mentions $1', () => {
-    const desc = feeService.getFeeModelDescription('premium', 'celo');
-    expect(desc.title).toContain('$1');
+    expect(desc.title).toContain('1.5% Protocol Fee');
+    expect(desc.description.toLowerCase()).toContain('flat 1.5% fee');
   });
 
   test('all chains return descriptions', () => {
@@ -107,6 +101,8 @@ describe('Fee Service — Descriptions', () => {
       const prem = feeService.getFeeModelDescription('premium',  chain);
       expect(std.title).toBeTruthy();
       expect(prem.title).toBeTruthy();
+      // Both should describe the same protocol fee
+      expect(std.title).toBe(prem.title);
     }
   });
 });
