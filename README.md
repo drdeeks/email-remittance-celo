@@ -1,3 +1,15 @@
+# Email Remittance Pro
+
+A platform for sending remittances via email with escrow functionality and blockchain settlement.
+
+## Key Features
+- 7-day claim window for remittances
+- 1.5% storage fee on expired remittances
+- Zero platform gas fees - users pay their own gas
+- Recipient wallet generation with import instructions
+- Business verification workflow
+- Gift card redemption flow
+
 ## 🔐 Configurable Identity Verification
 
 Email Remittance Pro provides **flexible identity verification** through Self Protocol, allowing businesses to configure compliance requirements based on their specific needs.
@@ -85,6 +97,53 @@ graph TD
     B -->|No| D[Check requireAuth Parameter]
     C --> D
     D -->|requireAuth=true| E[Require Recipient Verification]
+```
+
+## Testing
+
+### Running Tests
+```bash
+# Run all tests
+npm test
+
+# Run tests with coverage
+npm test -- --coverage
+
+# Run specific test file
+npx jest tests/integration/feeStructure.test.ts
+```
+
+### Test Coverage Requirements
+- Minimum 93% coverage for statements, branches, functions, and lines
+- Comprehensive tests for all core functionality:
+  - Remittance creation and claiming
+  - Fee calculations (1.5% protocol and storage fees)
+  - Expiration handling (7-day window)
+  - Wallet generation with import instructions
+  - Business verification workflow
+  - Gift card redemption flow
+
+## Deployment
+
+### Cron Job Setup
+To properly track and enforce remittance expirations, set up a cron job to process expired remittances hourly:
+
+```bash
+# Example cron job (run crontab -e to edit)
+0 * * * * curl -X POST https://yourdomain.com/api/process-expired
+```
+
+For production environments, we recommend:
+
+1. **Authentication**: Use API keys to secure the endpoint
+2. **Logging**: Ensure all cron job executions are logged
+3. **Monitoring**: Set up alerts for failed cron jobs
+4. **Idempotency**: Ensure the endpoint can be safely retried
+
+Example with authentication and logging:
+```bash
+0 * * * * /usr/bin/curl -X POST -H "Authorization: Bearer YOUR_CRON_API_KEY" -H "Content-Type: application/json" https://yourdomain.com/api/process-expired >> /var/log/remittance-cron.log 2>&1
+```
     D -->|requireAuth=false| F[No Verification Required]
     E --> G[Claim Remittance]
     F --> G
