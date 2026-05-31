@@ -1,0 +1,52 @@
+name: Email Remittance Pro CD
+
+on:
+  push:
+    branches: [ "main" ]
+  workflow_run:
+    workflows: ["Email Remittance Pro CI"]
+    types:
+      - completed
+
+jobs:
+  deploy:
+    name: Deploy to Production
+    runs-on: ubuntu-latest
+    if: ${{ github.event.workflow_run.conclusion == 'success' }}
+    
+    steps:
+    - name: Checkout repository
+      uses: actions/checkout@v4
+    
+    - name: Set up Node.js
+      uses: actions/setup-node@v4
+      with:
+        node-version: 22.x
+        cache: 'npm'
+    
+    - name: Install dependencies
+      run: npm install
+    
+    - name: Build project
+      run: npm run build
+    
+    - name: Deploy to Railway
+      env:
+        RAILWAY_TOKEN: ${{ secrets.RAILWAY_TOKEN }}
+      run: |
+        npm install -g @railway/cli
+        railway login --token $RAILWAY_TOKEN
+        railway up --service email-remittance-pro
+    
+    - name: Deploy to Render
+      if: always()
+      env:
+        RENDER_API_KEY: ${{ secrets.RENDER_API_KEY }}
+        RENDER_SERVICE_ID: ${{ secrets.RENDER_SERVICE_ID }}
+      run: |
+        curl -X POST \
+          -H "Authorization: Bearer $RENDER_API_KEY" \
+          -H "Accept: application/json" \
+          -H "Content-Type: application/json" \
+          "https://api.render.com/v1/services/$RENDER_SERVICE_ID/deploys" \
+          -d '{}'
