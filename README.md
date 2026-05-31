@@ -125,25 +125,38 @@ npx jest tests/integration/feeStructure.test.ts
 
 ## Deployment
 
-### Cron Job Setup
-To properly track and enforce remittance expirations, set up a cron job to process expired remittances hourly:
+### Backend Deployment (Render)
+1. **Connect your GitHub repository** to Render
+2. **Set environment variables** in Render dashboard:
+   - `WALLET_PRIVATE_KEY`
+   - `RESEND_API_KEY`
+   - `BASE_URL`
+   - `DATABASE_URL`
+   - `CRON_API_KEY`
+3. **Configure build command**: `npm install && npm run build`
+4. **Configure start command**: `npm start`
 
-```bash
-# Example cron job (run crontab -e to edit)
-0 * * * * curl -X POST https://yourdomain.com/api/process-expired
-```
+### Frontend Deployment (Cloudflare Pages)
+1. **Connect your GitHub repository** to Cloudflare Pages
+2. **Set build command**: `cd frontend && npm install && npm run build`
+3. **Set output directory**: `frontend/dist`
+4. **Configure environment variables** if needed
+
+### Cron Job Setup
+To properly track and enforce remittance expirations, set up a cron job in Render:
+
+1. Go to your Render service dashboard
+2. Navigate to "Cron Jobs" section
+3. Create a new cron job with:
+   - **Schedule**: `0 * * * *` (hourly)
+   - **Command**: `curl -X POST -H "Authorization: Bearer $CRON_API_KEY" https://yourdomain.com/api/process-expired`
+   - **HTTP Method**: POST
 
 For production environments, we recommend:
-
 1. **Authentication**: Use API keys to secure the endpoint
 2. **Logging**: Ensure all cron job executions are logged
 3. **Monitoring**: Set up alerts for failed cron jobs
 4. **Idempotency**: Ensure the endpoint can be safely retried
-
-Example with authentication and logging:
-```bash
-0 * * * * /usr/bin/curl -X POST -H "Authorization: Bearer YOUR_CRON_API_KEY" -H "Content-Type: application/json" https://yourdomain.com/api/process-expired >> /var/log/remittance-cron.log 2>&1
-```
     D -->|requireAuth=false| F[No Verification Required]
     E --> G[Claim Remittance]
     F --> G
