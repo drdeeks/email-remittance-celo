@@ -4,8 +4,11 @@ A platform for sending remittances via email with escrow functionality and block
 
 ## Key Features
 - 7-day claim window for remittances
-- 1.5% storage fee on expired remittances
-- Zero platform gas fees - users pay their own gas
+- 1.5% platform fee on all successful claims
+- 1.5% storage fee on unclaimed remittances
+- Zero platform gas fees - users pay their own gas from received amount
+- Token swaps via Uniswap (e.g., CELO → USDC)
+- Cross-chain bridging via LI.FI (e.g., celo→base)
 - Recipient wallet generation with import instructions
 - Business verification workflow
 - Gift card redemption flow
@@ -117,11 +120,35 @@ npx jest tests/integration/feeStructure.test.ts
 - Minimum 93% coverage for statements, branches, functions, and lines
 - Comprehensive tests for all core functionality:
   - Remittance creation and claiming
-  - Fee calculations (1.5% protocol and storage fees)
+  - Fee calculations (1.5% protocol, storage, swap, and bridge fees)
   - Expiration handling (7-day window)
+  - Token swaps and cross-chain bridging
   - Wallet generation with import instructions
   - Business verification workflow
   - Gift card redemption flow
+
+## 🔑 API Keys & Configuration
+
+### **Uniswap API Key**
+Get your Uniswap API key for swap and bridge execution:
+1. Visit [Uniswap Developer Portal](https://docs.uniswap.org/contracts/universal-router/deployments)
+2. Sign up for a developer account
+3. Generate an API key in the dashboard
+4. Set in `.env`: `UNISWAP_API_KEY=your_api_key_here`
+
+### **LI.FI API Key**
+Get your LI.FI API key for cross-chain quotes:
+1. Visit [LI.FI Developer Portal](https://docs.li.fi/)
+2. Sign up for an account
+3. Generate an API key in the dashboard
+4. Set in `.env`: `LI_FI_API_KEY=your_api_key_here`
+
+### **Fee Configuration**
+Configure platform and storage fees (1.5% each):
+```env
+PLATFORM_FEE_PERCENTAGE=1.5  # 1.5% fee on all successful claims
+STORAGE_FEE_PERCENTAGE=1.5  # 1.5% fee on unclaimed remittances
+```
 
 ## Deployment
 
@@ -133,6 +160,10 @@ npx jest tests/integration/feeStructure.test.ts
    - `BASE_URL`
    - `DATABASE_URL`
    - `CRON_API_KEY`
+   - `UNISWAP_API_KEY`
+   - `LI_FI_API_KEY`
+   - `SWAP_FEE_PERCENTAGE`
+   - `BRIDGE_FEE_PERCENTAGE`
 3. **Configure build command**: `npm install && npm run build`
 4. **Configure start command**: `npm start`
 

@@ -16,6 +16,14 @@ import express from 'express';
 import { verificationRoutes } from '../src/controllers/verificationController';
 import { errorHandler } from '../src/middleware/errorHandler';
 
+// Mock environment variables for testing
+process.env.BASE_SELF_CONTRACT = '0xBaseContract';
+process.env.MONAD_SELF_CONTRACT = '0xMonadContract';
+process.env.CELO_SELF_CONTRACT = '0xCeloContract';
+process.env.SELF_ATTESTER_ADDRESS = '0xAttester';
+process.env.SELF_APP_ID = 'test-app-id';
+process.env.SELF_APP_SECRET = 'test-app-secret';
+
 // ─── Mock @selfxyz/core ────────────────────────────────────────────────────────
 // Applied globally — covers both selfVerification.service and selfSenderVerification.service
 

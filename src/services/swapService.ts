@@ -66,6 +66,7 @@ export interface SwapParams {
   slippageBps?: number;    // Basis points (50 = 0.5%)
   recipient: string;       // Recipient address
   privateKey: string;      // Signer private key
+  deductFee?: boolean;     // Whether to deduct platform fee from output
 }
 
 export interface SwapResult {
@@ -93,7 +94,10 @@ class SwapService {
       slippageBps = DEFAULT_SLIPPAGE_BPS,
       recipient,
       privateKey,
+      deductFee = true,
     } = params;
+    
+    const feePercentage = parseFloat(process.env.PLATFORM_FEE_PERCENTAGE || '1.5') / 100;
 
     const routerAddress = SWAP_ROUTER_ADDRESSES[chainId];
     if (!routerAddress) {
@@ -203,13 +207,23 @@ class SwapService {
       ? 'https://basescan.org/tx' 
       : 'https://celoscan.io/tx';
 
+    let amountOut = quote.amountOut;
+    
+    // Deduct platform fee from output amount if requested
+    if (deductFee) {
+      const amountOutNum = parseFloat(amountOut);
+      const feeAmount = amountOutNum * feePercentage;
+      amountOut = (amountOutNum - feeAmount).toFixed(6);
+      logger.info(`Applied ${feePercentage * 100}% fee: ${feeAmount} ${tokenOutInfo.symbol} deducted from output`);
+    }
+
     const result: SwapResult = {
       txHash,
       chainId,
       tokenIn: tokenInInfo.symbol,
       tokenOut: tokenOutInfo.symbol,
       amountIn,
-      amountOut: quote.amountOut,
+      amountOut,
       fee: quote.fee,
       explorerUrl: `${explorerBase}/${txHash}`,
     };

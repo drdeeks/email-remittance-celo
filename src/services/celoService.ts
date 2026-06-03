@@ -112,6 +112,15 @@ export interface BridgeQuote {
   bridgeUrl: string;
 }
 
+interface BridgeResult {
+  txHash: string;
+  fromChain: SupportedChain;
+  toChain: SupportedChain;
+  amountOut: string;
+  explorerUrl: string;
+  bridgeTrackingUrl: string;
+}
+
 // ─── Chain Service ─────────────────────────────────────────────────────────────
 class ChainService {
   private clients: Partial<Record<SupportedChain, {
@@ -267,8 +276,10 @@ class ChainService {
     fromChain: SupportedChain,
     toChain: SupportedChain,
     amount: number,
-    toAddress: string
-  ): Promise<{ txHash: string; fromChain: SupportedChain; toChain: SupportedChain; explorerUrl: string; bridgeTrackingUrl: string }> {
+    toAddress: string,
+    deductFee: boolean = false
+  ): Promise<BridgeResult> {
+    const feePercentage = parseFloat(process.env.BRIDGE_FEE_PERCENTAGE || '1.5') / 100;
     const fromConfig = CHAIN_CONFIG[fromChain];
     const toConfig   = CHAIN_CONFIG[toChain];
     const { walletClient, account } = this.getClients(fromChain);
@@ -299,9 +310,21 @@ class ChainService {
       chain: fromConfig.chain as any,
     });
 
+    // Get estimated output amount from quote
+    let amountOut = formatEther(BigInt(quote?.estimate?.toAmount || parseEther(amount.toString()).toString()));
+    
+    // Deduct platform fee from output amount if requested
+    if (deductFee) {
+      const amountOutNum = parseFloat(amountOut);
+      const feeAmount = amountOutNum * feePercentage;
+      amountOut = (amountOutNum - feeAmount).toFixed(6);
+      logger.info(`Applied ${feePercentage * 100}% bridge fee: ${feeAmount} deducted from output`);
+    }
+
     return {
       txHash: hash,
       fromChain, toChain,
+      amountOut,
       explorerUrl: getExplorerUrl(hash, fromChain),
       bridgeTrackingUrl: `https://scan.li.fi/tx/${hash}`,
     };

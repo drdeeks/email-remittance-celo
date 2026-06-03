@@ -1,0 +1,5 @@
+# Cron Job for Expired Remittances
+# Add this to your crontab on the Render service
+
+# Run hourly to process expired remittances
+0 * * * * curl -X POST -H "Authorization: Bearer 00cf74a53d0f1d994389ff3447131cc2" https://api.remittance.drdeeks.xyz/api/process-expired

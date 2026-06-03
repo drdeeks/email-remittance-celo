@@ -20,8 +20,8 @@ import { privateKeyToAccount, generatePrivateKey } from 'viem/accounts';
 import { parseEther, formatEther } from 'viem';
 import { logger } from '../utils/logger';
 
-// Keep backward compat: 'standard' and 'premium' map to 'protocol' internally
-export type FeeModel = 'standard' | 'premium' | 'protocol';
+// Keep backward compat: all models map to 'protocol' internally
+export type FeeModel = 'standard' | 'premium' | 'protocol' | 'business' | 'personal' | 'gift_card';
 export type PayoutMethod = 'crypto' | 'giftcard';
 
 const PROTOCOL_FEE_PERCENT = 0.015; // 1.5% base protocol fee
@@ -47,15 +47,25 @@ const SERVER_WALLET = process.env.SERVER_WALLET_ADDRESS
 
 export interface FeeQuote {
   feeModel: FeeModel;
+  amount: number;
+  currency: string;
+  platformFee: string;
+  protocolFee: string;
+  totalFee: string;
   sendAmount: string;           // what sender sends TO escrow (amount + 1.5% fee)
   recipientAmount: string;      // what recipient gets FROM escrow (amount - they pay claim gas)
   feeAmount: string;            // the 1.5% protocol fee (platform profit)
   gasEstimate: string;          // gas cost in native token (for estimation only)
   gasLabel: string;             // human-readable gas cost
-  premiumFeeNative: string;     // $1 in native token (backward compatibility)
+  premiumFeeNative?: string;    // $1 in native token (backward compatibility)
   escrowAddress: string;        // where sender sends funds
   escrowPrivateKey: string;     // server keeps this to verify deposit and forward IF authorized
   serverProfit?: string;        // estimated profit (1.5% fee amount)
+  feeBreakdown?: Array<{
+    name: string;
+    amount: string;
+    percentage: number;
+  }>;
 }
 
 export interface EscrowWallet {
@@ -96,6 +106,10 @@ class FeeService {
     chain: SupportedChain,
     feeModel: FeeModel
   ): Promise<FeeQuote> {
+    if (amount <= 0) {
+        throw new Error('Amount must be positive');
+    }
+    
     const gas = GAS_ESTIMATES[chain];
     const gasAmount = parseFloat(gas.transfer);
     const premiumFee = parseFloat(PREMIUM_FEE_NATIVE[chain]);
@@ -109,6 +123,11 @@ class FeeService {
 
     return {
       feeModel: 'protocol', // Always report as protocol now
+      amount: amount,
+      currency: getNativeCurrency(chain),
+      platformFee: protocolFee.toFixed(8),
+      protocolFee: protocolFee.toFixed(8),
+      totalFee: protocolFee.toFixed(8),
       sendAmount: sendAmount.toFixed(8),
       recipientAmount: recipientAmount.toFixed(8),
       feeAmount: protocolFee.toFixed(8),
@@ -118,6 +137,13 @@ class FeeService {
       escrowAddress: escrow.address,
       escrowPrivateKey: escrow.privateKey,
       serverProfit: serverProfit.toFixed(8),
+      feeBreakdown: [
+        {
+          name: 'Protocol Fee',
+          amount: protocolFee.toFixed(8),
+          percentage: PROTOCOL_FEE_PERCENT * 100,
+        }
+      ],
     };
   }
 

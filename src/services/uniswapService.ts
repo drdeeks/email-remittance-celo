@@ -1,57 +1,41 @@
-/**
- * Uniswap Integration — Agentic Finance Track ($2,500 prize)
- *
- * Uses Uniswap's Developer Platform API (Trading API) to:
- *  1. Get swap quotes across Celo, Base, and Monad
- *  2. Execute swaps autonomously as part of the remittance flow
- *  3. Enable cross-chain bridging via Uniswap's bridge aggregator
- *
- * Deployed Universal Router addresses:
- *  - Celo:  0x5302086A3a25d473aAbBc0eC8586573516cF2099
- *  - Base:  0x2626664c2603336E57B271c5C0b26F421741e481
- *  - Monad: 0x182a927119d56008d921126764bf884221b10f59 (chainId: 143)
- *
- * Docs: https://docs.uniswap.org/contracts/universal-router/overview
- * API:  https://trading-api.uniswap.org/v1
- */
-
-import { parseEther, formatEther } from 'viem';
 import { privateKeyToAccount } from 'viem/accounts';
 import { chainService, CHAIN_CONFIG, type SupportedChain } from './celoService';
 import { logger } from '../utils/logger';
+import { parseEther, formatEther } from 'viem';
+import { generatePrivateKey } from 'viem/accounts';
+
+interface GetSwapQuoteParams {
+  chain: SupportedChain;
+  tokenIn: string;
+  tokenOut: string;
+  amountIn: string;
+  deductFee?: boolean;
+}
+
+interface ExecuteSwapParams {
+  chain: SupportedChain;
+  tokenIn: string;
+  tokenOut: string;
+  amountIn: string;
+  slippage?: number;
+  deductFee?: boolean;
+}
+
+interface GetBridgeQuoteParams {
+  fromChain: SupportedChain;
+  toChain: SupportedChain;
+  amountIn: string;
+  deductFee?: boolean;
+}
 
 const UNISWAP_API_BASE = 'https://trading-api.uniswap.org/v1';
-const UNISWAP_API_KEY  = process.env.UNISWAP_API_KEY || '';
 
 // Uniswap chain IDs (may differ from EIP-155 in some contexts)
 const UNISWAP_CHAIN_IDS: Record<SupportedChain, number> = {
   celo:  42220,
   base:  8453,
-  monad: 143,
+  monad: 143, // Monad devnet
 };
-
-export interface UniswapQuote {
-  chainId: number;
-  chain: SupportedChain;
-  tokenIn: string;
-  tokenOut: string;
-  amountIn: string;
-  amountOut: string;
-  priceImpact: string;
-  gasEstimate: string;
-  routerAddress: string;
-  quoteId?: string;
-  provider: 'uniswap-developer' | 'lifi-public';
-}
-
-export interface UniswapSwapResult {
-  txHash: string;
-  chain: SupportedChain;
-  amountIn: string;
-  amountOut: string;
-  explorerUrl: string;
-  uniswapTxUrl: string;
-}
 
 export interface UniswapBridgeQuote {
   fromChain: SupportedChain;
@@ -65,36 +49,69 @@ export interface UniswapBridgeQuote {
   provider: 'uniswap-developer' | 'lifi-public';
 }
 
+export interface UniswapSwapQuote {
+  amountOut: string;
+  path: string;
+  routerAddress: string;
+  calldata: string;
+  value: string;
+  provider: 'uniswap-developer' | 'lifi-public';
+  chainId: number;
+  chain: SupportedChain;
+  tokenIn: string;
+  tokenOut: string;
+  amountIn: string;
+  priceImpact: string;
+  gasEstimate: string;
+  quoteId?: string;
+}
+
+export interface UniswapSwapResult {
+  txHash: string;
+  chain: SupportedChain;
+  amountIn: string;
+  amountOut: string;
+  explorerUrl: string;
+  uniswapTxUrl: string;
+}
+
 class UniswapService {
-  private readonly configured: boolean;
+  private get configured(): boolean {
+    return !!process.env.UNISWAP_API_KEY;
+  }
 
   constructor() {
-    this.configured = !!UNISWAP_API_KEY;
     if (!this.configured) {
       logger.warn('Uniswap: UNISWAP_API_KEY not set — swap execution disabled, quotes in demo mode');
     }
   }
 
-  /**
-   * Get a swap quote from Uniswap Trading API or LI.FI fallback.
-   * Uses the /quote endpoint with exact-input mode.
-   */
-  async getSwapQuote(params: {
-    chain: SupportedChain;
-    tokenIn: string;   // 'NATIVE' or ERC-20 address
-    tokenOut: string;  // 'NATIVE' or ERC-20 address
-    amountIn: string;  // in human-readable units (e.g. "1.5")
-    swapper: string;   // wallet address
-  }): Promise<UniswapQuote> {
-    const { chain, tokenIn, tokenOut, amountIn, swapper } = params;
-    const config = CHAIN_CONFIG[chain];
+  getStatus() {
+    return {
+      configured: this.configured,
+      apiKeySet: this.configured,
+      universalRouters: {
+        celo:  CHAIN_CONFIG.celo.uniswapUniversalRouter,
+        base:  CHAIN_CONFIG.base.uniswapUniversalRouter,
+        monad: CHAIN_CONFIG.monad.uniswapUniversalRouter,
+      },
+      supportedChains: ['celo', 'base', 'monad'],
+      track: 'Agentic Finance (Best Uniswap API Integration) — $2,500',
+      features: ['swap-quotes', 'cross-chain-bridge', 'universal-router', 'autonomous-execution'],
+    };
+  }
+
+  async getSwapQuote(
+    params: GetSwapQuoteParams
+  ): Promise<UniswapSwapQuote> {
+    const { chain, tokenIn, tokenOut, amountIn, deductFee } = params;
+    const feePercentage = parseFloat(process.env.PLATFORM_FEE_PERCENTAGE || '1.5') / 100;
     const chainId = UNISWAP_CHAIN_IDS[chain];
-
-    logger.info(`Uniswap quote: ${amountIn} ${tokenIn} → ${tokenOut} on ${chain} (chainId: ${chainId})`);
-
+    const swapper = chainService.getWalletAddress(chain);
+    
     if (!this.configured) {
       // LI.FI public fallback — no API key required
-      logger.info('Uniswap: using LI.FI public bridge (no Uniswap API key set)');
+      logger.info('Uniswap: using LI.FI public swap (no Uniswap API key set)');
       
       try {
         const tokenInAddress = tokenIn === 'NATIVE' ? 'NATIVE' : tokenIn;
@@ -107,23 +124,36 @@ class UniswapService {
         lifiUrl.searchParams.set('toToken', tokenOutAddress === 'NATIVE' ? '0x0000000000000000000000000000000000000000' : tokenOutAddress);
         lifiUrl.searchParams.set('fromAmount', parseEther(amountIn).toString());
         lifiUrl.searchParams.set('fromAddress', swapper);
-
+        
         const res = await fetch(lifiUrl.toString(), { headers: { Accept: 'application/json' } });
         
         if (res.ok) {
           const data = await res.json();
           const est = data?.estimate || {};
+          let amountOut = formatEther(BigInt(est.toAmount || '0'));
+          
+          // Deduct platform fee from output amount if requested
+          if (deductFee) {
+            const amountOutNum = parseFloat(amountOut);
+            const feeAmount = amountOutNum * feePercentage;
+            amountOut = (amountOutNum - feeAmount).toFixed(6);
+            logger.info(`Applied ${feePercentage * 100}% fee: ${feeAmount} ${tokenOut} deducted from output`);
+          }
+          
           return {
             chainId,
             chain,
             tokenIn,
             tokenOut,
             amountIn,
-            amountOut: formatEther(BigInt(est.toAmount || '0')),
+            amountOut,
             priceImpact: '< 0.5%',
             gasEstimate: est.gasCosts?.[0]?.amount ? formatEther(BigInt(est.gasCosts[0].amount)) : '0.001',
-            routerAddress: config.uniswapUniversalRouter || '0x0000000000000000000000000000000000000000',
+            routerAddress: CHAIN_CONFIG[chain].uniswapUniversalRouter || '0x0000000000000000000000000000000000000000',
             provider: 'lifi-public',
+            path: '',
+            calldata: '',
+            value: '0'
           };
         }
       } catch (err) {
@@ -131,17 +161,30 @@ class UniswapService {
       }
       
       // Static fallback
+      let amountOut = (parseFloat(amountIn) * 0.997).toFixed(6);
+      
+      // Deduct platform fee from output amount if requested
+      if (deductFee) {
+        const amountOutNum = parseFloat(amountOut);
+        const feeAmount = amountOutNum * feePercentage;
+        amountOut = (amountOutNum - feeAmount).toFixed(6);
+        logger.info(`Applied ${feePercentage * 100}% fee: ${feeAmount} ${tokenOut} deducted from output`);
+      }
+      
       return {
         chainId,
         chain,
         tokenIn,
         tokenOut,
         amountIn,
-        amountOut: (parseFloat(amountIn) * 0.997).toFixed(6),
+        amountOut,
         priceImpact: '0.1%',
         gasEstimate: '0.001',
-        routerAddress: config.uniswapUniversalRouter || '0x0000000000000000000000000000000000000000',
+        routerAddress: CHAIN_CONFIG[chain].uniswapUniversalRouter || '0x0000000000000000000000000000000000000000',
         provider: 'lifi-public',
+        path: '',
+        calldata: '',
+        value: '0'
       };
     }
 
@@ -156,7 +199,7 @@ class UniswapService {
       method: 'POST',
       headers: {
         'Content-Type': 'application/json',
-        'X-API-KEY': UNISWAP_API_KEY,
+        'X-API-KEY': process.env.UNISWAP_API_KEY as string,
         'Origin': 'https://app.uniswap.org',
       },
       body: JSON.stringify({
@@ -178,6 +221,15 @@ class UniswapService {
 
     const data = await res.json();
     const quote = data?.quote;
+    let amountOut = formatEther(BigInt(quote?.output?.amount || '0'));
+    
+    // Deduct platform fee from output amount if requested
+    if (deductFee) {
+      const amountOutNum = parseFloat(amountOut);
+      const feeAmount = amountOutNum * feePercentage;
+      amountOut = (amountOutNum - feeAmount).toFixed(6);
+      logger.info(`Applied ${feePercentage * 100}% fee: ${feeAmount} ${tokenOut} deducted from output`);
+    }
 
     return {
       chainId,
@@ -185,32 +237,26 @@ class UniswapService {
       tokenIn,
       tokenOut,
       amountIn,
-      amountOut: formatEther(BigInt(quote?.output?.amount || '0')),
+      amountOut,
       priceImpact: `${quote?.priceImpact || '< 0.1'}%`,
       gasEstimate: formatEther(BigInt(quote?.gasFeeUSD || '0')),
-      routerAddress: config.uniswapUniversalRouter || '0x0000000000000000000000000000000000000000',
+      routerAddress: CHAIN_CONFIG[chain].uniswapUniversalRouter || '0x0000000000000000000000000000000000000000',
       quoteId: data?.requestId,
       provider: 'uniswap-developer',
+      path: quote?.path || '',
+      calldata: quote?.calldata || '',
+      value: quote?.value || '0'
     };
   }
 
-  /**
-   * Execute a swap via Uniswap Universal Router.
-   * Submits the calldata from the Trading API directly to the router contract.
-   * REQUIRES UNISWAP_API_KEY — LI.FI fallback does not support execution.
-   */
-  async executeSwap(params: {
-    chain: SupportedChain;
-    tokenIn: string;
-    tokenOut: string;
-    amountIn: string;
-    slippage?: number;
-  }): Promise<UniswapSwapResult> {
+  async executeSwap(
+    params: ExecuteSwapParams
+  ): Promise<UniswapSwapResult> {
+    const feePercentage = parseFloat(process.env.SWAP_FEE_PERCENTAGE || '1.5') / 100;
     const { chain, tokenIn, tokenOut, amountIn, slippage = 0.5 } = params;
-    const config = CHAIN_CONFIG[chain];
     const chainId = UNISWAP_CHAIN_IDS[chain];
 
-    if (!config.uniswapUniversalRouter) {
+    if (!CHAIN_CONFIG[chain].uniswapUniversalRouter) {
       throw new Error(`Uniswap Universal Router not deployed on ${chain}`);
     }
 
@@ -230,7 +276,7 @@ class UniswapService {
       method: 'POST',
       headers: {
         'Content-Type': 'application/json',
-        'X-API-KEY': UNISWAP_API_KEY,
+        'X-API-KEY': process.env.UNISWAP_API_KEY as string,
         'Origin': 'https://app.uniswap.org',
       },
       body: JSON.stringify({
@@ -253,7 +299,7 @@ class UniswapService {
       method: 'POST',
       headers: {
         'Content-Type': 'application/json',
-        'X-API-KEY': UNISWAP_API_KEY,
+        'X-API-KEY': process.env.UNISWAP_API_KEY as string,
         'Origin': 'https://app.uniswap.org',
       },
       body: JSON.stringify({
@@ -266,7 +312,15 @@ class UniswapService {
     const swapData = await swapRes.json();
 
     const txHash = swapData?.hash || swapData?.orderId;
-    const amountOut = formatEther(BigInt(quoteData?.quote?.output?.amount || '0'));
+    let amountOut = formatEther(BigInt(quoteData?.quote?.output?.amount || '0'));
+    
+    // Deduct platform fee from output amount if requested
+    if (params.deductFee) {
+      const amountOutNum = parseFloat(amountOut);
+      const feeAmount = amountOutNum * feePercentage;
+      amountOut = (amountOutNum - feeAmount).toFixed(6);
+      logger.info(`Applied ${feePercentage * 100}% fee: ${feeAmount} ${params.tokenOut} deducted from output`);
+    }
 
     logger.info(`Uniswap swap submitted: ${txHash}`);
 
@@ -275,19 +329,16 @@ class UniswapService {
       chain,
       amountIn,
       amountOut,
-      explorerUrl: `${config.explorerBase}/${txHash}`,
+      explorerUrl: `${CHAIN_CONFIG[chain].explorerBase}/${txHash}`,
       uniswapTxUrl: `https://app.uniswap.org/tx/${txHash}`,
     };
   }
 
-  /**
-   * Get a cross-chain bridge quote via Uniswap's bridge aggregator or LI.FI fallback.
-   */
   async getBridgeQuote(
-    fromChain: SupportedChain,
-    toChain: SupportedChain,
-    amountIn: string
+    params: GetBridgeQuoteParams
   ): Promise<UniswapBridgeQuote> {
+    const { fromChain, toChain, amountIn, deductFee } = params;
+    const feePercentage = parseFloat(process.env.PLATFORM_FEE_PERCENTAGE || '1.5') / 100;
     const fromConfig = CHAIN_CONFIG[fromChain];
     const toConfig   = CHAIN_CONFIG[toChain];
     const walletAddress = chainService.getWalletAddress(fromChain);
@@ -304,76 +355,102 @@ class UniswapService {
         lifiUrl.searchParams.set('toToken', 'NATIVE');
         lifiUrl.searchParams.set('fromAmount', parseEther(amountIn).toString());
         lifiUrl.searchParams.set('fromAddress', walletAddress);
-        lifiUrl.searchParams.set('toAddress', walletAddress);
-
-        const res = await fetch(lifiUrl.toString(), { headers: { Accept: 'application/json' } });
-
-        if (res.ok) {
-          const data = await res.json();
-          const est = data?.estimate || {};
-          return {
-            fromChain, toChain, amountIn,
-            estimatedAmountOut: formatEther(BigInt(est.toAmount || '0')),
-            estimatedFee: est.feeCosts?.[0]?.amountUSD ? `$${est.feeCosts[0].amountUSD}` : '< $0.10',
-            estimatedTime: est.executionDuration ? `${Math.ceil(est.executionDuration / 60)} min` : '2-5 min',
-            routerAddress: fromConfig.uniswapUniversalRouter || '0x0',
-            bridgeUrl: `https://jumper.exchange/?fromChain=${fromConfig.chainId}&toChain=${toConfig.chainId}`,
-            provider: 'lifi-public',
-          };
+        
+        const response = await fetch(lifiUrl.toString());
+        const data = await response.json();
+        
+        if (!data.estimate) {
+          throw new Error('LI.FI quote failed: no estimate in response');
         }
+        
+        let estimatedAmountOut = data.estimate.toAmount;
+        
+        // Deduct platform fee from output amount if requested
+        if (deductFee) {
+          const amountOutNum = parseFloat(estimatedAmountOut);
+          const feeAmount = amountOutNum * feePercentage;
+          estimatedAmountOut = (amountOutNum - feeAmount).toFixed(6);
+          logger.info(`Applied ${feePercentage * 100}% bridge fee: ${feeAmount} deducted from output`);
+        }
+        
+        return {
+          fromChain,
+          toChain,
+          amountIn,
+          estimatedAmountOut,
+          estimatedFee: data.estimate.feeCosts?.[0]?.amount || '0',
+          estimatedTime: data.estimate.executionDuration.toString(),
+          routerAddress: data.transactionRequest?.to || '',
+          bridgeUrl: `https://li.fi/?fromChain=${fromConfig.chainId}&toChain=${toConfig.chainId}&fromAmount=${amountIn}&fromToken=NATIVE&toToken=NATIVE`,
+          provider: 'lifi-public',
+        };
       } catch (err) {
-        logger.warn('LI.FI bridge quote failed, using estimate', err);
+        logger.error('LI.FI fallback failed', err);
+        throw new Error('Bridge quote unavailable: LI.FI fallback failed');
       }
-      
-      return {
-        fromChain, toChain, amountIn,
-        estimatedAmountOut: (parseFloat(amountIn) * 0.997).toFixed(6),
-        estimatedFee: '< $0.10',
-        estimatedTime: '2-5 min',
-        routerAddress: fromConfig.uniswapUniversalRouter || '0x0',
-        bridgeUrl: `https://jumper.exchange/?fromChain=${fromConfig.chainId}&toChain=${toConfig.chainId}`,
-        provider: 'lifi-public',
-      };
     }
 
+    // Uniswap API bridge (requires API key)
     try {
-      const res = await fetch(`${UNISWAP_API_BASE}/quote`, {
+      const res = await fetch(`${UNISWAP_API_BASE}/bridge`, {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
-          'X-API-KEY': UNISWAP_API_KEY,
+          'X-API-KEY': process.env.UNISWAP_API_KEY as string,
           'Origin': 'https://app.uniswap.org',
         },
         body: JSON.stringify({
-          type: 'EXACT_INPUT',
+          fromChainId: UNISWAP_CHAIN_IDS[fromChain],
+          toChainId: UNISWAP_CHAIN_IDS[toChain],
           amount: parseEther(amountIn).toString(),
-          tokenInChainId: UNISWAP_CHAIN_IDS[fromChain],
-          tokenOutChainId: UNISWAP_CHAIN_IDS[toChain],
-          tokenIn:  '0xEeeeeEeeeEeEeeEeEeEeeEEEeeeeEeeeeeeeEEeE',
+          tokenIn: '0xEeeeeEeeeEeEeeEeEeEeeEEEeeeeEeeeeeeeEEeE',
           tokenOut: '0xEeeeeEeeeEeEeeEeEeEeeEEEeeeeEeeeeeeeEEeE',
-          swapper: walletAddress,
+          recipient: walletAddress,
         }),
       });
 
-      if (res.ok) {
-        const data = await res.json();
-        return {
-          fromChain, toChain, amountIn,
-          estimatedAmountOut: formatEther(BigInt(data?.quote?.output?.amount || '0')),
-          estimatedFee: data?.quote?.gasFeeUSD ? `$${data.quote.gasFeeUSD}` : '< $0.10',
-          estimatedTime: '2-10 min',
-          routerAddress: fromConfig.uniswapUniversalRouter || '0x0',
-          bridgeUrl: `https://app.uniswap.org/swap?chain=${fromChain}&outputCurrency=NATIVE&chainTo=${toChain}`,
-          provider: 'uniswap-developer',
-        };
+      if (!res.ok) throw new Error(`Uniswap bridge failed: ${res.status}`);
+      const data = await res.json();
+      let estimatedAmountOut = formatEther(BigInt(data.estimatedAmountOut || '0'));
+      
+      // Deduct platform fee from output amount if requested
+      if (deductFee) {
+        const amountOutNum = parseFloat(estimatedAmountOut);
+        const feeAmount = amountOutNum * feePercentage;
+        estimatedAmountOut = (amountOutNum - feeAmount).toFixed(6);
+        logger.info(`Applied ${feePercentage * 100}% bridge fee: ${feeAmount} deducted from output`);
       }
+
+      return {
+        fromChain,
+        toChain,
+        amountIn,
+        estimatedAmountOut,
+        estimatedFee: data.estimatedFee || '< $0.10',
+        estimatedTime: data.estimatedTime || '2-10 min',
+        routerAddress: fromConfig.uniswapUniversalRouter || '0x0',
+        bridgeUrl: `https://app.uniswap.org/bridge?chain=${fromChain}&toChain=${toChain}&amount=${amountIn}`,
+        provider: 'uniswap-developer',
+      };
     } catch (err) {
       logger.warn('Uniswap bridge quote failed', err);
     }
+    
+    let estimatedAmountOut = (parseFloat(amountIn) * 0.997).toFixed(6);
+    
+    // Deduct platform fee from output amount if requested
+    if (deductFee) {
+      const amountOutNum = parseFloat(estimatedAmountOut);
+      const feeAmount = amountOutNum * feePercentage;
+      estimatedAmountOut = (amountOutNum - feeAmount).toFixed(6);
+      logger.info(`Applied ${feePercentage * 100}% bridge fee: ${feeAmount} deducted from output`);
+    }
 
     return {
-      fromChain, toChain, amountIn,
-      estimatedAmountOut: (parseFloat(amountIn) * 0.997).toFixed(6),
+      fromChain, 
+      toChain, 
+      amountIn,
+      estimatedAmountOut,
       estimatedFee: '< $0.10',
       estimatedTime: '2-10 min',
       routerAddress: fromConfig.uniswapUniversalRouter || '0x0',
@@ -391,21 +468,6 @@ class UniswapService {
   }
 
   isConfigured(): boolean { return this.configured; }
-
-  getStatus() {
-    return {
-      configured: this.configured,
-      apiKeySet: this.configured,
-      universalRouters: {
-        celo:  CHAIN_CONFIG.celo.uniswapUniversalRouter,
-        base:  CHAIN_CONFIG.base.uniswapUniversalRouter,
-        monad: CHAIN_CONFIG.monad.uniswapUniversalRouter,
-      },
-      supportedChains: ['celo', 'base', 'monad'],
-      track: 'Agentic Finance (Best Uniswap API Integration) — $2,500',
-      features: ['swap-quotes', 'cross-chain-bridge', 'universal-router', 'autonomous-execution'],
-    };
-  }
 }
 
 export const uniswapService = new UniswapService();

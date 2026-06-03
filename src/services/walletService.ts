@@ -1,38 +1,68 @@
-import { ethers } from 'ethers';
+import { generatePrivateKey, privateKeyToAccount } from 'viem/accounts';
 
-export const generateWalletWithInstructions = () => {
-    const wallet = ethers.Wallet.createRandom();
+interface WalletWithInstructions {
+  walletAddress: string;
+  privateKey: string;
+  importInstructions: string;
+}
+
+export const generateWalletWithInstructions = (): WalletWithInstructions => {
+  try {
+    const privateKey = generatePrivateKey();
+    const account = privateKeyToAccount(privateKey);
     
+    // Debug: Check if privateKey is valid
+    console.log('Private key in NEW function:', privateKey);
+    
+    // Use simple string concatenation to ensure private key is included
     const importInstructions = `
-## Wallet Import Instructions
+To import this wallet:
 
-### MetaMask
-1. Open MetaMask extension
-2. Click the account icon in the top right
-3. Select "Import Account"
-4. Paste the private key: ${wallet.privateKey}
-5. Click "Import"
+1. MetaMask:
+   - Open MetaMask extension
+   - Click the account icon → Import Account
+   - Select "Private Key" and paste this private key:
+   ` + privateKey + `
 
-### Valora
-1. Open Valora app
-2. Tap the menu icon
-3. Select "Import Wallet"
-4. Choose "Import using Private Key"
-5. Paste the private key: ${wallet.privateKey}
-6. Tap "Import Wallet"
+2. Valora:
+   - Open Valora app
+   - Tap the menu → Import Wallet
+   - Select "Recovery Phrase or Private Key"
+   - Paste this private key:
+   ` + privateKey + `
 
-### Other Wallets
-Use the private key: ${wallet.privateKey}
-
-**Important Security Note:**
-- Never share this private key with anyone
-- Store it securely
-- If lost, you will lose access to your funds
-`;
+3. Other wallets:
+   - Look for "Import Private Key" or "Add Account" option
+   - Paste this private key when prompted:
+   ` + privateKey;
+    
+    console.log('Generated instructions:', importInstructions);
+    console.log('Instructions contain private key:', importInstructions.includes(privateKey));
     
     return {
-        walletAddress: wallet.address,
-        privateKey: wallet.privateKey,
-        importInstructions,
+      walletAddress: account.address,
+      privateKey,
+      importInstructions
     };
+  } catch (error) {
+    console.error('Wallet generation failed:', error);
+    throw new Error('Failed to generate wallet with instructions');
+  }
+};
+
+export const walletService = {
+  generateWalletWithInstructions,
+  generateWallet: () => {
+    try {
+      const privateKey = generatePrivateKey();
+      const account = privateKeyToAccount(privateKey);
+      return {
+        address: account.address,
+        privateKey: privateKey
+      };
+    } catch (error) {
+      console.error('Wallet generation failed:', error);
+      throw new Error('Failed to generate wallet');
+    }
+  }
 };

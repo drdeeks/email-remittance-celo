@@ -381,35 +381,16 @@ export default function ClaimPage() {
               </div>
             </div>
 
-            {/* Self Protocol QR Code */}
+            {/* Self Verification QR Code Component */}
             <div className="flex justify-center">
-              {(() => {
-                const selfApp = new SelfAppBuilder({
-                  appName: 'Email Remittance Pro',
-                  scope: 'email-remittance-pro',
-                  endpoint: `${process.env.NEXT_PUBLIC_API_URL || 'https://email-remittance-pro.up.railway.app'}/api/verifications/callback`,
-                  endpointType: 'https',
-                  version: 2,
-                  userId: token as string,
-                  userIdType: 'hex',
-                  disclosures: {
-                    minimumAge: 18,
-                  },
-                }).build();
-
-                return (
-                  <SelfQRcodeWrapper
-                    selfApp={selfApp}
-                    onSuccess={() => setSelfVerified(true)}
-                    type="websocket"
-                    darkMode={true}
-                  />
-                );
-              })()}
+              <SelfVerificationQR
+                userId={token as string}
+                remittanceId={info.id}
+                amount={info.amount}
+                onVerificationSuccess={() => setSelfVerified(true)}
+                onVerificationFailure={(error) => setError(error)}
+              />
             </div>
-            <p className="text-xs text-center text-gray-500">
-              Open the <strong className="text-white">Self app</strong> on your phone and scan to verify your identity
-            </p>
           </div>
         </div>
       </main>
