@@ -1,18 +1,11 @@
 # ============================================
-# ENHANCED .GITIGNORE FOR EMAIL-REMITTANCE-PRO
+# CORE .GITIGNORE FOR EMAIL-REMITTANCE-PRO
 # ============================================
 
 # ============================================
 # DEPENDENCIES
 # ============================================
 node_modules/
-npm-debug.log*
-yarn-debug.log*
-yarn-error.log*
-pnpm-debug.log*
-.pnpm-store/
-package-lock.json  # Optional: some teams commit this, others don't
-yarn.lock          # Optional: same as above
 
 # ============================================
 # ENVIRONMENT & SECRETS
@@ -26,12 +19,6 @@ yarn.lock          # Optional: same as above
 *.env
 secrets.json
 *-credentials.json
-.farcaster-wallet.json
-.neynar-credentials.json
-.synth-creds.json
-.x-credentials.json
-moltbook-credentials.json
-venice-keys.json
 
 # ============================================
 # DATABASE FILES
@@ -49,52 +36,18 @@ remittance.db
 dist/
 build/
 out/
-.next/
-.cache/
-.turbo/
-.vercel/
-.railway/
-
-# ============================================
-# TYPESCRIPT
-# ============================================
-*.tsbuildinfo
-tsconfig.tsbuildinfo
-
-# ============================================
-# HARDHAT / SOLIDITY
-# ============================================
-cache/
-artifacts/
-typechain/
-typechain-types/
-deployments/
-coverage/
-coverage.json
-.openzeppelin/
-.solcover.js
 
 # ============================================
 # TESTING
 # ============================================
 coverage/
-.nyc_output/
 *.lcov
-junit.xml
-test-results/
-playwright-report/
-.jest-cache/
 
 # ============================================
 # LOGS
 # ============================================
 logs/
 *.log
-npm-debug.log*
-yarn-debug.log*
-yarn-error.log*
-lerna-debug.log*
-pnpm-debug.log*
 
 # ============================================
 # OS FILES
@@ -116,13 +69,6 @@ Desktop.ini
 *.swp
 *.swo
 *~
-.project
-.classpath
-.c9/
-*.launch
-.settings/
-*.sublime-workspace
-.history/
 
 # ============================================
 # TEMPORARY FILES
@@ -131,92 +77,76 @@ Desktop.ini
 *.temp
 *.bak
 *.cache
-.temp/
-tmp/
-temp/
 
 # ============================================
 # BACKUPS
 # ============================================
-backups/
 *.tar.gz
 *.zip
 *.bak
 
 # ============================================
-# DOCUMENTATION BUILD
+# DOCUMENTATION (IGNORE ALL EXCEPT ESSENTIAL)
 # ============================================
-docs/_build/
-docs/.docusaurus/
+*.md
+!README.md
+!CONTRIBUTING.md
+*.html
+*.guide
+DEPLOYMENT*
+SETUP*
+IMPLEMENTATION_SUMMARY*
+MANDATE_PROTOCOL*
+LIVE-DEMO*
+TESTING_SUMMARY*
+ENVIRONMENT_ISSUES_SUMMARY*
+CONVERSATION_LOG*
 
 # ============================================
-# NEXT.JS SPECIFIC
+# AGENT FILES
 # ============================================
-.next/
-.swc/
-.vercel/
+agent.json
+agent_log.json
+AGENTS*
+scripts/ralph/
 
 # ============================================
-# RAILWAY / DEPLOYMENT
+# DEPLOYMENT ARTIFACTS
 # ============================================
-.railway/
-railway.json
-render.yaml
+deploy/
+deploy-*/
+email-remittance-deployment-*/
 
 # ============================================
-# PROOF OF WORK (if sensitive)
+# PROOF AND DEMO FILES
 # ============================================
-# Uncomment if proof/ contains sensitive test data
-# proof/*.pdf
-# proof/*.png
+proof/
+*.pptx
+*.pdf
+*.jpg
+*.jpeg
+*.png
+*.gif
+*.mp4
+*.mov
+*.avi
 
 # ============================================
-# AGENT LOGS (if too verbose)
+# DEBUG FILES
 # ============================================
-# Uncomment if agent logs are too noisy for version control
-# agent_log.json
-# AGENT-LOG.md
-# CONVERSATION_LOG.md
-# conversation_log.md
+debug-*.js
+simple.test.js
+verify_implementation.sh
 
 # ============================================
-# PUBLIC BUILD ARTIFACTS
+# KEEP THESE (ESSENTIAL FILES)
 # ============================================
-public/dist/
-public/build/
-
-# ============================================
-# HARDHAT NETWORK FILES
-# ============================================
-.hardhat/
-.openzeppelin/
-
-# ============================================
-# LOCAL DEVELOPMENT
-# ============================================
-.env.local
-.local/
-local.json
-
-# ============================================
-# MEMORY / SESSION FILES (if using workspace patterns)
-# ============================================
-memory/
-workspace*/
-.openclaw/
-
-# ============================================
-# PROCFILE (deployment-specific)
-# ============================================
-# Uncomment if Procfile is deployment-specific
-# Procfile
-
-# ============================================
-# KEEP THESE (examples that SHOULD be tracked)
-# ============================================
-# !.gitignore
-# !.env.example
-# !README.md
-# !package.json
-# !tsconfig.json
-deploy.sh
+!.gitignore
+!.env.example
+!README.md
+!CONTRIBUTING.md
+!package.json
+!package-lock.json
+!tsconfig.json
+!deploy.sh
+!setup-domain.sh
