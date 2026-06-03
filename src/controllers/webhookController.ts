@@ -1,34 +1,66 @@
 import { Router, Request, Response, NextFunction } from 'express';
 import { logger } from '../utils/logger';
+import { remittanceService } from '../services/remittanceService';
 
 const router = Router();
 
-// Ampersend webhook handler (email events)
-router.post('/ampersend', async (req: Request, res: Response, next: NextFunction) => {
+// Resend webhook handler (email events)
+router.post('/resend', async (req: Request, res: Response, next: NextFunction) => {
   try {
-    const { event, messageId, email, timestamp, metadata } = req.body;
+    // Verify webhook signature
+    const signature = req.headers['x-resend-signature'] as string;
+    const secret = process.env.RESEND_WEBHOOK_SECRET;
+    
+    if (!signature || !secret) {
+      logger.warn('Missing webhook signature or secret');
+      return res.status(401).json({ error: 'Unauthorized' });
+    }
+    
+    // TODO: Implement signature verification
+    // const isValid = verifyResendSignature(req.body, signature, secret);
+    // if (!isValid) {
+    //   logger.warn('Invalid webhook signature');
+    //   return res.status(401).json({ error: 'Unauthorized' });
+    // }
 
-    logger.info('Ampersend webhook received', { event, messageId, email });
+    const { type, data } = req.body;
+    const { email, created_at, subject, to, from, tags } = data;
+
+    logger.info('Resend webhook received', { type, email });
 
     // Handle different email events
-    switch (event) {
-      case 'delivered':
-        logger.info('Email delivered', { messageId, email });
+    switch (type) {
+      case 'email.delivered':
+        logger.info('Email delivered', { email, created_at });
+        // Update remittance status to 'email_sent'
+        if (tags && tags.includes('remittance:')) {
+          const claimToken = tags.find(tag => tag.startsWith('remittance:'))?.split(':')[1];
+          if (claimToken) {
+            await remittanceService.markEmailSent(claimToken);
+          }
+        }
         break;
-      case 'opened':
-        logger.info('Email opened', { messageId, email });
+      case 'email.opened':
+        logger.info('Email opened', { email, created_at });
         break;
-      case 'clicked':
-        logger.info('Email link clicked', { messageId, email });
+      case 'email.clicked':
+        logger.info('Email link clicked', { email, created_at });
         break;
-      case 'bounced':
-        logger.warn('Email bounced', { messageId, email });
+      case 'email.bounced':
+        logger.warn('Email bounced', { email, created_at });
+        // Mark remittance for recovery
+        if (tags && tags.includes('remittance:')) {
+          const claimToken = tags.find(tag => tag.startsWith('remittance:'))?.split(':')[1];
+          if (claimToken) {
+            await remittanceService.markEmailFailed(claimToken);
+          }
+        }
         break;
-      case 'complained':
-        logger.warn('Email marked as spam', { messageId, email });
+      case 'email.complained':
+        logger.warn('Email marked as spam', { email, created_at });
         break;
       default:
-        logger.debug('Unknown email event', { event, messageId });
+        logger.debug('Unknown email event', { type, email });
     }
 
     res.json({ received: true });

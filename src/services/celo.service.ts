@@ -5,7 +5,7 @@ import { logger } from '../utils/logger';
 // Configuration — uses WALLET_PRIVATE_KEY (same as celoService.ts / ChainService)
 const config = {
   celoProviderUrl: process.env.CELO_PROVIDER_URL || 'https://forno.celo.org',
-  celoPrivateKey: process.env.WALLET_PRIVATE_KEY || process.env.CELO_PRIVATE_KEY || (() => { throw new Error('WALLET_PRIVATE_KEY is required'); })(),
+  celoPrivateKey: process.env.WALLET_PRIVATE_KEY || process.env.CELO_PRIVATE_KEY || '',
   celoStablecoinAddress: process.env.CELO_STABLECOIN_ADDRESS || '0x765DE816845861e75A25fCA122bb6898B8B1282a',
   celoContractAddress: process.env.CELO_CONTRACT_ADDRESS || '',
 };

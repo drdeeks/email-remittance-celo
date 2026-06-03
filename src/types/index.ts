@@ -1,136 +1,68 @@
-export interface CeloTransaction {
-  from: string;
-  to: string;
-  value: string;
-  gas: number;
-  gasPrice: string;
-  nonce: number;
-  data?: string;
-}
-
-export interface CeloBalance {
-  address: string;
-  balance: string;
-  stableBalance: string;
-  lockedBalance: string;
-  pendingBalance: string;
-}
-
-export interface CeloTransactionReceipt {
-  transactionHash: string;
-  blockNumber: number;
-  from: string;
-  to: string;
-  value: string;
-  gasUsed: number;
-  status: number;
-  contractAddress?: string;
-}
-
-export interface CeloTokenInfo {
-  address: string;
-  name: string;
-  symbol: string;
-  decimals: number;
-}
-
-export interface SelfVerificationResult {
+// Core types
+export interface Remittance {
   id: string;
-  issuer: string;
-  proof: string;
-  attributes: Record<string, any>;
-  issuedAt: Date;
-  expiresAt: Date;
-  verified: boolean;
-}
-
-export interface SelfVerificationRequest {
-  email: string;
-  callbackUrl?: string;
-  attributes?: string[];
-}
-
-export interface EmailMessage {
-  to: string;
-  from: string;
-  subject: string;
-  body: string;
-  html: string;
-  templateId?: string;
-  templateData?: Record<string, any>;
-  attachments?: any[];
-}
-
-export interface EmailResponse {
-  messageId: string;
-  status: 'sent' | 'delivered' | 'opened' | 'clicked' | 'bounced' | 'failed';
-  timestamp: Date;
-  metadata?: Record<string, any>;
-}
-
-export interface TransactionStatus {
-  id: string;
-  senderEmail: string;
-  recipientEmail: string;
+  sender_email: string;
+  recipient_email: string;
   amount: number;
   currency: string;
-  status: 'pending' | 'sent' | 'verified' | 'completed' | 'failed' | 'expired';
-  celoTxHash?: string;
-  disbursementTxHash?: string;
-  verificationStatus?: 'pending' | 'verified' | 'failed';
-  expiresAt: Date;
-  completedAt?: Date;
-  createdAt: Date;
+  original_amount: number;
+  amount_celo: number;
+  platform_fee: number;
+  status: string;
+  token: string;
+  sender_wallet: string;
+  recipient_wallet: string;
+  wallet_mode: string;
+  require_auth: boolean;
+  created_at: Date;
+  updated_at: Date;
 }
 
-export interface VerificationStatus {
-  id: string;
-  transactionId: string;
-  status: 'pending' | 'verified' | 'failed';
-  selfVerificationId?: string;
-  verifiedAt?: Date;
-  expiresAt: Date;
+export interface CreateRemittanceResult {
+  token: string;
+  requireAuth: boolean;
+  walletMode: string;
+  instructions?: string;
+  claimToken?: string;
 }
 
-export interface ApiResponse<T = any> {
+export interface ClaimRemittanceResult {
   success: boolean;
-  data?: T;
-  error?: {
-    code: string;
-    message: string;
-    details?: any;
-  };
-  timestamp: Date;
+  txHash?: string;
+  wallet?: string;
+  privateKey?: string;
+  instructions?: string;
+  requireVerification?: boolean;
+  verificationToken?: string;
 }
 
-export interface ApiError extends Error {
-  code: string;
-  status: number;
-  details?: any;
-}
-
-export interface AuthUser {
-  id: string;
+export interface BusinessOwner {
+  name: string;
   email: string;
-  role: 'admin' | 'user';
-  permissions: string[];
+  walletAddress: string;
+  businessName: string;
+  businessType: string;
+  country: string;
 }
 
-export interface AuditLog {
-  id?: string;
-  transactionId?: string;
-  userId?: string;
-  action: string;
-  details: Record<string, any>;
-  ipAddress?: string;
-  userAgent?: string;
-  createdAt?: Date;
+// Verification types
+export * from './verification';
+
+// Fee types
+export interface FeeQuote {
+  amount: number;
+  currency: string;
+  platformFee: string;
+  totalFee: string;
+  feeBreakdown: Array<{
+    name: string;
+    amount: string;
+    percentage: number;
+  }>;
 }
 
-export interface RateLimit {
-  windowMs: number;
-  max: number;
-  message: string;
-  standardHeaders: boolean;
-  legacyHeaders: boolean;
-}
+export type FeeModel = 'standard' | 'premium' | 'protocol';
+
+export type WalletMode = 'personal' | 'service';
+
+export type SupportedChain = 'celo' | 'base' | 'monad';

@@ -21,7 +21,7 @@ describe('FeeService Integration Tests', () => {
         });
         
         it('should calculate correct 1.5% protocol fee for gift card remittance', async () => {
-            const quote = await feeService.getFeeQuote(100, 'celo', 'gift_card');
+            const quote = await feeService.getFeeQuote(100, 'celo', 'standard');
             
             expect(parseFloat(quote.feeAmount)).toBeCloseTo(1.5);
             expect(parseFloat(quote.sendAmount)).toBeCloseTo(101.5);

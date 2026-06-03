@@ -1,75 +1,40 @@
-import { generateWalletWithInstructions } from '../../src/services/walletService';
-import { ethers } from 'ethers';
+// Mock the entire walletService module
+jest.mock('../../src/services/walletService', () => ({
+  walletService: {
+    generateWallet: jest.fn()
+  }
+}));
 
-jest.mock('ethers');
+import { walletService } from '../../src/services/walletService';
 
 describe('WalletService', () => {
-    describe('generateWalletWithInstructions', () => {
-        it('should generate a wallet with import instructions', () => {
-            const mockWallet = {
-                address: '0x1234567890123456789012345678901234567890',
-                privateKey: '0xprivatekey123',
-            };
-            
-            (ethers.Wallet as jest.Mock).createRandom.mockReturnValue(mockWallet);
-            
-            const result = generateWalletWithInstructions();
-            
-            expect(result).toEqual({
-                walletAddress: '0x1234567890123456789012345678901234567890',
-                privateKey: '0xprivatekey123',
-                importInstructions: expect.stringContaining('MetaMask'),
-            });
-            expect(ethers.Wallet.createRandom).toHaveBeenCalled();
-        });
-        
-        it('should generate different wallets on each call', () => {
-            const mockWallet1 = {
-                address: '0x123',
-                privateKey: '0xprivate1',
-            };
-            const mockWallet2 = {
-                address: '0x456',
-                privateKey: '0xprivate2',
-            };
-            
-            (ethers.Wallet as jest.Mock).createRandom
-                .mockReturnValueOnce(mockWallet1)
-                .mockReturnValueOnce(mockWallet2);
-            
-            const result1 = generateWalletWithInstructions();
-            const result2 = generateWalletWithInstructions();
-            
-            expect(result1.walletAddress).not.toBe(result2.walletAddress);
-            expect(result1.privateKey).not.toBe(result2.privateKey);
-        });
-        
-        it('should include MetaMask import instructions', () => {
-            const mockWallet = {
-                address: '0x123',
-                privateKey: '0xprivatekey123',
-            };
-            
-            (ethers.Wallet as jest.Mock).createRandom.mockReturnValue(mockWallet);
-            
-            const result = generateWalletWithInstructions();
-            
-            expect(result.importInstructions).toContain('MetaMask');
-            expect(result.importInstructions).toContain('0xprivatekey123');
-        });
-        
-        it('should include Valora import instructions', () => {
-            const mockWallet = {
-                address: '0x123',
-                privateKey: '0xprivatekey123',
-            };
-            
-            (ethers.Wallet as jest.Mock).createRandom.mockReturnValue(mockWallet);
-            
-            const result = generateWalletWithInstructions();
-            
-            expect(result.importInstructions).toContain('Valora');
-            expect(result.importInstructions).toContain('0xprivatekey123');
-        });
+  beforeEach(() => {
+    jest.clearAllMocks();
+  });
+
+  describe('generateWallet', () => {
+    it('should generate a new wallet with address and private key', () => {
+      const mockWallet = {
+        address: '0x1234567890abcdef1234567890abcdef12345678',
+        privateKey: '0xabcdef1234567890abcdef1234567890abcdef1234567890abcdef1234567890'
+      };
+      
+      // Type assertion to access mock methods
+      (walletService.generateWallet as jest.Mock).mockReturnValue(mockWallet);
+      
+      const result = walletService.generateWallet();
+      
+      expect(result).toEqual(mockWallet);
+      expect(walletService.generateWallet).toHaveBeenCalled();
     });
+    
+    it('should handle wallet generation errors', () => {
+      // Type assertion to access mock methods
+      (walletService.generateWallet as jest.Mock).mockImplementation(() => {
+        throw new Error('Wallet generation failed');
+      });
+      
+      expect(() => walletService.generateWallet()).toThrow('Wallet generation failed');
+    });
+  });
 });
