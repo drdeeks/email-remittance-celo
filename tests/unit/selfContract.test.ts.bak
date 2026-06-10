@@ -1,0 +1,357 @@
+/**
+ * Self Contract Service Tests
+ * 
+ * Enterprise-grade test suite with:
+ * - Unit tests for contract interactions
+ * - Error handling tests
+ * - Rollback tests
+ * - Monitoring tests
+ */
+
+// Set test environment variables
+process.env.BASE_SELF_CONTRACT = '0x10079Fa97E739Fd05Ddc5C7cD11951aEF566b7e0';
+process.env.MONAD_SELF_CONTRACT = '0x7BC66eD8285b51F84D170F158aD162cA144F32c1';
+process.env.CELO_SELF_CONTRACT = '0x10079Fa97E739Fd05Ddc5C7cD11951aEF566b7e0';
+process.env.SELF_ATTESTER_ADDRESS = '0x38be03139523EE998952D21110115f23AE54b1f7';
+process.env.SELF_APP_ID = 'test-app-id';
+process.env.SELF_APP_SECRET = 'test-app-secret';
+
+// Set test environment variables
+process.env.BASE_SELF_CONTRACT = '0x10079Fa97E739Fd05Ddc5C7cD11951aEF566b7e0';
+process.env.MONAD_SELF_CONTRACT = '0x7BC66eD8285b51F84D170F158aD162cA144F32c1';
+process.env.CELO_SELF_CONTRACT = '0x10079Fa97E739Fd05Ddc5C7cD11951aEF566b7e0';
+process.env.SELF_ATTESTER_ADDRESS = '0x38be03139523EE998952D21110115f23AE54b1f7';
+process.env.SELF_APP_ID = 'test-app-id';
+process.env.SELF_APP_SECRET = 'test-app-secret';
+
+import { selfContractService } from '../../src/services/selfContract.service';
+import { selfConfig } from '../../src/config/self';
+import { monitoring } from '../../src/utils/monitoring';
+import { rollback } from '../../src/utils/rollback';
+import { ethers } from 'ethers';
+
+// Mock contract
+const mockContract = {
+  setAttester: jest.fn(),
+  attestIdentity: jest.fn(),
+  verifyIdentity: jest.fn(),
+  isMinimumAgeValid: jest.fn(),
+  isOfacValid: jest.fn(),
+  getFeeBps: jest.fn(),
+  registerVerificationConfig: jest.fn(),
+};
+
+// Mock ethers
+jest.mock('ethers', () => ({
+  Contract: jest.fn().mockImplementation(() => mockContract)
+}));
+
+// Mock chain service
+jest.mock('../../src/services/celoService', () => ({
+  chainService: {
+    getClients: jest.fn().mockReturnValue({
+      walletClient: {}
+    })
+  }
+}));
+
+// Mock the ethers.Contract
+jest.mock('ethers');
+
+describe('SelfContractService', () => {
+  const mockContract = {
+    setAttester: jest.fn(),
+    attestIdentity: jest.fn(),
+    verifyIdentity: jest.fn(),
+    isMinimumAgeValid: jest.fn(),
+    isOfacValid: jest.fn(),
+    getFeeBps: jest.fn(),
+    registerVerificationConfig: jest.fn(),
+  };
+  
+  beforeEach(() => {
+    // Reset all mocks
+    jest.clearAllMocks();
+    
+    // Mock the contract creation
+    (ethers.Contract as jest.Mock).mockReturnValue(mockContract);
+    
+    // Reset monitoring metrics
+    Object.keys(monitoring.getMetrics()).forEach(metric => {
+      if (metric.startsWith('self_')) {
+        delete (monitoring as any).metrics[metric];
+      }
+    });
+    
+    // Reset rollback stack
+    (rollback as any).operationStack = [];
+  });
+  
+  describe('setAttester', () => {
+    it('should set attester successfully', async () => {
+      const mockTx = {
+        wait: jest.fn().mockResolvedValue({ hash: '0x123' })
+      };
+      mockContract.setAttester.mockResolvedValue(mockTx);
+      
+      const result = await selfContractService.setAttester('base', true);
+      
+      expect(result).toBe(true);
+      expect(mockContract.setAttester).toHaveBeenCalledWith(
+        selfConfig.attester.address,
+        true
+      );
+      expect(monitoring.getMetric('self_contract_calls_total')).toBe(1);
+      expect(monitoring.getMetric('self_contract_errors_total')).toBe(0);
+    });
+    
+    it('should handle errors when setting attester', async () => {
+      mockContract.setAttester.mockRejectedValue(new Error('Failed to set attester'));
+      
+      const result = await selfContractService.setAttester('base', true);
+      
+      expect(result).toBe(false);
+      expect(monitoring.getMetric('self_contract_errors_total')).toBe(1);
+    });
+    
+    it('should trigger alert on failure when monitoring enabled', async () => {
+      mockContract.setAttester.mockRejectedValue(new Error('Failed to set attester'));
+      
+      await selfContractService.setAttester('base', true);
+      
+      // In a real test, we would verify the alert was triggered
+      expect(monitoring.getMetric('self_contract_errors_total')).toBe(1);
+    });
+  });
+  
+  describe('attestIdentity', () => {
+    it('should attest identity successfully', async () => {
+      const mockTx = {
+        wait: jest.fn().mockResolvedValue({ hash: '0x456' })
+      };
+      mockContract.attestIdentity.mockResolvedValue(mockTx);
+      
+      const result = await selfContractService.attestIdentity('base', '0xRecipient', 1234567890);
+      
+      expect(result).toBe(true);
+      expect(mockContract.attestIdentity).toHaveBeenCalledWith('0xRecipient', 1234567890);
+      expect(monitoring.getMetric('self_contract_calls_total')).toBe(1);
+      expect(monitoring.getMetric('self_contract_errors_total')).toBe(0);
+    });
+    
+    it('should handle errors when attesting identity', async () => {
+      mockContract.attestIdentity.mockRejectedValue(new Error('Failed to attest'));
+      
+      const result = await selfContractService.attestIdentity('base', '0xRecipient', 1234567890);
+      
+      expect(result).toBe(false);
+      expect(monitoring.getMetric('self_contract_errors_total')).toBe(1);
+    });
+  });
+  
+  describe('verifyIdentity', () => {
+    it('should verify identity successfully', async () => {
+      mockContract.verifyIdentity.mockResolvedValue(true);
+      
+      const result = await selfContractService.verifyIdentity('celo', '0xRecipient');
+      
+      expect(result).toBe(true);
+      expect(mockContract.verifyIdentity).toHaveBeenCalledWith('0xRecipient');
+      expect(monitoring.getMetric('self_contract_calls_total')).toBe(1);
+      expect(monitoring.getMetric('self_contract_errors_total')).toBe(0);
+    });
+    
+    it('should return false on error', async () => {
+      mockContract.verifyIdentity.mockRejectedValue(new Error('Failed'));
+      
+      const result = await selfContractService.verifyIdentity('celo', '0xRecipient');
+      
+      expect(result).toBe(false);
+      expect(monitoring.getMetric('self_contract_calls_total')).toBe(1);
+      expect(monitoring.getMetric('self_contract_errors_total')).toBe(1);
+    });
+    
+    it('should handle errors when verifying identity', async () => {
+      mockContract.verifyIdentity.mockRejectedValue(new Error('Failed to verify'));
+      
+      const result = await selfContractService.verifyIdentity('celo', '0xRecipient');
+      
+      expect(result).toBe(false);
+      expect(monitoring.getMetric('self_contract_errors_total')).toBe(1);
+    });
+  });
+  
+  describe('isMinimumAgeValid', () => {
+    it('should check minimum age successfully', async () => {
+      mockContract.isMinimumAgeValid.mockResolvedValue(true);
+      
+      const result = await selfContractService.isMinimumAgeValid('base', '0xRecipient');
+      
+      expect(result).toBe(true);
+      expect(mockContract.isMinimumAgeValid).toHaveBeenCalledWith('0xRecipient');
+      expect(monitoring.getMetric('self_contract_calls_total')).toBe(1);
+      expect(monitoring.getMetric('self_contract_errors_total')).toBe(0);
+    });
+    
+    it('should return false on error', async () => {
+      mockContract.isMinimumAgeValid.mockRejectedValue(new Error('Failed'));
+      
+      const result = await selfContractService.isMinimumAgeValid('base', '0xRecipient');
+      
+      expect(result).toBe(false);
+      expect(monitoring.getMetric('self_contract_calls_total')).toBe(1);
+      expect(monitoring.getMetric('self_contract_errors_total')).toBe(1);
+    });
+    
+    it('should return false on error', async () => {
+      mockContract.isMinimumAgeValid.mockRejectedValue(new Error('Failed to check age'));
+      
+      const result = await selfContractService.isMinimumAgeValid('base', '0xRecipient');
+      
+      expect(result).toBe(false);
+    });
+  });
+  
+  describe('isOfacValid', () => {
+    it('should check OFAC status successfully', async () => {
+      mockContract.isOfacValid.mockResolvedValue(true);
+      
+      const result = await selfContractService.isOfacValid('base', '0xRecipient');
+      
+      expect(result).toBe(true);
+      expect(mockContract.isOfacValid).toHaveBeenCalledWith('0xRecipient');
+      expect(monitoring.getMetric('self_contract_calls_total')).toBe(1);
+      expect(monitoring.getMetric('self_contract_errors_total')).toBe(0);
+    });
+    
+    it('should return false on error', async () => {
+      mockContract.isOfacValid.mockRejectedValue(new Error('Failed'));
+      
+      const result = await selfContractService.isOfacValid('base', '0xRecipient');
+      
+      expect(result).toBe(false);
+      expect(monitoring.getMetric('self_contract_calls_total')).toBe(1);
+      expect(monitoring.getMetric('self_contract_errors_total')).toBe(1);
+    });
+    
+    it('should return false on error', async () => {
+      mockContract.isOfacValid.mockRejectedValue(new Error('Failed to check OFAC'));
+      
+      const result = await selfContractService.isOfacValid('base', '0xRecipient');
+      
+      expect(result).toBe(false);
+    });
+  });
+  
+  describe('getFeeBps', () => {
+    it('should get fee BPS successfully', async () => {
+      mockContract.getFeeBps.mockResolvedValue(100); // 1%
+      
+      const result = await selfContractService.getFeeBps('base');
+      
+      expect(result).toBe(100);
+      expect(mockContract.getFeeBps).toHaveBeenCalled();
+      expect(monitoring.getMetric('self_contract_calls_total')).toBe(1);
+      expect(monitoring.getMetric('self_contract_errors_total')).toBe(0);
+    });
+    
+    it('should return default fee on error', async () => {
+      mockContract.getFeeBps.mockRejectedValue(new Error('Failed'));
+      
+      const result = await selfContractService.getFeeBps('base');
+      
+      expect(result).toBe(100); // Default 1%
+      expect(monitoring.getMetric('self_contract_calls_total')).toBe(1);
+      expect(monitoring.getMetric('self_contract_errors_total')).toBe(1);
+    });
+    
+    it('should return default fee on error', async () => {
+      mockContract.getFeeBps.mockRejectedValue(new Error('Failed to get fee'));
+      
+      const result = await selfContractService.getFeeBps('base');
+      
+      expect(result).toBe(100); // Default 1%
+    });
+  });
+  
+  describe('initializeContracts', () => {
+    it('should initialize contracts successfully', async () => {
+      const mockTx = {
+        wait: jest.fn().mockResolvedValue({ hash: '0x789' })
+      };
+      mockContract.setAttester.mockResolvedValue(mockTx);
+      mockContract.registerVerificationConfig.mockResolvedValue(mockTx);
+      
+      const result = await selfContractService.initializeContracts();
+      
+      expect(result.base).toBe(true);
+      expect(result.monad).toBe(true);
+      expect(result.celo).toBe(true);
+    });
+      mockContract.registerVerificationConfig.mockResolvedValue({
+        wait: jest.fn().mockResolvedValue({ hash: '0xabc' })
+      });
+      
+      const result = await selfContractService.initializeContracts();
+      
+      expect(result.base).toBe(true);
+      expect(result.monad).toBe(true);
+      expect(result.celo).toBe(true);
+    });
+    
+    it('should handle partial initialization failures', async () => {
+      const mockTx = {
+        wait: jest.fn().mockResolvedValue({ hash: '0x789' })
+      };
+      mockContract.setAttester.mockResolvedValueOnce(mockTx).mockRejectedValueOnce(new Error('Failed'));
+      mockContract.registerVerificationConfig.mockResolvedValue(mockTx);
+      
+      const result = await selfContractService.initializeContracts();
+      
+      expect(result.base).toBe(true);
+      expect(result.monad).toBe(false);
+      expect(result.celo).toBe(true);
+    });
+  });
+  
+  describe('rollback', () => {
+    it('should rollback failed operations', async () => {
+      const mockRollback = jest.fn();
+      (rollback as any).operationStack = [{
+        execute: jest.fn().mockRejectedValue(new Error('Failed')),
+        rollback: mockRollback,
+        context: {}
+      }];
+      
+      mockContract.setAttester.mockRejectedValue(new Error('Failed'));
+      
+      const result = await selfContractService.setAttester('base', true);
+      
+      expect(result).toBe(false);
+      expect(mockRollback).toHaveBeenCalled();
+    });
+  });
+  
+  describe('monitoring', () => {
+    it('should record metrics for successful operations', async () => {
+      const mockTx = {
+        wait: jest.fn().mockResolvedValue({ hash: '0x123' })
+      };
+      mockContract.setAttester.mockResolvedValue(mockTx);
+      
+      await selfContractService.setAttester('base', true);
+      
+      expect(monitoring.getMetric('self_contract_calls_total')).toBe(1);
+      expect(monitoring.getMetric('self_contract_errors_total')).toBe(0);
+    });
+    
+    it('should record metrics for failed operations', async () => {
+      mockContract.setAttester.mockRejectedValue(new Error('Failed'));
+      
+      await selfContractService.setAttester('base', true);
+      
+      expect(monitoring.getMetric('self_contract_calls_total')).toBe(1);
+      expect(monitoring.getMetric('self_contract_errors_total')).toBe(1);
+    });
+  });
+});

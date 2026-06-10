@@ -1,152 +1,118 @@
-# ============================================
-# CORE .GITIGNORE FOR EMAIL-REMITTANCE-PRO
-# ============================================
+# Enterprise Organization - Gitignore Standards
+# Generated: 2026-06-10T05:25:41.086462
+# Project Type: backend
 
-# ============================================
-# DEPENDENCIES
-# ============================================
-node_modules/
-
-# ============================================
-# ENVIRONMENT & SECRETS
-# ============================================
+# Secrets & Credentials (NEVER commit)
+*.key
+*.pem
+*.p12
+*.pfx
+*.jks
+*.keystore
 .env
-.env.local
-.env.*.local
-.env.production
-.env.development
-.env.test
-*.env
-secrets.json
-*-credentials.json
+.env.*
+!.env.example
+*.secret
+*.credential
+*_rsa
+*_dsa
+*_ecdsa
+*_ed25519
 
-# ============================================
-# DATABASE FILES
-# ============================================
+# API Keys & Tokens
+*API_KEY*
+*API_SECRET*
+*TOKEN*
+*BEARER*
+*AUTH*
+*.webhook
+
+# Wallets & Blockchain
+*.wallet
+*.keystore
+*private*key*
+*mnemonic*
+*seed*
+utxo*
+*.dat
+
+# Database & Local Data
 *.db
 *.sqlite
 *.sqlite3
-remittance.db
-*.db-shm
-*.db-wal
+*.db-journal
+*.log
+logs/*.log
 
-# ============================================
-# BUILD OUTPUTS
-# ============================================
+# Build & Cache
+__pycache__/
+*.py[cod]
+*$py.class
+.pytest_cache/
+.coverage
+.mypy_cache/
+.tox/
 dist/
 build/
-out/
+*.egg-info/
 
-# ============================================
-# TESTING
-# ============================================
-coverage/
-*.lcov
-
-# ============================================
-# LOGS
-# ============================================
-logs/
-*.log
-
-# ============================================
-# OS FILES
-# ============================================
-.DS_Store
-.DS_Store?
-._*
-.Spotlight-V100
-.Trashes
-ehthumbs.db
-Thumbs.db
-Desktop.ini
-
-# ============================================
-# IDE / EDITOR
-# ============================================
+# IDE & Editor
 .vscode/
 .idea/
 *.swp
 *.swo
 *~
+.DS_Store
+Thumbs.db
 
-# ============================================
-# TEMPORARY FILES
-# ============================================
+# OS & Temporary
+tmp/
+temp/
 *.tmp
 *.temp
-*.bak
-*.cache
 
-# ============================================
-# BACKUPS
-# ============================================
-*.tar.gz
-*.zip
-*.bak
+# Large Files & Binaries
+*.bin
+*.iso
+*.img
+*.vmdk
+*.qcow2
+*.vdi
+*.ova
 
-# ============================================
-# DOCUMENTATION (IGNORE ALL EXCEPT ESSENTIAL)
-# ============================================
-*.md
-!README.md
-!CONTRIBUTING.md
-*.html
-*.guide
-DEPLOYMENT*
-SETUP*
-IMPLEMENTATION_SUMMARY*
-MANDATE_PROTOCOL*
-LIVE-DEMO*
-TESTING_SUMMARY*
-ENVIRONMENT_ISSUES_SUMMARY*
-CONVERSATION_LOG*
+# Node.js
+node_modules/
+npm-debug.log*
+yarn-debug.log*
+yarn-error.log*
+.pnpm-store/
 
-# ============================================
-# AGENT FILES
-# ============================================
-agent.json
-agent_log.json
-AGENTS*
-scripts/ralph/
+# Python
+pip-log.txt
+pip-delete-this-directory.txt
+*.egg
+.eggs/
 
-# ============================================
-# DEPLOYMENT ARTIFACTS
-# ============================================
-deploy/
-deploy-*/
-email-remittance-deployment-*/
+# Docker
+.docker/
+docker-compose.override.yml
 
-# ============================================
-# PROOF AND DEMO FILES
-# ============================================
-proof/
-*.pptx
-*.pdf
-*.jpg
-*.jpeg
-*.png
-*.gif
-*.mp4
-*.mov
-*.avi
+# IDE Configs (keep .vscode/extensions.json, .idea/workspace.xml)
+!.vscode/extensions.json
+!.idea/workspace.xml
 
-# ============================================
-# DEBUG FILES
-# ============================================
-debug-*.js
-simple.test.js
-verify_implementation.sh
+# Coverage
+coverage/
+*.lcov
 
-# ============================================
-# KEEP THESE (ESSENTIAL FILES)
-# ============================================
-!.gitignore
-!.env.example
-!README.md
-!CONTRIBUTING.md
-!package.json
-!package-lock.json
-!tsconfig.json
-!deploy.sh
-!setup-domain.sh
+# TypeScript
+*.tsbuildinfo
+
+# Logs
+*.log
+
+
+# Backend Specific
+*.pyc
+venv/
+.env.production
