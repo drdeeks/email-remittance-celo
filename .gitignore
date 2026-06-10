@@ -3,6 +3,7 @@
 # Project Type: backend
 
 # Secrets & Credentials (NEVER commit)
+.secrets/
 *.key
 *.pem
 *.p12
@@ -41,6 +42,7 @@ utxo*
 *.sqlite
 *.sqlite3
 *.db-journal
+*.db
 *.log
 logs/*.log
 
