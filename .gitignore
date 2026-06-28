@@ -118,3 +118,6 @@ coverage/
 *.pyc
 venv/
 .env.production
+
+# Bloat Files - Archived hackathon artifacts, duplicates, and outdated files
+bloat-files/
