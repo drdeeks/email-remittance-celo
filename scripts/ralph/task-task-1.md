@@ -1,3 +1,0 @@
-# Task: Mock Task
-
-undefined

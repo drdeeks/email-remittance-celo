@@ -55,3 +55,43 @@ export interface SelfStatus {
     monitoringEnabled: boolean;
   };
 }
+
+// World ID Verification Types
+export interface WorldIDVerificationRequest {
+  nullifierHash: string;
+  merkleRoot: string;
+  proof: string;
+  verificationLevel?: 'orb' | 'device';
+  appId?: string;
+  recipient: string;
+  amount: number;
+  currency: string;
+  requireVerification?: boolean;
+  senderCallback?: boolean;
+}
+
+export interface VerificationMethodSelectionRequest {
+  method: 'NONE' | 'SELF' | 'WORLDID'; // SCR-1: User verification method choice
+  reason?: string; // Optional reason for method selection
+  force?: boolean; // Whether to force this method selection
+}
+
+export interface WorldIDVerificationResult {
+  success: boolean;
+  verified: boolean;
+  requireVerification: boolean;
+  verificationToken: string;
+  nullifierHash?: string;
+  merkleRoot?: string;
+  credentialSubject?: {
+    username?: string;
+    humanitarianProof?: boolean;
+  };
+  timestamp?: string;
+  error?: string;
+  message?: string;
+  senderSessionToken?: string;
+}
+
+export type VerificationRequest = SelfVerificationRequest | WorldIDVerificationRequest;
+export type VerificationResult = SelfVerificationResult | WorldIDVerificationResult;
