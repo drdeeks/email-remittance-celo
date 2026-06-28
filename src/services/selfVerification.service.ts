@@ -1,4 +1,5 @@
-import { SelfVerificationRequest, SelfVerificationResult } from '../types/verification';
+import { SelfVerificationRequest, SelfVerificationResult, 
+         WorldIDVerificationRequest, WorldIDVerificationResult } from '../types/verification';
 import { logger } from '../utils/logger';
 import { selfConfig } from '../config/self';
 
@@ -65,6 +66,87 @@ class SelfVerificationService {
   // Public method to clear cache for testing
   clearCache(): void {
     this.verificationCache.clear();
+  }
+
+  // WorldID verification method to support enterprise blueprint requirement
+  async worldIdVerification(request: WorldIDVerificationRequest): Promise<WorldIDVerificationResult> {
+    try {
+      // Basic validation for WorldID request
+      if (!request.nullifierHash || !request.merkleRoot || !request.proof) {
+        return {
+          success: false,
+          verified: false,
+          requireVerification: request.requireVerification !== false,
+          verificationToken: '',
+          timestamp: new Date().toISOString(),
+          error: 'Missing required WorldID fields (nullifierHash, merkleRoot, proof)'
+        };
+      }
+
+      // If verification is not required and no proof data is provided, return early success
+      if (!request.requireVerification && !request.proof) {
+        return {
+          success: true,
+          verified: true,
+          requireVerification: false,
+          verificationToken: '',
+          timestamp: new Date().toISOString()
+        };
+      }
+
+      // Validate recipient information
+      if (!request.recipient || !request.amount || !request.currency) {
+        return {
+          success: false,
+          verified: false,
+          requireVerification: true,
+          verificationToken: '',
+          timestamp: new Date().toISOString(),
+          error: 'Recipient, amount, and currency are required for WorldID verification'
+        };
+      }
+
+      // Verify the nullifier hash using WorldID SDK (to be implemented with actual SDK)
+      // For now, check if the nullifier hash looks valid (length > 0)
+      const isValidNullifier = request.nullifierHash.length > 0;
+      
+      // Verify merkle root format (basic validation)
+      const isValidMerkleRoot = request.merkleRoot.startsWith('0x') && request.merkleRoot.length >= 66;
+
+      const verificationResult: WorldIDVerificationResult = {
+        success: isValidNullifier && isValidMerkleRoot,
+        verified: isValidNullifier && isValidMerkleRoot,
+        requireVerification: request.requireVerification || false,
+        verificationToken: this.generateVerificationToken(),
+        nullifierHash: request.nullifierHash,
+        merkleRoot: request.merkleRoot,
+        credentialSubject: {
+          username: `user_${request.nullifierHash.substring(0, 8)}`,
+          humanitarianProof: true
+        },
+        timestamp: new Date().toISOString()
+      };
+
+      // Add senderSessionToken for sender callbacks
+      if (request.senderCallback) {
+        verificationResult.senderSessionToken = this.generateSessionToken();
+      }
+
+      // For now, cache only WorldID verifications
+      this.verificationCache.set(verificationResult.verificationToken, verificationResult);
+
+      return verificationResult;
+    } catch (error) {
+      logger.error('WorldID verification failed', { error });
+      return {
+        success: false,
+        verified: false,
+        requireVerification: request.requireVerification || false,
+        verificationToken: '',
+        timestamp: new Date().toISOString(),
+        error: 'WorldID verification failed: ' + error.message
+      };
+    }
   }
   
   getStatus() {

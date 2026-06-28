@@ -78,6 +78,15 @@ export const selfConfig = {
   rollback: {
     enabled: process.env.SELF_ROLLBACK_ENABLED !== 'false',
     maxRetries: parseInt(process.env.SELF_MAX_RETRIES || '3'),
+  },
+
+  // World ID configuration
+  worldId: {
+    apiUrl: process.env.WORLDID_API_URL || 'https://api.worldcoin.org/v1',
+    appId: process.env.WORLDID_APP_ID || '',
+    appSecret: process.env.WORLDID_APP_SECRET || '',
+    verifyEndpoint: process.env.WORLDID_VERIFY_ENDPOINT || '/api/v1/worldid/verify',
+    timeout: parseInt(process.env.WORLDID_API_TIMEOUT || '10000'),
   }
 };
 

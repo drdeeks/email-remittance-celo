@@ -1,0 +1,434 @@
+# From the open-source SDK
+
+If you've integrated the open-source [Self Pass](/docs/self-pass/) frontend SDK (`@selfxyz/qrcode`) and backend verifier (`@selfxyz/core`), here's how it maps to Self Enterprise.
+
+## Why migrate
+
+The open-source SDK requires you to:
+
+* Stand up an off-chain verifier yourself (or run it in-process and pay the cold-start cost).
+* Manage a `ConfigStore` for predicate configurations.
+* Build your own webhook delivery, retry, and signature scheme.
+* Write your own audit log.
+* Operate it all with no SLA.
+
+Enterprise replaces all of that with a managed service. Your frontend integration stays largely identical; the backend collapses.
+
+:::note
+If you're happy running your own verifier and don't need SLAs, billing, or a dashboard, stay on the open-source SDK, it's fully supported. Otherwise, read on.
+:::
+
+## Concept mapping
+
+| Open-source self-pass | Self Enterprise |
+| --- | --- |
+| `SelfAppBuilder` (frontend) | Same idea, but the `endpoint` becomes our hosted verifier, you don't host it. |
+| `SelfBackendVerifier` | Replaced by our managed verifier. You don't run this anymore. |
+| `ConfigStore` (your `IConfigStorage` impl) | Replaced by the dashboard's [flow configuration](/docs/self-enterprise/dashboard/configure-a-product/). |
+| Predicate config object | A **flow** in the dashboard. `flowId` replaces inline config. |
+| Per-app verifier secrets | A Bearer API key (`sk_live_…`). |
+| Custom webhook code | A webhook endpoint you register, verified via `SelfWebhooks.verify(...)`. |
+
+## Step-by-step
+
+### 1. Map your predicate config to a flow
+
+Today (open-source):
+
+```ts
+const verifier = new SelfBackendVerifier({
+  scope: 'my-app',
+  endpoint: 'https://myapp.com/verify',
+  configStore: new InMemoryConfigStorage({
+    minimumAge: 18,
+    excludedCountries: ['USA'],
+    ofac: true,
+  }),
+});
+```
+
+With Enterprise:
+
+1. In the dashboard, [create a flow](/docs/self-enterprise/dashboard/configure-a-product/).
+2. Configure the same rules: minimum age 18, exclude `USA`, OFAC on.
+3. Publish it. Copy the `flowId` from the **Test** or **Live** tab.
+
+### 2. Replace `SelfBackendVerifier` with `SelfClient`
+
+Today:
+
+```ts
+import { SelfBackendVerifier } from '@selfxyz/core';
+
+const verifier = new SelfBackendVerifier({ /* ... */ });
+
+app.post('/verify', async (req, res) => {
+  const result = await verifier.verify(
+    req.body.attestationId,
+    req.body.proof,
+    req.body.publicSignals,
+    req.body.userContextData,
+  );
+  // ...act on result
+});
+```
+
+With Enterprise:
+
+```ts
+import { SelfClient } from '@selfxyz/enterprise-sdk';
+
+const self = new SelfClient({ apiKey: process.env.SELF_API_KEY! });
+
+// When the user wants to verify:
+app.post('/start-verification', async (req, res) => {
+  const session = await self.sessions.create({
+    flowId: process.env.SELF_FLOW_ID!,
+    externalUuid: req.user.id,
+  });
+  res.json({ verificationUrl: session.verificationUrl });
+});
+
+// You no longer need a /verify endpoint, we deliver the result via webhook.
+```
+
+### 3. Replace inline verification with a webhook handler
+
+Today your `/verify` endpoint runs the Groth16 verifier and acts on the result inline.
+
+With Enterprise, register a webhook endpoint in the dashboard (it receives all events) and handle `verification.completed`:
+
+```ts
+import { SelfWebhooks } from '@selfxyz/enterprise-sdk';
+
+app.post('/webhooks/self', express.raw({ type: 'application/json' }), (req, res) => {
+  const event = SelfWebhooks.verify(req.body, req.headers, process.env.SELF_WEBHOOK_SECRET!);
+
+  if (event.type === 'verification.completed' && event.status === 'valid') {
+    grantAccess(event.external_uuid, event.proof_attributes);
+  }
+  res.status(200).end();
+});
+```
+
+`external_uuid` is what you passed when creating the session (typically your user ID). See [Verify webhooks](/docs/self-enterprise/sdk/verify-webhooks/).
+
+### 4. Drop your frontend QR component
+
+With Enterprise you don't render your own QR. Wherever you used `@selfxyz/qrcode`, call `self.sessions.create(...)` on your backend and **redirect the user to `session.verificationUrl`** instead; Self's hosted page renders the QR and handles deeplinks. Then remove `@selfxyz/qrcode`.
+
+### 5. Delete the old code paths
+
+* Remove `@selfxyz/core` and `@selfxyz/qrcode`.
+* Remove your `ConfigStore` implementation.
+* Remove your `/verify` route, Enterprise delivers via webhook.
+* Remove any code that loaded verifier circuit files at boot.
+
+## What stays the same
+
+* The **Self mobile app** is unchanged for your users.
+* The **disclosures** are the same, age, nationality, OFAC, etc. See [Disclosures](/docs/self-enterprise/flows/disclosures/).
+* The **proof system** is the same under the hood.
+* Your **frontend** gets simpler: send the user to the hosted `verificationUrl`, no QR rendering required.
+
+## What's better
+
+* No verifier infrastructure to run.
+* [Audit log](/docs/self-enterprise/dashboard/activity-log/) out of the box.
+* [Webhook delivery](/docs/self-enterprise/webhooks/overview/) with automatic retries.
+* A [dashboard](/docs/self-enterprise/dashboard/overview/) to change rules without a redeploy.
+* [Per-flow versioning](/docs/self-enterprise/flows/anatomy/#versions), audit exactly what a user was verified against last March.
+
+## What's different
+
+* You pay per verification. See [Plans](/docs/self-enterprise/billing/plans/).
+* Your service no longer holds the raw proof, we verify it and hand you the attributes. (You can still read the raw proof from the `verification.completed` event if you truly need it.)
+
+## Rolling out safely
+
+1. Build the Enterprise integration behind a feature flag (`enterprise: false`).
+2. Configure a **test**-environment flow + webhook endpoint.
+3. QA against [mock passports](/docs/self-enterprise/guides/using-mock-passports/).
+4. Move staging to Enterprise.
+5. Cut over prod with a percentage rollout (10% → 50% → 100%).
+6. Decommission your verifier infra after a week of clean prod traffic.
+
+## Need help?
+
+Email support@self.xyz, or your CSM if you're on an Enterprise plan.
+
+
+
+==============
+
+
+
+# Quickstart
+
+End-to-end: from sign-up to a verified user, in about ten minutes.
+
+## Prerequisites
+
+* A Self.xyz dashboard account ([sign up](https://dashboard.self.xyz)).
+* Node 20+ (for the SDK).
+* A way to receive a webhook locally, [ngrok](https://ngrok.com), Cloudflare Tunnel, or any public HTTPS endpoint.
+
+## 1. Create your organization
+
+After sign-up you'll be prompted to create an organization. An org owns flows, API keys, webhook subscriptions, and the billing relationship. You can invite teammates from **Settings → People** once it's set up.
+
+## 2. Create a flow
+
+![Self Dashboard](/docs/docs-assets/self-dashboard.avif)
+
+The dashboard home shows a card for each of the three products. Every product lets you set a **Security level** (Standard or Hi-security) and toggle an **OFAC** check; they differ in the age and country rules:
+
+* **Pre KYC**: minimum age and country rules.
+* **Age Verification**: a minimum age (for example 18 or 21).
+* **Proof of Human**: no age or country rules, just unique humanity.
+
+Open a product and click **New config**. For this walkthrough, **Age Verification** is the quickest: set a **minimum age** and publish. (The Configure tab also has **Additional data** reveals and a name/icon under **Configuration details**, see [Configure a product](/docs/self-enterprise/dashboard/configure-a-product/).)
+
+Once published, your configuration has a `flowId`. Copy it.
+
+:::note
+**One active config at a time.** A product keeps a single active configuration, and a published config can't be edited. To change it, archive it and create a new one.
+:::
+
+> **Test vs. live:** a configuration published in your test environment only accepts mock passports and never bills credits. See [Test vs. live](/docs/self-enterprise/flows/test-vs-live/).
+
+## 3. Create an API key
+
+Go to **Developer → API keys**, keep the **Test** tab selected, and click **Generate key**. The key (`sk_test_...`) is shown once, store it as `SELF_API_KEY` in your backend's secret manager. See [API keys](/docs/self-enterprise/dashboard/api-keys/).
+
+![Test API key](/docs/docs-assets/api-key-test.avif)
+
+## 4. Install the SDK
+
+```bash
+npm install @selfxyz/enterprise-sdk
+```
+
+## 5. Create a verification session
+
+```ts
+import { SelfClient } from '@selfxyz/enterprise-sdk';
+
+const self = new SelfClient({ apiKey: process.env.SELF_API_KEY! });
+
+const session = await self.sessions.create({
+  flowId: '<paste flowId from step 2>',
+  externalUuid: user.id,               // your stable UUID for this user.
+});
+
+console.log(session.verificationUrl);  // hand this to the user.
+```
+
+The user opens `verificationUrl` in their Self app, produces a proof, and the app submits it back to us.
+
+## 6. Add a webhook endpoint
+
+In **Developer → Webhooks → Add webhook**, paste the full URL to your handler (e.g. `https://<your-tunnel>/webhooks/self`, including the path) and click **Save**. The endpoint saves right away and the dashboard reveals a signing secret (`whsec_...`) **once**, store it as `SELF_WEBHOOK_SECRET`. Every endpoint receives the `verification.completed` event.
+
+Once your handler (step 7) is deployed, you can hit **Send Test Request** on the endpoint to confirm it's reachable. See [Webhooks](/docs/self-enterprise/dashboard/webhooks/) for the full detail.
+
+## 7. Verify webhook deliveries
+
+```ts
+import express from 'express';
+import { SelfWebhooks } from '@selfxyz/enterprise-sdk';
+
+const app = express();
+
+app.post(
+  '/webhooks/self',
+  express.raw({ type: 'application/json' }),  // raw body is required for signature verification.
+  (req, res) => {
+    try {
+      const event = SelfWebhooks.verify(
+        req.body,                                            // Buffer.
+        req.headers as Record<string, string>,
+        process.env.SELF_WEBHOOK_SECRET!,
+      );
+
+      if (event.type === 'verification.completed') {
+        // event.verification_id, event.external_uuid, event.proof_attributes.
+        console.log('verified:', event);
+      }
+
+      res.status(200).end();
+    } catch (err) {
+      res.status(400).end();
+    }
+  },
+);
+```
+
+## 8. Test the loop
+
+Open the `verificationUrl` from step 5, run through with a mock passport, and watch your webhook handler fire. The dashboard's **Activity log** tab on the flow shows the verification end-to-end.
+
+## What's next
+
+* [How verification works](/docs/self-enterprise/get-started/how-it-works/): the zero-knowledge model behind that webhook.
+* [Configure a product](/docs/self-enterprise/dashboard/configure-a-product/): go beyond defaults.
+* [Event catalog](/docs/self-enterprise/webhooks/events/): every webhook type and its payload.
+* [SDK reference](/docs/self-enterprise/sdk/nodejs/): every SDK method, with types.
+* [Error handling](/docs/self-enterprise/sdk/error-handling/): what each error means and how to handle it.
+
+
+==================
+
+
+
+
+# Node.js / TypeScript SDK
+
+`@selfxyz/enterprise-sdk` is the official Node/TS client for Self Enterprise. It wraps session creation, retrieval, and webhook signature verification with typed payloads.
+
+## Install
+
+::::tabs
+:::tab{label="npm"}
+```bash
+npm install @selfxyz/enterprise-sdk
+```
+:::
+
+:::tab{label="pnpm"}
+```bash
+pnpm add @selfxyz/enterprise-sdk
+```
+:::
+
+:::tab{label="yarn"}
+```bash
+yarn add @selfxyz/enterprise-sdk
+```
+:::
+::::
+
+Node 20+. ESM-only.
+
+## Initialize
+
+```ts
+import { SelfClient } from '@selfxyz/enterprise-sdk';
+
+const self = new SelfClient({
+  apiKey: process.env.SELF_API_KEY!,        // sk_test_... or sk_live_...
+});
+```
+
+The API key is the only option you need to pass. Whether the client talks to test or live is determined by the key prefix (`sk_test_` or `sk_live_`).
+
+## Sessions
+
+### Create
+
+Get the `flowId` by publishing a configuration in the dashboard, it's shown on the product's **Test** and **Live** tabs. See [Configure a product](/docs/self-enterprise/dashboard/configure-a-product/).
+
+```ts
+const session = await self.sessions.create({
+  flowId: '9c0b4f1c-1d6c-4f1b-a8c4-9f0fa0a8d9e2',
+  externalUuid: 'a1b2c3d4-5678-4e9a-b012-3456789abcde',  // a UUID, your stable id for the user
+  // optional:
+  expiresInSeconds: 3600,
+  metadata: { campaign: 'winter-2026' },
+  successUrl: 'https://app.example.com/verified',
+  failureUrl: 'https://app.example.com/failed',
+});
+
+session.verificationUrl;  // give to the user
+session.id;               // store on your side
+session.expiresAt;        // ISO-8601
+```
+
+Returns `Session` (alias of `CreateSessionResponse`).
+
+The most important fields:
+
+| Field | Notes |
+| --- | --- |
+| `id` | Persistent session ID. Use this when calling `sessions.get(...)` or matching against webhook events. |
+| `verificationUrl` | The URL to hand to the user. They open it in their Self app. |
+| `expiresAt` | ISO-8601 timestamp. After this the session cannot be completed. |
+| `flowVersionId` | Immutable pin to the flow version this session ran against. Publishing a new flow version doesn't disturb in-flight sessions. |
+
+### Get
+
+```ts
+const detail = await self.sessions.get('7f3b2a1e-9c4d-4b2a-8e1f-2c6d5a4b3c2d');  // the session id
+
+detail.status;             // 'pending' | 'valid' | 'invalid' | 'error' | 'expired'
+detail.proofAttributes;    // disclosed predicates, e.g. { age_gte_18: true }
+detail.storage.state;      // 'pending' | 'committed' | 'failed'
+```
+
+Returns `SessionDetail` (exported from the SDK, an alias of `SessionDetailResponse`):
+
+```ts
+interface SessionDetail {
+  id: string;
+  status: 'pending' | 'valid' | 'invalid' | 'error' | 'expired';
+  createdAt: string;                                  // ISO-8601
+  completedAt: string | null;                         // ISO-8601, null until terminal
+  expiresAt: string;                                  // ISO-8601
+  flowVersionId: string;                              // the pinned flow version
+  externalUuid: string;                               // your identifier from create()
+  metadata: Record<string, unknown> | null;           // what you passed to create()
+  predicatesConfig: Record<string, unknown> | null;   // the rules this ran against
+  proofAttributes: Record<string, unknown> | null;    // disclosed results (null until valid)
+  storage: {
+    state: 'pending' | 'committed' | 'failed';
+    uri: string | null;
+    credentialId: string | null;
+  };
+}
+```
+
+## Types
+
+The SDK re-exports the canonical Zod schemas and inferred types from `@self/schemas`:
+
+```ts
+import type {
+  CreateSessionInput,           // what you pass to .create()
+  Session,                      // what .create() returns
+  SessionDetail,                // what .get() returns
+  WebhookEvent,                 // discriminated-union of webhook event payloads
+  VerificationCompletedPayload, // the verification.completed payload
+} from '@selfxyz/enterprise-sdk';
+```
+
+You can also import the schemas themselves for runtime validation:
+
+```ts
+import { createSessionBody, webhookEvent } from '@selfxyz/enterprise-sdk';
+
+const parsed = createSessionBody.parse(input);
+```
+
+## Webhook verification
+
+See [Verify webhooks](/docs/self-enterprise/sdk/verify-webhooks/).
+
+## Error handling
+
+```ts
+import { SelfClient, SelfApiError } from '@selfxyz/enterprise-sdk';
+
+try {
+  await self.sessions.create({ flowId, externalUuid });
+} catch (err) {
+  if (err instanceof SelfApiError) {
+    err.statusCode;    // 400 | 401 | 402 | 403 | 404 | 409 | 429 | 5xx
+    err.code;          // 'validation_failed' | 'unauthenticated' | 'not_found' | ...
+    err.message;       // human-readable
+    err.details;       // optional extra context (Record<string, unknown>)
+    err.requestId;     // X-Request-Id, quote it to support
+  }
+}
+```
+
+Bad arguments (for example a `flowId` or `externalUuid` that isn't a UUID) throw `SelfValidationError` before any request is sent. The SDK doesn't retry, handle transient `429` and `5xx` responses yourself (back off and retry). See [Error handling](/docs/self-enterprise/sdk/error-handling/) for the full code catalog.
