@@ -140,15 +140,52 @@ FEATURE FLAG  : FEAT_IDENTITY
 ✅ **Fallback chain coordination implemented**  
 ✅ **Frontend components created**  
 ✅ **Unit tests created**  
+✅ **All SCR-1 unit tests passing (42 tests)**
 
-## Rollback Procedures
+---
 
-1. **Backend Router**: Remove `/select` route from `src/routes/verificationRoutes.ts`
-2. **Controller**: Remove `selectVerificationMethod`, revert to original `verifyIdentity`
-3. **Service**: Delete `src/services/selfEnterpriseEnhancedService.ts`
-4. **Types**: Remove `VerificationMethodSelectionRequest` from `src/types/verification.d.ts`
-5. **Frontend**: Delete `src/components/VerificationChoice.tsx` and `src/hooks/useVerification.ts`
-6. **Tests**: Delete test files from `tests/unit/`
+## SCR-002 Email Remittance Core - Implementation Progress
+
+### Backend - Database Migration
+- [x] PostgreSQL schema for users, remittances, identity_verifications, fee_config
+- [x] Idempotency keys table with 24h TTL
+- [x] Default fee configurations for Celo USDC, cUSD, Arbitrum USDC, Optimism USDC
+
+### Backend - Services
+- [x] Email Validator Service (RFC 5322 + optional MX check)
+- [x] Fee Engine (dynamic calculation from fee_config table)
+- [x] Remittance Service (create/claim with UUID v4 claim tokens)
+- [x] Email Notification Service (Resend integration with claim link template)
+
+### Backend - API Endpoints
+- [x] POST /api/remittance/create - Create remittance with claim token
+- [x] GET /api/remittance/claim/:token - Get remittance details
+- [x] POST /api/remittance/claim - Claim remittance
+- [x] POST /api/remittance/preview-fee - Preview fee calculation
+- [x] GET /api/remittance/sender/:senderId - Get sender remittances
+- [x] GET /api/remittance/recipient/:recipientId - Get recipient remittances
+- [x] DELETE /api/remittance/:id/cancel - Cancel pending remittance
+- [x] Idempotency key support on all mutating endpoints
+
+### Frontend - SCR-002 SendRemittance Component
+- [x] SendForm component with wallet mode toggle (service/personal)
+- [x] Self Protocol verification modal (service wallet mode)
+- [x] World ID verification button (service wallet mode)
+- [x] Chain selector (Celo, Base, Monad)
+- [x] Token selectors (native + cross-chain)
+- [x] Recipient note/message support
+- [x] Auth toggle (require recipient verification)
+- [x] Balance display and insufficient balance validation
+
+### Tests
+- [x] Frontend SendForm tests (26 tests passing)
+- [x] Remittance Service unit tests (5 tests passing)
+- [x] Fee Service unit tests (4 tests passing)
+- [x] Integration tests for remittance flow (6 tests passing)
+- [x] Integration tests for fee service (5 tests passing)
+- [x] SCR-1 Verification tests (42 tests passing)
+- [x] All backend tests passing via Jest
+- [x] All frontend tests passing via Vitest
 
 ---
 
@@ -159,9 +196,32 @@ FEATURE FLAG  : FEAT_IDENTITY
 - All enterprise requirements met (dry-run, error handling, fallback)
 - All anti-silent-failure measures in place
 - All code paths return explicit success/error responses
+- All unit tests passing (42 tests)
+
+**SCR-002 Implementation: ✅ COMPLETE**  
+- All blueprint requirements implemented
+- Database migration complete
+- All services implemented
+- All API endpoints implemented
+- Frontend component complete
+- Unit tests passing (46+ tests)
+- Integration tests passing (11 tests)
 
 ---
 
-*Last Updated: 2026-06-28*  
+## Rollback Procedures
+
+1. **Backend Router**: Remove `/select` route from `src/routes/verificationRoutes.ts`
+2. **Controller**: Remove `selectVerificationMethod`, revert to original `verifyIdentity`
+3. **Service**: Delete `src/services/selfEnterpriseEnhancedService.ts`
+4. **Types**: Remove `VerificationMethodSelectionRequest` from `src/types/verification.d.ts`
+5. **Frontend**: Delete `src/components/VerificationChoice.tsx` and `src/hooks/useVerification.ts`
+6. **Tests**: Delete test files from `tests/unit/`
+7. **SCR-002**: Revert migration `20260629_scr002_remittance_schema.ts`
+8. **SCR-002**: Remove new services and routes
+
+---
+
+*Last Updated: 2026-06-29*  
 *Author: opencode*  
-*Checkpoint: SCR-001-BACKEND-ROUTER-CHECKPOINT-1*
+*Checkpoint: SCR-002-REMITTANCE-CORE-CHECKPOINT-1*

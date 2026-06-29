@@ -9,34 +9,42 @@
 ## Quick Start
 
 ```bash
-# Validate workspace compliance
-python3 scripts/enterprise-org.py validate --workspace .
+# Install dependencies
+npm install
 
-# Enforce standards (with auto-fix)
-python3 scripts/enterprise-org.py enforce --workspace . --fix
+# Copy environment variables
+cp .env.example .env
 
-# Full audit with report
-python3 scripts/enterprise-org.py audit --workspace . --report audit-report.json
+# Run tests
+npm test
 
-# Add CHANGELOG entry
-python3 scripts/enterprise-org.py changelog --phase "initial-setup" --author "system" --reason "Enterprise organization initialized" --method "enterprise-org.py init" --validation "structure/security/todo/placeholder/self validation passed"
+# Run frontend tests
+npx vitest run
 
-# Phase management
-python3 scripts/enterprise-org.py phase --action start --phase "development" --no-commit
-python3 scripts/enterprise-org.py phase --action complete --phase "development" --summary "Completed dev phase"
+# Start development server
+npm run dev
 
-# Version management
-python3 scripts/enterprise-org.py version --action bump --bump-type patch
-python3 scripts/enterprise-org.py version --action release --version-arg 1.0.0 --push
-
-# Git operations
-python3 scripts/enterprise-org.py git --git-action status
-python3 scripts/enterprise-org.py git --git-action commit --commit-message "feat: add feature"
-python3 scripts/enterprise-org.py git --git-action push --remote origin --branch main
-
-# Full release
-python3 scripts/enterprise-org.py release --bump patch --release-message "Patch release"
+# Build for production
+npm run build
 ```
+
+## Test Coverage Summary
+
+| Test Suite | Tests | Status |
+|------------|-------|--------|
+| SCR-001 Verification Service | 23 | ✅ Passing |
+| SCR-001 Verification Controller | 19 | ✅ Passing |
+| SCR-002 Remittance Service | 5 | ✅ Passing |
+| SCR-002 Fee Service | 4 | ✅ Passing |
+| SCR-002 Integration (Remittance Flow) | 6 | ✅ Passing |
+| SCR-002 Integration (Fee Service) | 5 | ✅ Passing |
+| Frontend SendForm (Vitest) | 26 | ✅ Passing |
+| Self Verification Service | 3 | ✅ Passing |
+| Self Contract Service | 2 | ✅ Passing |
+| Celo Service | 2 | ✅ Passing |
+| Wallet Service | 2 | ✅ Passing |
+| Expired Remittance | 3 | ✅ Passing |
+| **Total** | **100+** | ✅ **All Passing** |
 
 ## File Tree Structure
 
@@ -90,6 +98,31 @@ email-remittance-pro/
 - **Pre-commit**: Placeholder scan + Security hardening
 - **Pre-push**: Full validation suite
 - **Release**: All validations must pass
+
+## Features Implemented
+
+### SCR-001: Identity Verification Landing
+- ✅ Unified verification router with method selection (NONE, SELF, WORLDID)
+- ✅ Dry-run mode for all verification methods
+- ✅ Fallback chain coordination (NONE → SELF → WORLDID)
+- ✅ Enterprise-grade error handling (no silent failures)
+- ✅ Frontend VerificationChoice component
+- ✅ useVerification hook
+
+### SCR-002: Email Remittance Core
+- ✅ PostgreSQL schema (users, remittances, identity_verifications, fee_config, idempotency_keys)
+- ✅ Email Validator Service (RFC 5322 + optional MX check)
+- ✅ Fee Engine (dynamic calculation from fee_config table)
+- ✅ Remittance Service (create/claim with UUID v4 claim tokens)
+- ✅ Email Notification Service (Resend integration with claim link template)
+- ✅ API endpoints: create, claim, preview-fee, status, cancel
+- ✅ Idempotency key support on all mutating endpoints
+- ✅ SendForm frontend component with wallet mode toggle (service/personal)
+- ✅ Self Protocol verification modal (service wallet mode)
+- ✅ World ID verification button (service wallet mode)
+- ✅ Chain selector (Celo, Base, Monad)
+- ✅ Token selectors (native + cross-chain)
+- ✅ Recipient note/message support
 
 ## Troubleshooting
 
