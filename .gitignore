@@ -42,7 +42,6 @@ utxo*
 *.sqlite
 *.sqlite3
 *.db-journal
-*.db
 *.log
 logs/*.log
 
@@ -60,7 +59,9 @@ build/
 
 # IDE & Editor
 .vscode/
+!.vscode/extensions.json
 .idea/
+!.idea/workspace.xml
 *.swp
 *.swo
 *~
@@ -99,10 +100,6 @@ pip-delete-this-directory.txt
 .docker/
 docker-compose.override.yml
 
-# IDE Configs (keep .vscode/extensions.json, .idea/workspace.xml)
-!.vscode/extensions.json
-!.idea/workspace.xml
-
 # Coverage
 coverage/
 *.lcov
@@ -113,7 +110,6 @@ coverage/
 # Logs
 *.log
 
-
 # Backend Specific
 *.pyc
 venv/
@@ -121,3 +117,6 @@ venv/
 
 # Bloat Files - Archived hackathon artifacts, duplicates, and outdated files
 bloat-files/
+
+# Internal documentation (not for distribution)
+docs/internal/
