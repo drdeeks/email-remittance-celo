@@ -1,5 +1,5 @@
 import React, { useState } from 'react';
-import { useVerification } from './hooks/useVerification';
+import { useVerification } from '../hooks/useVerification';
 
 export interface VerificationChoiceProps {
   userId: string;
@@ -322,7 +322,7 @@ export const VerificationChoice: React.FC<VerificationChoiceProps> = ({
             grid-template-columns: 1fr;
           }
         }
-      }</style>
+      `}</style>
     </div>
   );
 };

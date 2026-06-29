@@ -28,6 +28,14 @@ export interface SelfVerificationResult {
   message?: string;
   error?: string;
   senderSessionToken?: string; // Session token for sender callbacks
+  method?: string; // Added for enterprise tracking
+  dryRun?: boolean;
+  warnings?: string[];
+  processingTime?: string;
+  fallbackUsed?: boolean;
+  retryCount?: number;
+  verificationUrl?: string;
+  sessionId?: string;
 }
 
 export interface SelfFrontendConfig {
@@ -54,6 +62,43 @@ export interface SelfStatus {
     highValueThreshold: number;
     monitoringEnabled: boolean;
   };
+}
+
+// Self Enterprise SDK Types
+export interface SelfEnterpriseSession {
+  id: string;
+  verificationUrl: string;
+  expiresAt: string;
+  flowVersionId: string;
+}
+
+export interface SelfEnterpriseSessionDetail {
+  id: string;
+  status: 'pending' | 'valid' | 'invalid' | 'error' | 'expired';
+  createdAt: string;
+  completedAt: string | null;
+  expiresAt: string;
+  flowVersionId: string;
+  externalUuid: string;
+  metadata: Record<string, unknown> | null;
+  predicatesConfig: Record<string, unknown> | null;
+  proofAttributes: Record<string, unknown> | null;
+  storage: {
+    state: 'pending' | 'committed' | 'failed';
+    uri: string | null;
+    credentialId: string | null;
+  };
+}
+
+export interface SelfEnterpriseWebhookEvent {
+  type: string;
+  verification_id: string;
+  external_uuid: string;
+  status: 'valid' | 'invalid' | 'error' | 'expired';
+  proof_attributes?: Record<string, unknown>;
+  flow_version_id: string;
+  created_at: string;
+  completed_at: string | null;
 }
 
 // World ID Verification Types
@@ -91,6 +136,12 @@ export interface WorldIDVerificationResult {
   error?: string;
   message?: string;
   senderSessionToken?: string;
+  method?: string; // Added for enterprise tracking
+  dryRun?: boolean;
+  warnings?: string[];
+  processingTime?: string;
+  fallbackUsed?: boolean;
+  retryCount?: number;
 }
 
 export type VerificationRequest = SelfVerificationRequest | WorldIDVerificationRequest;

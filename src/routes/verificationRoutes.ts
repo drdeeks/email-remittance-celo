@@ -1,5 +1,5 @@
 import { Router } from 'express';
-import { selectVerificationMethod, getVerificationStatus } from '../controllers/verificationController';
+import { selectVerificationMethod, getVerificationStatus, selfEnterpriseWebhook } from '../controllers/verificationController';
 
 const router = Router();
 
@@ -9,5 +9,8 @@ router.post('/select', selectVerificationMethod);
 // Unified enterprise verification endpoint
 router.post('/', selectVerificationMethod);
 router.get('/status/:token', getVerificationStatus);
+
+// Self Enterprise webhook endpoint
+router.post('/webhooks/self', selfEnterpriseWebhook);
 
 export { router as verificationRoutes };
