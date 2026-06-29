@@ -8,7 +8,7 @@ import { selfConfig } from '../config/self';
 import { SelfBackendVerifier, AllIds, DefaultConfigStore } from '@selfxyz/core';
 
 class SelfVerificationService {
-  private verificationCache: Map<string, SelfVerificationResult>;
+  private verificationCache: Map<string, any>;
   private verifier: any;
 
   constructor() {

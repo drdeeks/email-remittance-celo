@@ -9,8 +9,8 @@
  */
 
 import { Request, Response } from 'express';
-import { selectVerificationMethod } from '../controllers/verificationController';
-import { selfEnterpriseEnhancedService } from '../services/selfEnterpriseEnhancedService';
+import { selectVerificationMethod } from '../../src/controllers/verificationController';
+import { selfEnterpriseEnhancedService } from '../../src/services/selfEnterpriseEnhancedService';
 
 // Mock Express Request and Response
 class MockRequest implements Partial<Request> {
@@ -20,19 +20,27 @@ class MockRequest implements Partial<Request> {
   }
 }
 
-class MockResponse implements Partial<Response> {
-  statusCode: number = 200;
-  jsonData: any = null;
-  
-  status(code: number): this {
-    this.statusCode = code;
-    return this;
-  }
-  
-  json(data: any): this {
-    this.jsonData = data;
-    return this;
-  }
+interface MockResponse {
+  statusCode: number;
+  jsonData: any;
+  status(code: number): MockResponse;
+  json(data: any): MockResponse;
+}
+
+function createMockResponse(): MockResponse {
+  const res: MockResponse = {
+    statusCode: 200,
+    jsonData: null,
+    status(code: number) {
+      res.statusCode = code;
+      return res;
+    },
+    json(data: any) {
+      res.jsonData = data;
+      return res;
+    }
+  };
+  return res;
 }
 
 describe('SCR-1 Verification Controller - selectVerificationMethod', () => {
@@ -46,9 +54,9 @@ describe('SCR-1 Verification Controller - selectVerificationMethod', () => {
       method: 'NONE',
       dryRun: true
     });
-    const mockRes = new MockResponse();
+    const mockRes = createMockResponse();
 
-    await selectVerificationMethod(mockReq as Request, mockRes as Response);
+    await selectVerificationMethod(mockReq as Request, mockRes as unknown as Response);
 
     expect(mockRes.statusCode).toBeLessThan(400);
     expect(mockRes.jsonData).toBeDefined();
@@ -65,9 +73,9 @@ describe('SCR-1 Verification Controller - selectVerificationMethod', () => {
       amount: 100,
       currency: 'USD'
     });
-    const mockRes = new MockResponse();
+    const mockRes = createMockResponse();
 
-    await selectVerificationMethod(mockReq as Request, mockRes as Response);
+    await selectVerificationMethod(mockReq as Request, mockRes as unknown as Response);
 
     expect(mockRes.statusCode).toBeLessThan(400);
     expect(mockRes.jsonData).toBeDefined();
@@ -83,9 +91,9 @@ describe('SCR-1 Verification Controller - selectVerificationMethod', () => {
       amount: 100,
       currency: 'USD'
     });
-    const mockRes = new MockResponse();
+    const mockRes = createMockResponse();
 
-    await selectVerificationMethod(mockReq as Request, mockRes as Response);
+    await selectVerificationMethod(mockReq as Request, mockRes as unknown as Response);
 
     expect(mockRes.statusCode).toBeLessThan(400);
     expect(mockRes.jsonData).toBeDefined();
@@ -97,9 +105,9 @@ describe('SCR-1 Verification Controller - selectVerificationMethod', () => {
     const mockReq = new MockRequest({
       method: 'INVALID'
     });
-    const mockRes = new MockResponse();
+    const mockRes = createMockResponse();
 
-    await selectVerificationMethod(mockReq as Request, mockRes as Response);
+    await selectVerificationMethod(mockReq as Request, mockRes as unknown as Response);
 
     expect(mockRes.statusCode).toBe(400);
     expect(mockRes.jsonData.success).toBe(false);
@@ -108,9 +116,9 @@ describe('SCR-1 Verification Controller - selectVerificationMethod', () => {
 
   it('should reject missing method', async () => {
     const mockReq = new MockRequest({});
-    const mockRes = new MockResponse();
+    const mockRes = createMockResponse();
 
-    await selectVerificationMethod(mockReq as Request, mockRes as Response);
+    await selectVerificationMethod(mockReq as Request, mockRes as unknown as Response);
 
     expect(mockRes.statusCode).toBe(400);
     expect(mockRes.jsonData.success).toBe(false);
@@ -122,9 +130,9 @@ describe('SCR-1 Verification Controller - selectVerificationMethod', () => {
       method: 'SELF',
       dryRun: false
     });
-    const mockRes = new MockResponse();
+    const mockRes = createMockResponse();
 
-    await selectVerificationMethod(mockReq as Request, mockRes as Response);
+    await selectVerificationMethod(mockReq as Request, mockRes as unknown as Response);
 
     expect(mockRes.statusCode).toBe(400);
     expect(mockRes.jsonData).toHaveProperty('method', 'SELF');
@@ -135,9 +143,9 @@ describe('SCR-1 Verification Controller - selectVerificationMethod', () => {
       method: 'WORLDID',
       dryRun: false
     });
-    const mockRes = new MockResponse();
+    const mockRes = createMockResponse();
 
-    await selectVerificationMethod(mockReq as Request, mockRes as Response);
+    await selectVerificationMethod(mockReq as Request, mockRes as unknown as Response);
 
     expect(mockRes.statusCode).toBe(400);
     expect(mockRes.jsonData).toHaveProperty('method', 'WORLDID');
@@ -148,9 +156,9 @@ describe('SCR-1 Verification Controller - selectVerificationMethod', () => {
       method: 'NONE',
       dryRun: true
     });
-    const mockRes = new MockResponse();
+    const mockRes = createMockResponse();
 
-    await selectVerificationMethod(mockReq as Request, mockRes as Response);
+    await selectVerificationMethod(mockReq as Request, mockRes as unknown as Response);
 
     const response = mockRes.jsonData;
     expect(response).toHaveProperty('success');
@@ -165,9 +173,9 @@ describe('SCR-1 Verification Controller - selectVerificationMethod', () => {
       dryRun: true,
       attestationId: 1
     });
-    const mockRes = new MockResponse();
+    const mockRes = createMockResponse();
 
-    await selectVerificationMethod(mockReq as Request, mockRes as Response);
+    await selectVerificationMethod(mockReq as Request, mockRes as unknown as Response);
 
     const response = mockRes.jsonData;
     expect(response).toHaveProperty('success');
@@ -181,9 +189,9 @@ describe('SCR-1 Verification Controller - selectVerificationMethod', () => {
       method: 'WORLDID',
       dryRun: true
     });
-    const mockRes = new MockResponse();
+    const mockRes = createMockResponse();
 
-    await selectVerificationMethod(mockReq as Request, mockRes as Response);
+    await selectVerificationMethod(mockReq as Request, mockRes as unknown as Response);
 
     const response = mockRes.jsonData;
     expect(response).toHaveProperty('success');
@@ -198,9 +206,9 @@ describe('SCR-1 Verification Controller - selectVerificationMethod', () => {
       dryRun: true,
       reason: 'Testing verification selection'
     });
-    const mockRes = new MockResponse();
+    const mockRes = createMockResponse();
 
-    await selectVerificationMethod(mockReq as Request, mockRes as Response);
+    await selectVerificationMethod(mockReq as Request, mockRes as unknown as Response);
 
     expect(mockRes.statusCode).toBeLessThan(400);
     expect(mockRes.jsonData).toBeDefined();
@@ -212,9 +220,9 @@ describe('SCR-1 Verification Controller - selectVerificationMethod', () => {
       dryRun: true,
       force: true
     });
-    const mockRes = new MockResponse();
+    const mockRes = createMockResponse();
 
-    await selectVerificationMethod(mockReq as Request, mockRes as Response);
+    await selectVerificationMethod(mockReq as Request, mockRes as unknown as Response);
 
     expect(mockRes.statusCode).toBeLessThan(400);
     expect(mockRes.jsonData).toBeDefined();
@@ -225,9 +233,9 @@ describe('SCR-1 Controller Error Handling', () => {
 
   it('should handle malformed request body gracefully', async () => {
     const mockReq = new MockRequest(null);
-    const mockRes = new MockResponse();
+    const mockRes = createMockResponse();
 
-    await selectVerificationMethod(mockReq as any, mockRes as Response);
+    await selectVerificationMethod(mockReq as any, mockRes as unknown as Response);
 
     expect(mockRes.jsonData).toBeDefined();
     expect(mockRes.jsonData).toHaveProperty('success');
@@ -246,10 +254,10 @@ describe('SCR-1 Controller Error Handling', () => {
 
     for (const testCase of testCases) {
       const mockReq = new MockRequest(testCase);
-      const mockRes = new MockResponse();
+      const mockRes = createMockResponse();
 
       await expect(
-        selectVerificationMethod(mockReq as any, mockRes as Response)
+        selectVerificationMethod(mockReq as any, mockRes as unknown as Response)
       ).resolves.not.toThrow();
     }
   });
@@ -258,9 +266,9 @@ describe('SCR-1 Controller Error Handling', () => {
     const mockReq = new MockRequest({
       method: 'INVALID'
     });
-    const mockRes = new MockResponse();
+    const mockRes = createMockResponse();
 
-    await selectVerificationMethod(mockReq as Request, mockRes as Response);
+    await selectVerificationMethod(mockReq as Request, mockRes as unknown as Response);
 
     expect(mockRes.jsonData).toHaveProperty('error');
     expect(typeof mockRes.jsonData.error).toBe('string');
@@ -271,9 +279,9 @@ describe('SCR-1 Controller Error Handling', () => {
     const mockReq = new MockRequest({
       method: 'INVALID'
     });
-    const mockRes = new MockResponse();
+    const mockRes = createMockResponse();
 
-    await selectVerificationMethod(mockReq as Request, mockRes as Response);
+    await selectVerificationMethod(mockReq as Request, mockRes as unknown as Response);
 
     expect(mockRes.statusCode).toBeGreaterThanOrEqual(400);
   });
@@ -291,9 +299,9 @@ describe('SCR-1 Response Consistency', () => {
 
     for (const testCase of testCases) {
       const mockReq = new MockRequest(testCase);
-      const mockRes = new MockResponse();
+      const mockRes = createMockResponse();
 
-      await selectVerificationMethod(mockReq as any, mockRes as Response);
+      await selectVerificationMethod(mockReq as any, mockRes as unknown as Response);
 
       expect(mockRes.jsonData).toHaveProperty('success');
       expect(typeof mockRes.jsonData.success).toBe('boolean');
@@ -310,9 +318,9 @@ describe('SCR-1 Response Consistency', () => {
 
     for (const testCase of testCases) {
       const mockReq = new MockRequest(testCase);
-      const mockRes = new MockResponse();
+      const mockRes = createMockResponse();
 
-      await selectVerificationMethod(mockReq as any, mockRes as Response);
+      await selectVerificationMethod(mockReq as any, mockRes as unknown as Response);
 
       expect(mockRes.jsonData).toHaveProperty('timestamp');
       expect(typeof mockRes.jsonData.timestamp).toBe('string');
@@ -329,9 +337,9 @@ describe('SCR-1 Response Consistency', () => {
 
     for (const testCase of testCases) {
       const mockReq = new MockRequest(testCase);
-      const mockRes = new MockResponse();
+      const mockRes = createMockResponse();
 
-      await selectVerificationMethod(mockReq as any, mockRes as Response);
+      await selectVerificationMethod(mockReq as any, mockRes as unknown as Response);
 
       if (testCase.method) {
         expect(mockRes.jsonData).toHaveProperty('method', testCase.method || 'unknown');

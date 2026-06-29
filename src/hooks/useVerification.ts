@@ -1,4 +1,4 @@
-"""Custom hook for verification operations"""
+// Custom hook for verification operations
 import { useState, useCallback } from 'react';
 
 export interface UseVerificationResult {
