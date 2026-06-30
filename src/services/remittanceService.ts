@@ -88,9 +88,8 @@ export function generateClaimSecret(): string {
  * Hashes claim secret for storage (SHA-256)
  */
 export function hashClaimSecret(secret: string): string {
-  // In production, use crypto.createHash('sha256').update(secret).digest('hex')
-  // For now, return a hash-like string
-  return 'sha256$' + secret; // Placeholder
+  const crypto = require('crypto');
+  return crypto.createHash('sha256').update(secret).digest('hex');
 }
 
 /**
