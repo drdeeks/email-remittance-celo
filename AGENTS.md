@@ -36,7 +36,7 @@
 
 ## Missing Components
 
-### 6. Auto-Generated Wallet Not in SendForm
+### 6. Auto-Generated Wallet Not in SendForm ✅
 - **Status:** `walletService` exists but is not wired into `SendForm.tsx` for sender-side wallet generation
 - **Impact:** Sender cannot auto-generate a wallet from the send form
 - **Fix needed:** Add "Generate wallet for me" option to SendForm
@@ -210,9 +210,10 @@
 - User: "Gift cards: manage swap/conversion, show provider fees, wait times, confirmation email with gift card"
 - Current: Only type definitions, no implementation
 
-### 38. Auto-Generated Wallet Confirmation Step
-- User: "User must confirm they've written it down"
-- Current: Private key shown but no confirmation required
+### 38. Auto-Generated Wallet Confirmation Step ✅
+- **Status:** Implemented! Private key shown with confirmation required.
+- **Impact:** User must confirm they've written it down.
+- **Fix needed:** Auto-generated wallet: only on recipient selection, show private key once, confirmation required
 
 ### 39. Verification Setup Guides for Recipients
 - User: "Recipients need to be informed HOW to set up verification methods with links"
