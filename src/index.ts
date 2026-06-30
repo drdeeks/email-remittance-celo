@@ -4,6 +4,7 @@ import { remittanceApiRoutes } from './routes/remittanceApiRoutes';
 import { verificationRoutes } from './routes/verificationRoutes';
 import { selfRoutes } from './routes/selfRoutes';
 import { healthRoutes } from './routes/healthRoutes';
+import { adminReviewRoutes } from './controllers/adminReviewController';
 import { errorHandler } from './middleware/errorHandler';
 import { rateLimiter } from './middleware/rateLimiter';
 
@@ -20,6 +21,7 @@ app.use('/api/remittances', remittanceRoutes);
 app.use('/api', remittanceApiRoutes);
 app.use('/api/verification', verificationRoutes);
 app.use('/api/self', selfRoutes);
+app.use('/api/admin', adminReviewRoutes);
 app.use('/health', healthRoutes);
 
 // Error handling
