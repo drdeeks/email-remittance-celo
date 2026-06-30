@@ -118,6 +118,12 @@ export function SendForm() {
   const [ownSigning, setOwnSigning] = useState(false);
   const [ownSignature, setOwnSignature] = useState<string | null>(null);
 
+  // Auto-generated wallet for recipient
+  const [recipientWallet, setRecipientWallet] = useState<{ address: string; privateKey: string; importInstructions: string } | null>(null);
+  const [walletGenerating, setWalletGenerating] = useState(false);
+  const [walletConfirmationStep, setWalletConfirmationStep] = useState(0); // 0=none, 1=shown, 2=confirmed
+  const [walletCopied, setWalletCopied] = useState(false);
+
   // Message to recipient (displayed on claim page)
   const [recipientNote, setRecipientNote] = useState('');
 
@@ -234,6 +240,43 @@ export function SendForm() {
     }
   };
 
+  const generateRecipientWallet = async () => {
+    setWalletGenerating(true);
+    try {
+      const response = await fetch(`${API_URL}/api/remittance/wallet/generate`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+      });
+      const data = await response.json();
+      if (data.success) {
+        setRecipientWallet({
+          address: data.data.address,
+          privateKey: data.data.privateKey,
+          importInstructions: data.data.importInstructions,
+        });
+        setWalletConfirmationStep(1);
+      } else {
+        alert('Failed to generate wallet');
+      }
+    } catch (error) {
+      alert('Failed to generate wallet');
+    } finally {
+      setWalletGenerating(false);
+    }
+  };
+
+  const confirmWalletSaved = () => {
+    setWalletConfirmationStep(2);
+  };
+
+  const copyPrivateKey = async () => {
+    if (recipientWallet?.privateKey) {
+      await navigator.clipboard.writeText(recipientWallet.privateKey);
+      setWalletCopied(true);
+      setTimeout(() => setWalletCopied(false), 2000);
+    }
+  };
+
   const handleSend = async () => {
     // Service wallet: must be Self-verified or World ID verified
     if (walletMode === 'service' && !selfVerified && !worldIdVerified) {
@@ -290,6 +333,11 @@ export function SendForm() {
         chain: chainName,
         walletMode,
         requireAuth,
+        // Include recipient wallet if generated
+        ...(recipientWallet ? {
+          recipientWalletAddress: recipientWallet.address,
+          recipientPrivateKey: recipientWallet.privateKey,
+        } : {}),
         // Service wallet: send server-issued Self session token for backend validation
         ...(walletMode === 'service' && senderSessionToken ? {
           senderSessionToken,
@@ -628,6 +676,45 @@ export function SendForm() {
           placeholder="recipient@example.com"
           className="w-full bg-slate-900 border border-slate-700 rounded-lg px-4 py-3 text-white placeholder-gray-500 focus:border-sky-500 focus:outline-none transition-colors"
         />
+        {/* Auto-generate wallet for recipient */}
+        {recipientEmail && !recipientWallet && walletConfirmationStep === 0 && (
+          <button
+            onClick={generateRecipientWallet}
+            disabled={walletGenerating}
+            className="w-full mt-2 py-2 px-4 bg-sky-500/10 border border-sky-500/30 rounded-lg text-sky-400 text-sm font-medium hover:bg-sky-500/20 transition-colors disabled:opacity-50"
+          >
+            {walletGenerating ? (
+              <span className="flex items-center justify-center gap-2">
+                <div className="w-3 h-3 border-2 border-sky-400/30 border-t-sky-400 rounded-full animate-spin" />
+                Generating wallet...
+              </span>
+            ) : (
+              'Generate wallet for recipient'
+            )}
+          </button>
+        )}
+        {recipientWallet && walletConfirmationStep === 1 && (
+          <div className="p-3 bg-amber-500/10 border border-amber-500/30 rounded-lg space-y-2">
+            <p className="text-amber-400 text-xs font-medium">Save this private key — it will never be shown again:</p>
+            <div className="flex gap-2">
+              <code className="flex-1 p-2 bg-slate-900 rounded text-xs text-white break-all font-mono">
+                {recipientWallet.privateKey}
+              </code>
+              <button onClick={copyPrivateKey} className="px-2 py-1 bg-slate-700 rounded text-xs">
+                {walletCopied ? 'Copied' : 'Copy'}
+              </button>
+            </div>
+            <p className="text-xs text-gray-400">Address: {recipientWallet.address}</p>
+            <button onClick={confirmWalletSaved} className="w-full py-2 bg-amber-500/20 border border-amber-500/30 rounded-lg text-amber-400 text-sm font-medium hover:bg-amber-500/30">
+              I have saved the private key
+            </button>
+          </div>
+        )}
+        {recipientWallet && walletConfirmationStep === 2 && (
+          <div className="p-2 bg-emerald-500/10 border border-emerald-500/30 rounded-lg text-emerald-400 text-xs text-center">
+            Wallet generated for recipient · {recipientWallet.address.slice(0, 10)}...{recipientWallet.address.slice(-6)}
+          </div>
+        )}
       </div>
 
       {/* Wallet Mode Toggle */}
