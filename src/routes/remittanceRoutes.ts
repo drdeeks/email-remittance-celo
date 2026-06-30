@@ -1,18 +1,14 @@
 import { Router } from 'express';
-import { createRemittance, claimRemittance, getRemittanceStatus } from '../controllers/remittanceController';
-import { validateRemittance } from '../middleware/validationMiddleware';
-import { remittanceService } from '../services/remittanceService';
+import { handleExpiredRemittances } from '../services/remittanceService';
 
 const router = Router();
 
-router.post('/', validateRemittance, createRemittance);
-router.post('/claim', claimRemittance);
-router.get('/status/:token', getRemittanceStatus);
+// Process expired remittances — deducts 1.5% storage fee, returns remainder to sender
 router.post('/process-expired', async (req, res) => {
   try {
-    await remittanceService.handleExpiredRemittances();
-    res.json({ success: true });
-  } catch (error) {
+    const result = await handleExpiredRemittances();
+    res.json({ success: true, data: result });
+  } catch (error: any) {
     res.status(500).json({ success: false, error: error.message });
   }
 });
