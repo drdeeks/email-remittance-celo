@@ -206,6 +206,29 @@ router.get('/service-wallet', async (req: Request, res: Response, next: NextFunc
   }
 });
 
+// POST /api/remittance/wallet/generate — generates a new wallet for recipient auto-generation
+router.post('/wallet/generate', async (req: Request, res: Response, next: NextFunction) => {
+  try {
+    const walletServiceModule = await import('../services/walletService');
+    const wallet = walletServiceModule.generateWalletWithInstructions();
+
+    logger.info('Wallet generated', { address: wallet.walletAddress });
+
+    res.status(201).json({
+      success: true,
+      data: {
+        address: wallet.walletAddress,
+        privateKey: wallet.privateKey,
+        importInstructions: wallet.importInstructions,
+        warning: 'SAVE YOUR PRIVATE KEY NOW — this will never be shown again.',
+      },
+      timestamp: new Date().toISOString(),
+    });
+  } catch (error) {
+    next(error);
+  }
+});
+
 // Get remittance status by ID
 router.get('/:id', async (req: Request, res: Response, next: NextFunction) => {
   try {
