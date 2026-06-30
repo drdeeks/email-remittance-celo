@@ -22,7 +22,7 @@ const API_URL = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:3001';
 const CHAIN_NAME_TO_ID: Record<string, SupportedChainId> = {
   celo: 42220,
   base: 8453,
-  monad: 10143,
+  monad: 143,
 };
 
 interface RemittanceInfo {

@@ -71,19 +71,6 @@ const RECIPIENT_TOKENS: Record<number, { symbol: string; name: string; crossChai
   ],
 };
 
-interface SendResult {
-  success: boolean;
-  claimUrl?: string;
-  token?: string;
-  escrowAddress?: string;
-  sendAmount?: string;
-  error?: string;
-  // PL_Genesis fields
-  litSignature?: string;
-  worldIdVerified?: boolean;
-  agentLog?: any;
-}
-
 export function SendForm() {
   const { address, isConnected, chainId: walletChainId } = useAccount();
   const { disconnect } = useDisconnect();
@@ -182,7 +169,7 @@ export function SendForm() {
     const COINGECKO_IDS: Record<number, string> = {
       42220: 'celo',
       8453: 'ethereum',
-      10143: 'monad-network',
+      143: 'monad-network',
     };
     const id = COINGECKO_IDS[selectedChain];
     if (!id) return;
