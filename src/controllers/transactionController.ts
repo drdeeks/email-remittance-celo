@@ -11,11 +11,12 @@ import { uniswapQuoteService } from '../services/uniswapQuoteService';
 import { swapService } from '../services/swapService';
 import { getTokensByChain, getChainIdFromName, resolveTokenAddress } from '../config/tokens';
 import { validateSenderSession } from '../services/selfSessionStore';
+import { transactionLimiter } from '../middleware/rateLimiter';
 
 const router = Router();
 
-// Create a new remittance transaction
-router.post('/send', async (req: Request, res: Response, next: NextFunction) => {
+// Create a new remittance transaction — rate limited to 5 per minute per sender
+router.post('/send', transactionLimiter, async (req: Request, res: Response, next: NextFunction) => {
   try {
     const { senderEmail, recipientEmail, amount, message, chain, currency, requireAuth, feeModel, senderWallet, walletMode, fundingTxHash, receiverToken, senderToken, senderSessionToken, senderMessage, verificationType, senderVerifiedName, senderVerifiedNationality, senderVerifiedEthnicity } = req.body;
 

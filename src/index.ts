@@ -5,11 +5,15 @@ import { verificationRoutes } from './routes/verificationRoutes';
 import { selfRoutes } from './routes/selfRoutes';
 import { healthRoutes } from './routes/healthRoutes';
 import { errorHandler } from './middleware/errorHandler';
+import { rateLimiter } from './middleware/rateLimiter';
 
 const app = express();
 
 // Middleware
 app.use(express.json());
+
+// Rate limiting — general limiter on all API routes (1000/hr prod, 200/min dev)
+app.use('/api', rateLimiter);
 
 // Routes
 app.use('/api/remittances', remittanceRoutes);
