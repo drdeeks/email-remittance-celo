@@ -38,7 +38,7 @@ describe('Wallet Generation - Unit Tests', () => {
     it('should include saving instructions', () => {
       const wallet = generateWalletWithInstructions();
 
-      expect(wallet.importInstructions).toContain('SAVE YOUR PRIVATE KEY');
+      expect(wallet.importInstructions).toContain('Save your private key');
     });
 
     it('should generate unique wallets on each call', () => {

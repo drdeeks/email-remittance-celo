@@ -120,3 +120,6 @@ bloat-files/
 
 # Internal documentation (not for distribution)
 docs/internal/
+*.db-shm
+*.db-wal
+test-results/

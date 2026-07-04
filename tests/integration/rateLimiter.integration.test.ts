@@ -42,9 +42,8 @@ describe('Rate Limiter Middleware - Integration Tests', () => {
         .get('/api/test')
         .expect(200);
 
-      // Check for rate limit headers (draft-7 standard)
-      expect(response.headers['ratelimit-limit']).toBeDefined();
-      expect(response.headers['ratelimit-remaining']).toBeDefined();
+      // Check for rate limit headers (draft-7 standard uses combined 'ratelimit' header)
+      expect(response.headers['ratelimit']).toBeDefined();
     });
 
     it('should skip health endpoints', async () => {
