@@ -117,7 +117,7 @@ describe('Admin Review Service - Unit Tests', () => {
       expect(result.manager!.email).toBe('manager@example.com');
       expect(result.manager!.role).toBe('manager');
       expect(result.manager!.status).toBe('pending');
-      expect(result.manager!.invitedBy).toBe('owner-id');
+      expect(result.manager!.invited_by).toBe('owner-id');
     });
 
     it('should reject duplicate email', () => {
@@ -166,11 +166,11 @@ describe('Admin Review Service - Unit Tests', () => {
 
       expect(result.success).toBe(true);
       expect(result.manager!.status).toBe('active');
-      expect(result.manager!.selfVerificationId).toBe('self-verification-123');
-      expect(result.manager!.selfVerified).toBe(1);
-      expect(result.manager!.walletSignature).toBe('wallet-signature-456');
-      expect(result.manager!.walletSignatureVerified).toBe(1);
-      expect(result.manager!.approvedBy).toBe('owner-id');
+      expect(result.manager!.self_verification_id).toBe('self-verification-123');
+      expect(result.manager!.self_verified).toBe(1);
+      expect(result.manager!.wallet_signature).toBe('wallet-signature-456');
+      expect(result.manager!.wallet_signature_verified).toBe(1);
+      expect(result.manager!.approved_by).toBe('owner-id');
     });
 
     it('should reject approval of non-existent manager', () => {
@@ -225,8 +225,8 @@ describe('Admin Review Service - Unit Tests', () => {
 
       expect(result.success).toBe(true);
       expect(result.reviewItem).toBeDefined();
-      expect(result.reviewItem!.remittanceId).toBe('remittance-1');
-      expect(result.reviewItem!.submittedBy).toBe('manager-id');
+      expect(result.reviewItem!.remittance_id).toBe('remittance-1');
+      expect(result.reviewItem!.submitted_by).toBe('manager-id');
       expect(result.reviewItem!.status).toBe('pending');
     });
 

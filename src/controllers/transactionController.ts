@@ -3,6 +3,7 @@ import { validationError, validateEmail, validateAmount } from '../utils/errors'
 import { logger } from '../utils/logger';
 import { ethers } from 'ethers';
 import { createRemittance, claimRemittance as claimRemittanceFn, getRemittanceByClaimToken, getExpiredRemittances, handleExpiredRemittances, hashClaimSecret, verifyClaimSecret } from '../services/remittanceService';
+import { db } from '../db/database';
 import { detectChain, chainService, type SupportedChain } from '../services/celoService';
 import { celoService } from '../services/celo.service';
 import { uniswapService } from '../services/uniswapService';
@@ -185,10 +186,9 @@ router.get('/claim/:token', async (req: Request, res: Response, next: NextFuncti
 
     // Mark as claimed
     const now = Math.floor(Date.now() / 1000);
-    const db = require('../db/database').db;
     db.prepare(`
       UPDATE remittances
-      SET status = 'claimed', claimed_at = ?, recipient_wallet = ?, updated_at = datetime('now')
+      SET status = 'claimed', claimed_at = ?, recipient_wallet = ?
       WHERE id = ? AND status = 'pending'
     `).run(now, finalWallet || null, remittance.id);
 

@@ -2,6 +2,9 @@
 const nextConfig = {
   eslint: { ignoreDuringBuilds: true },
   typescript: { ignoreBuildErrors: true },
+  turbopack: {
+    root: '/home/drdeek/projects/email-remittance-pro/frontend',
+  },
   webpack: (config) => {
     config.resolve.alias = {
       ...config.resolve.alias,

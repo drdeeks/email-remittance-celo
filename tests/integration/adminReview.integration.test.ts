@@ -106,9 +106,9 @@ describe('Admin Review API Routes - Integration Tests', () => {
   });
 
   beforeEach(() => {
-    db.exec('DELETE FROM managers WHERE id != ?').run('owner-id');
-    db.exec('DELETE FROM review_queue');
-    db.exec('DELETE FROM remittances');
+    db.prepare('DELETE FROM managers WHERE id != ?').run('owner-id');
+    db.prepare('DELETE FROM review_queue').run();
+    db.prepare('DELETE FROM remittances').run();
   });
 
   describe('POST /api/admin/managers/invite', () => {
@@ -202,8 +202,8 @@ describe('Admin Review API Routes - Integration Tests', () => {
 
       expect(response.body.success).toBe(true);
       expect(response.body.manager.status).toBe('active');
-      expect(response.body.manager.selfVerified).toBe(1);
-      expect(response.body.manager.walletSignatureVerified).toBe(1);
+      expect(response.body.manager.self_verified).toBe(1);
+      expect(response.body.manager.wallet_signature_verified).toBe(1);
     });
 
     it('should reject approval without dual identity', async () => {
@@ -254,8 +254,9 @@ describe('Admin Review API Routes - Integration Tests', () => {
         .expect(200);
 
       expect(response.body.success).toBe(true);
-      expect(response.body.managers).toHaveLength(1);
-      expect(response.body.managers[0].email).toBe('manager@example.com');
+      // Owner + newly created manager
+      expect(response.body.managers).toHaveLength(2);
+      expect(response.body.managers.find((m: any) => m.email === 'manager@example.com')).toBeDefined();
     });
   });
 

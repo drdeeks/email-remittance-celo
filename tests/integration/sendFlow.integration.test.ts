@@ -34,6 +34,12 @@ jest.mock('../../src/services/celoService', () => ({
   detectChain: jest.fn().mockReturnValue('celo'),
 }));
 
+jest.mock('../../src/services/celo.service', () => ({
+  celoService: {
+    getBalance: jest.fn().mockResolvedValue('10.0'),
+  },
+}));
+
 jest.mock('../../src/services/feeService', () => ({
   feeService: {
     getFeeQuote: jest.fn().mockResolvedValue({
