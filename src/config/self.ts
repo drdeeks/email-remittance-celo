@@ -55,6 +55,14 @@ export const selfConfig = {
     timeout: parseInt(process.env.SELF_API_TIMEOUT || '10000'),
   },
 
+  // Self Enterprise SDK (@selfxyz/enterprise-sdk) configuration.
+  // None of these are required at boot — verification is OPTIONAL and degrades gracefully.
+  enterprise: {
+    apiKey: process.env.SELF_API_KEY || process.env.SELF_ENTERPRISE_API_KEY || '',
+    flowId: process.env.SELF_FLOW_ID || '',
+    webhookSecret: process.env.SELF_WEBHOOK_SECRET || '',
+  },
+
   // Attester configuration
   attester: {
     address: process.env.SELF_ATTESTER_ADDRESS!,

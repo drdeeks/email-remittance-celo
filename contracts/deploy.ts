@@ -107,13 +107,15 @@ async function deploy(chain: string): Promise<DeployResult> {
   console.log(`  Hub:      ${hubAddr === ethers.ZeroAddress ? 'none (admin-attestation mode)' : hubAddr}`);
   console.log(`  Fee:      ${feeBps / 100}%`);
 
-  // Read bytecode from compiled artifact or compile inline
+  // Read ABI + bytecode from the combined compiled artifact
   const artifactPath = path.join(__dirname, 'artifacts', 'EmailRemittanceVerifier.json');
   let bytecode: string;
+  let artifactAbi: any;
 
   if (fs.existsSync(artifactPath)) {
     const artifact = JSON.parse(fs.readFileSync(artifactPath, 'utf8'));
     bytecode = artifact.bytecode;
+    artifactAbi = artifact.abi;
   } else {
     throw new Error(
       `Compiled artifact not found at ${artifactPath}.\n` +
@@ -121,7 +123,7 @@ async function deploy(chain: string): Promise<DeployResult> {
     );
   }
 
-  const factory  = new ethers.ContractFactory(CONTRACT_ABI, bytecode, wallet);
+  const factory  = new ethers.ContractFactory(artifactAbi ?? CONTRACT_ABI, bytecode, wallet);
   const contract = await factory.deploy(
     hubAddr,
     deployer,       // owner = deployer (transfer ownership after if needed)

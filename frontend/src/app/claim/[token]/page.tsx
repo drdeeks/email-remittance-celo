@@ -3,8 +3,9 @@
 import { useEffect, useState } from 'react';
 import { useParams } from 'next/navigation';
 import { ConnectButton } from '@rainbow-me/rainbowkit';
-import { SelfQRcodeWrapper, SelfAppBuilder } from '@selfxyz/qrcode';
 import { useAccount } from 'wagmi';
+import SelfVerificationQR from '@/components/SelfVerificationQR';
+import WorldIdVerification from '@/components/WorldIdVerification';
 import { chainConfig, SupportedChainId } from '@/config/chains';
 import {
   CheckCircleIcon,
@@ -61,6 +62,7 @@ interface RemittanceInfo {
   storageFee?: string;
   status: 'pending' | 'claimed' | 'expired';
   requireAuth: boolean;
+  verificationMethod: 'NONE' | 'SELF' | 'WORLDID';
   expiresAt: string;
   claimedAt?: string;
   txHash?: string;
@@ -100,6 +102,9 @@ export default function ClaimPage() {
 
   // Self verification
   const [selfVerified, setSelfVerified] = useState(false);
+  // World ID verification
+  const [worldIdVerified, setWorldIdVerified] = useState(false);
+  const [worldIdProof, setWorldIdProof] = useState<any>(null);
   const [copied, setCopied] = useState<string | null>(null);
 
   useEffect(() => { fetchInfo(); }, [token]);
@@ -123,6 +128,7 @@ export default function ClaimPage() {
           senderAddress: raw.sender_email || raw.senderAddress || '',
           status: raw.status || 'pending',
           requireAuth: raw.requireAuth ?? false,
+          verificationMethod: raw.verificationMethod || (raw.requireAuth ? 'SELF' : 'NONE'),
         });
         const tokens = RECIPIENT_TOKENS[chainId];
         if (tokens?.length) setDesiredToken(tokens[0].symbol);
@@ -165,9 +171,13 @@ export default function ClaimPage() {
     setClaimResult(null);
 
     try {
-      const params = new URLSearchParams();
-      params.append('desiredToken', desiredToken);
-      params.append('receiveMode', receiveMode);
+       const params = new URLSearchParams();
+       params.append('desiredToken', desiredToken);
+       params.append('receiveMode', receiveMode);
+       params.append('verificationMethod', info.verificationMethod || 'NONE');
+       if (info.verificationMethod === 'WORLDID' && worldIdProof) {
+         params.append('worldIdProof', JSON.stringify(worldIdProof));
+       }
 
       if (receiveMode === 'wallet') {
         const effectiveWallet = walletInput || address;
@@ -349,8 +359,8 @@ export default function ClaimPage() {
     );
   }
 
-  // ─── Self Verification Required ──────────────────────────────────────────────
-  if (info.requireAuth && !selfVerified) {
+  // ─── Verification Required (server-decided method) ──────────────────────────
+  if (info.verificationMethod === 'SELF' && !selfVerified) {
     return (
       <main className="min-h-screen bg-gradient-to-b from-slate-950 via-slate-900 to-slate-950">
         <div className="max-w-lg mx-auto px-4 py-12">
@@ -358,28 +368,37 @@ export default function ClaimPage() {
             <div className="text-center">
               <QrCodeIcon className="w-16 h-16 text-sky-400 mx-auto mb-4" />
               <h1 className="text-2xl font-bold text-white mb-2">Verify Your Identity</h1>
-              <p className="text-gray-400">The sender requires verification to claim this remittance.</p>
+              <p className="text-gray-400">Identity verification is required to claim this remittance.</p>
             </div>
-            <div className="flex justify-center">
-              <SelfQRcodeWrapper
-                selfApp={new SelfAppBuilder({
-                  appName: 'Email Remittance Pro',
-                  scope: 'email-remittance-claim',
-                  endpoint: `${API_URL}/api/verifications/claim-callback`,
-                  endpointType: 'https',
-                  version: 2,
-                  userId: token,
-                  userIdType: 'hex',
-                  disclosures: { name: true, nationality: true, ofac: true },
-                }).build()}
-                onSuccess={() => setSelfVerified(true)}
-                type="websocket"
-                darkMode={true}
-              />
-            </div>
-            <p className="text-xs text-center text-gray-600">
-              Open the <strong className="text-gray-400">Self app</strong> → tap passport icon 5× for demo mode
-            </p>
+            <SelfVerificationQR
+              userId={token}
+              remittanceId={token}
+              amount={info.amount}
+              active={true}
+              scope="email-remittance-claim"
+              endpoint={`${API_URL}/api/verification/claim-callback`}
+              onVerificationSuccess={() => setSelfVerified(true)}
+              onVerificationFailure={(err) => setError(err)}
+            />
+          </div>
+        </div>
+      </main>
+    );
+  }
+
+  if (info.verificationMethod === 'WORLDID' && !worldIdVerified) {
+    return (
+      <main className="min-h-screen bg-gradient-to-b from-slate-950 via-slate-900 to-slate-950">
+        <div className="max-w-lg mx-auto px-4 py-12">
+          <div className="bg-slate-800/50 border border-slate-700 rounded-xl p-6 space-y-6">
+            <WorldIdVerification
+              recipientToken={token}
+              onVerified={(result) => {
+                setWorldIdVerified(true);
+                setWorldIdProof(result);
+              }}
+              onError={(err) => setError(err)}
+            />
           </div>
         </div>
       </main>

@@ -17,6 +17,7 @@ router.get('/', (req: Request, res: Response) => {
 
 // Full integration health check — shows all tracks and their status
 router.get('/integrations', async (req: Request, res: Response) => {
+ try {
   const chains = chainService.getSupportedChains();
   const balances: Record<string, string> = {};
 
@@ -106,6 +107,13 @@ router.get('/integrations', async (req: Request, res: Response) => {
       },
     },
   });
+  } catch (err: any) {
+    res.status(200).json({
+      status: 'degraded',
+      timestamp: new Date().toISOString(),
+      error: String(err?.message || err),
+    });
+  }
 });
 
 router.get('/ready', (req: Request, res: Response) => {

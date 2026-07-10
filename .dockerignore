@@ -1,0 +1,13 @@
+node_modules
+dist
+coverage
+frontend
+.git
+.github
+*.db
+*.db-shm
+*.db-wal
+.env
+.env.*
+!.env.example
+test-results

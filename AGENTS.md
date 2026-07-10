@@ -70,10 +70,10 @@
 - **Impact:** Component will fail at runtime
 - **Fix needed:** Create missing modules or fix imports
 
-### 12. World ID Is Mock Only
-- **Status:** `verifyWorldId()` uses `setTimeout(500)` and stores fake token in localStorage
-- **Impact:** Not production-ready. No real World ID SDK integration.
-- **Fix needed:** Integrate real World ID SDK
+### 12. World ID Must Be Real Integration (Required, not optional)
+- **Status:** Frontend mock (`setTimeout(500)` + localStorage) removed; backend `worldIdVerification.service.ts` now verifies real IDKit proofs via the Worldcoin Developer Portal endpoint. Frontend uses `@worldcoin/idkit` `IDKitRequestWidget`.
+- **Impact:** No longer a mock — proof is re-verified server-side. Operator requires REAL World ID (not mock).
+- **Fix needed:** Provide `WORLDID_APP_ID`/`WORLDID_APP_SECRET`; the `/api/verification/worldid/rp-context` signing should use the real World ID app key (currently HMAC best-effort).
 
 ### 13. Monad Chain ID Inconsistency
 - **Status:** `CHAIN_ID_TO_NAME` in SendForm uses `143`, claim page `CHAIN_NAME_TO_ID` uses `10143`, CoinGecko uses `10143`

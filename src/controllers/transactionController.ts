@@ -95,7 +95,10 @@ router.post('/send', transactionLimiter, async (req: Request, res: Response, nex
       feeAmount: feeQuote.feeAmount,
       receiverToken: receiverToken || null,
       senderToken: senderToken || null,
-    });
+      // Funding context for server-side verification-method decision (never client-chosen).
+      walletMode: walletMode === 'personal' ? 'personal' : 'service',
+      serverWallet: celoService.wallet?.address,
+    } as any);
 
     logger.info('Remittance created', {
       remittanceId: result.remittanceId,
@@ -437,6 +440,7 @@ router.get('/status/:token', async (req: Request, res: Response, next: NextFunct
         status: remittance.status,
         expires_at: new Date(remittance.expires_at * 1000).toISOString(),
         requireAuth: remittance.require_auth === 1,
+        verificationMethod: (remittance as any).verification_method || 'NONE',
         chain: remittance.chain || 'celo',
         selfVerified: remittance.self_verified === 1,
         storage_fee: remittance.storage_fee,

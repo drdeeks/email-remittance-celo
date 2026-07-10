@@ -3,6 +3,7 @@ import { SelfVerificationRequest, SelfVerificationResult,
          VerificationMethodSelectionRequest } from '../types/verification';
 import { logger } from '../utils/logger';
 import { selfConfig } from '../config/self';
+import { verifyWorldIdProof } from './worldIdVerification.service';
 
 // Self Enterprise SDK - replaces legacy @selfxyz/core
 // Migration guide: https://docs.self.xyz/self-enterprise/migration
@@ -37,7 +38,7 @@ class SelfEnterpriseEnhancedService {
         return;
       }
       
-      const apiKey = process.env.SELF_API_KEY || process.env.SELF_ENTERPRISE_API_KEY;
+      const apiKey = selfConfig.enterprise.apiKey || process.env.SELF_API_KEY || process.env.SELF_ENTERPRISE_API_KEY;
       
       if (!apiKey) {
         logger.warn('Self Enterprise API key not configured. SELF verification will run in mock mode.', {
@@ -195,6 +196,17 @@ class SelfEnterpriseEnhancedService {
       return { success: false, error: `Webhook processing failed: ${error.message}` };
     }
   }
+
+  // Look up a previously-verified Self session (by verification id / token) cached from webhooks.
+  // Returns the cached verification result if it exists and was verified, otherwise null.
+  getVerifiedSession(idOrToken: string): any | null {
+    if (!idOrToken) return null;
+    const cached = this.verificationCache.get(idOrToken);
+    if (cached && cached.verified === true) {
+      return cached;
+    }
+    return null;
+  }
   
   // Process NONE verification method (no verification required)
   private async processNoVerificationRequest(request: any, dryRun: boolean, warnings: string[]): Promise<any> {
@@ -323,26 +335,48 @@ class SelfEnterpriseEnhancedService {
         return this.createDryRunWorldIdResponse(request, warnings);
       }
       
-      // World ID verification - in production this would use @worldcoin/id SDK
-      // For now, validate the proof structure
-      const isValidNullifier = request.nullifierHash && request.nullifierHash.length > 0;
-      const isValidMerkleRoot = request.merkleRoot && request.merkleRoot.startsWith('0x') && request.merkleRoot.length >= 66;
-      const isValidProof = request.proof && request.proof.length > 0;
-      const isVerified = isValidNullifier && isValidMerkleRoot && isValidProof;
-      
-      if (!isVerified) {
-        return this.createErrorResponse('Invalid WorldID verification data', 'WORLDID', false, warnings);
+      // Real World ID verification against the Worldcoin Developer Portal verify endpoint.
+      const worldIdResult = await verifyWorldIdProof(
+        {
+          nullifier_hash: request.nullifierHash,
+          merkle_root: request.merkleRoot,
+          proof: request.proof,
+          verification_level: request.verificationLevel,
+          action: request.action,
+        },
+        request.signal || request.recipient,
+        request.action
+      );
+
+      if (!worldIdResult.configured) {
+        return this.createErrorResponse(
+          'World ID verification is not configured on the server (set WORLDID_APP_ID and WORLDID_APP_SECRET)',
+          'WORLDID',
+          false,
+          warnings
+        );
       }
-      
+
+      if (!worldIdResult.success) {
+        return this.createErrorResponse(
+          worldIdResult.error || 'World ID verification failed',
+          'WORLDID',
+          false,
+          warnings
+        );
+      }
+
+      const verifiedNullifier = worldIdResult.nullifierHash || request.nullifierHash;
+
       const verificationResult: WorldIDVerificationResult = {
         success: true,
         verified: true,
         requireVerification: request.requireVerification !== false,
         verificationToken: this.generateVerificationToken(),
-        nullifierHash: request.nullifierHash,
+        nullifierHash: verifiedNullifier,
         merkleRoot: request.merkleRoot,
         credentialSubject: {
-          username: `user_${request.nullifierHash.substring(0, 8)}`,
+          username: `user_${(verifiedNullifier || '').substring(0, 8)}`,
           humanitarianProof: true
         },
         timestamp: this.generateTimestamp(),

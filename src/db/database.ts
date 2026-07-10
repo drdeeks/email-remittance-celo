@@ -61,7 +61,9 @@ class DatabaseManager {
          escrow_agent_wallet TEXT DEFAULT NULL,
          cross_chain_tx_hashes TEXT DEFAULT NULL,
          storage_fee TEXT DEFAULT '0',
-         returned_to_sender INTEGER DEFAULT 0
+         returned_to_sender INTEGER DEFAULT 0,
+         verification_method TEXT NOT NULL DEFAULT 'NONE',
+         funding_entity TEXT
        );
 
       CREATE INDEX IF NOT EXISTS idx_claim_token ON remittances(claim_token);
@@ -98,6 +100,8 @@ class DatabaseManager {
        { column: 'cross_chain_tx_hashes', sql: 'ALTER TABLE remittances ADD COLUMN cross_chain_tx_hashes TEXT DEFAULT NULL' },
        { column: 'storage_fee', sql: 'ALTER TABLE remittances ADD COLUMN storage_fee TEXT DEFAULT \'0\'' },
        { column: 'returned_to_sender', sql: 'ALTER TABLE remittances ADD COLUMN returned_to_sender INTEGER DEFAULT 0' },
+       { column: 'verification_method', sql: 'ALTER TABLE remittances ADD COLUMN verification_method TEXT NOT NULL DEFAULT \'NONE\'' },
+       { column: 'funding_entity', sql: 'ALTER TABLE remittances ADD COLUMN funding_entity TEXT' },
      ];
 
     for (const migration of migrations) {

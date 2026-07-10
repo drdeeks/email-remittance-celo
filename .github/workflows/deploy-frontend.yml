@@ -15,28 +15,28 @@ jobs:
     name: Deploy Frontend
     runs-on: ubuntu-latest
     if: ${{ github.event.workflow_run.conclusion == 'success' }}
-    
+
     steps:
     - name: Checkout repository
       uses: actions/checkout@v4
-    
+
     - name: Set up Node.js
       uses: actions/setup-node@v4
       with:
         node-version: 22.x
         cache: 'npm'
-    
+
     - name: Install dependencies
       run: cd frontend && npm install
-    
-    - name: Build frontend
-      run: cd frontend && npm run build
-    
+
+    - name: Build (Cloudflare Pages via next-on-pages)
+      run: cd frontend && npm run pages:build
+
     - name: Deploy to Cloudflare Pages
       uses: cloudflare/pages-action@v1
       with:
         apiToken: ${{ secrets.CLOUDFLARE_API_TOKEN }}
         accountId: ${{ secrets.CLOUDFLARE_ACCOUNT_ID }}
         projectName: email-remittance-pro
-        directory: frontend/dist
+        directory: frontend/.vercel/output
         gitHubToken: ${{ secrets.GITHUB_TOKEN }}

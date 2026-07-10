@@ -9,6 +9,8 @@ import { logger } from '../utils/logger';
 import { validateEmail, getEmailDomain } from './emailValidator';
 import { previewFee, calculateFee, getFeeConfig, FeeCalculationResult } from './feeEngine';
 import { selfEnterpriseEnhancedService } from './selfEnterpriseEnhancedService';
+import { decideVerificationMethod, getFundingEntity, VerificationMethod } from './verificationPolicy';
+import { verifyWorldIdProof, isNullifierUsed, recordNullifier } from './worldIdVerification.service';
 
 export interface Remittance {
   id: string;
@@ -38,6 +40,8 @@ export interface Remittance {
   recipient_wallet: string | null;
   storage_fee: string;
   returned_to_sender: number;
+  verification_method: VerificationMethod;
+  funding_entity: string | null;
   created_at: Date;
   updated_at: Date;
 }
@@ -52,6 +56,11 @@ export interface CreateRemittanceRequest {
   requireAuth: boolean;
   idempotencyKey: string;
   memo?: string;
+  // Funding context — used to server-decide the verification method.
+  // The client-supplied `requireAuth` is intentionally ignored.
+  walletMode?: 'service' | 'personal' | string;
+  senderWallet?: string;
+  serverWallet?: string;
 }
 
 export interface CreateRemittanceResult {
@@ -199,6 +208,18 @@ export async function createRemittance(
   
   const expiresAt = new Date(Date.now() + 7 * 24 * 60 * 60 * 1000); // 7 days
 
+  // Verification method is decided SERVER-SIDE by the funding entity — the client's
+  // `requireAuth`/method choice is intentionally ignored. Default is 'NONE'.
+  const walletMode: 'service' | 'personal' = request.walletMode === 'personal' ? 'personal' : 'service';
+  const policyCtx = {
+    walletMode,
+    senderWallet: request.senderWallet,
+    serverWallet: request.serverWallet,
+  };
+  const verificationMethod = decideVerificationMethod(policyCtx);
+  const fundingEntity = getFundingEntity(policyCtx) || null;
+  const requireAuthFlag = verificationMethod !== 'NONE' ? 1 : 0;
+
   // Create remittance record
   const remittanceId = uuidv4();
   const now = new Date();
@@ -207,8 +228,9 @@ export async function createRemittance(
     INSERT INTO remittances (
       id, sender_id, recipient_email, recipient_id, amount_usd, amount_tokens,
       token_address, chain_id, fee_usd, fee_tokens, claim_token, status,
+      require_auth, verification_method, funding_entity,
       expires_at, created_at, updated_at
-    ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+    ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
   `).run(
     remittanceId,
     request.senderId,
@@ -222,6 +244,9 @@ export async function createRemittance(
     feeCalc.feeTokens,
     claimTokenHash,
     'pending',
+    requireAuthFlag,
+    verificationMethod,
+    fundingEntity,
     expiresAt.toISOString(),
     now.toISOString(),
     now.toISOString()
@@ -244,12 +269,14 @@ export async function createRemittance(
     fee_tokens: feeCalc.feeTokens,
     claim_token: claimTokenHash,
     status: 'pending',
+    verification_method: verificationMethod,
+    funding_entity: fundingEntity,
     expires_at: expiresAt,
     claimed_at: null,
     tx_hash: null,
     created_at: now,
     updated_at: now
-  };
+  } as Remittance;
 
   const result: CreateRemittanceResult = {
     success: true,
@@ -310,8 +337,42 @@ export async function claimRemittance(
     return { success: false, error: 'Already claimed' };
   }
 
-  // For now, assume verification is handled externally
-  // In production, verify Self/WorldID proof here
+  // Enforce the server-decided verification method before releasing funds.
+  // The method is set at creation by the funding entity and cannot be changed by the claimer.
+  const requiredMethod: VerificationMethod = (remittance.verification_method as VerificationMethod) || 'NONE';
+  if (requiredMethod && requiredMethod !== 'NONE') {
+    if (requiredMethod === 'WORLDID') {
+      const proof = request.verificationData;
+      if (!proof) {
+        return { success: false, error: 'World ID verification is required to claim this remittance' };
+      }
+      const worldIdResult = await verifyWorldIdProof(proof, request.recipientWallet, 'claim');
+      if (!worldIdResult.configured) {
+        return { success: false, error: 'World ID verification is required but is not configured on the server' };
+      }
+      if (worldIdResult.alreadyUsed) {
+        return { success: false, error: 'World ID proof has already been used' };
+      }
+      if (!worldIdResult.success) {
+        return { success: false, error: worldIdResult.error || 'World ID verification failed' };
+      }
+      // Replay protection: record the verified nullifier.
+      if (worldIdResult.nullifierHash) {
+        if (isNullifierUsed(worldIdResult.nullifierHash)) {
+          return { success: false, error: 'World ID proof has already been used' };
+        }
+        recordNullifier(worldIdResult.nullifierHash);
+      }
+    } else if (requiredMethod === 'SELF') {
+      // Require a completed Self Enterprise session (populated by the webhook handler).
+      const vd = request.verificationData || {};
+      const sessionRef = vd.verificationId || vd.sessionId || vd.token || request.verificationMethod;
+      const verifiedSession = sessionRef ? selfEnterpriseEnhancedService.getVerifiedSession(sessionRef) : null;
+      if (!verifiedSession) {
+        return { success: false, error: 'A completed Self Protocol verification is required to claim this remittance' };
+      }
+    }
+  }
 
   // Mark as claimed
   const now = new Date();

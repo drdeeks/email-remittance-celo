@@ -7,7 +7,6 @@ import { parseEther, formatUnits } from 'viem';
 import { SelfQRcodeWrapper, SelfAppBuilder } from '@selfxyz/qrcode';
 import { ChainSelector } from './ChainSelector';
 import { useSignMessage } from 'wagmi'; // for personal wallet confirmation
-import { AuthToggle } from './AuthToggle';
 import { chainConfig, SupportedChainId } from '@/config/chains';
 import { PaperAirplaneIcon, ClipboardIcon, CheckIcon, ShieldCheckIcon, XMarkIcon } from '@heroicons/react/24/solid';
 
@@ -22,7 +21,6 @@ interface SendResult {
   sendAmount?: string;
   error?: string;
   litSignature?: string;
-  worldIdVerified?: boolean;
   agentLog?: any;
 }
 
@@ -84,7 +82,6 @@ export function SendForm() {
   const [amount, setAmount] = useState('');
   const [recipientToken, setRecipientToken] = useState('');
   const [senderToken, setSenderToken] = useState('');
-  const [requireAuth, setRequireAuth] = useState(false);
   const [loading, setLoading] = useState(false);
   const [result, setResult] = useState<SendResult | null>(null);
   const [copied, setCopied] = useState(false);
@@ -104,14 +101,6 @@ export function SendForm() {
       ? crypto.randomUUID().replace(/-/g, '')
       : Math.random().toString(16).slice(2).padStart(32, '0')
   );
-
-  // World ID verification
-  // World ID verification
-  const [worldIdVerified, setWorldIdVerified] = useState(false);
-  const [verifyingWorldId, setVerifyingWorldId] = useState(false);
-
-  // Test-Verification state — force fresh verification (for dev/debug)
-  const [forceVerification, setForceVerification] = useState(false);
 
   // Personal wallet ownership confirmation
   const [ownVerified, setOwnVerified] = useState(false);
@@ -198,24 +187,6 @@ export function SendForm() {
     fetchServiceWallet();
   }, [selectedChain]);
 
-  const verifyWorldId = async () => {
-    setVerifyingWorldId(true);
-    try {
-      // Mock World ID verification - in production use World ID SDK
-      // const verification = await WorldId.verify();
-      // localStorage.setItem('worldIdToken', verification.token);
-      await new Promise(resolve => setTimeout(resolve, 500));
-      const token = 'mock-world-id-token-' + Date.now();
-      localStorage.setItem('worldIdToken', token);
-      setWorldIdVerified(true);
-    } catch (err) {
-      console.error('World ID verification failed', err);
-      alert('Verification failed');
-    } finally {
-      setVerifyingWorldId(false);
-    }
-  };
-
   const handleOwnSign = async () => {
     if (!address) return;
     setOwnSigning(true);
@@ -235,8 +206,8 @@ export function SendForm() {
   };
 
   const handleSend = async () => {
-    // Service wallet: must be Self-verified or World ID verified
-    if (walletMode === 'service' && !selfVerified && !worldIdVerified) {
+    // Service wallet: must be Self-verified (server decides the verification method)
+    if (walletMode === 'service' && !selfVerified) {
       setShowSelfQR(true);
       return;
     }
@@ -289,7 +260,6 @@ export function SendForm() {
         amount: parseFloat(amount),
         chain: chainName,
         walletMode,
-        requireAuth,
         // Service wallet: send server-issued Self session token for backend validation
         ...(walletMode === 'service' && senderSessionToken ? {
           senderSessionToken,
@@ -307,15 +277,9 @@ export function SendForm() {
       if (recipientToken) payload.receiverToken = recipientToken;
       if (senderToken && senderToken !== chain.symbol) payload.senderToken = senderToken;
 
-      const worldIdToken = localStorage.getItem('worldIdToken');
-      const headers: Record<string, string> = { 'Content-Type': 'application/json' };
-      if (worldIdToken) {
-        headers['x-world-id-token'] = worldIdToken;
-      }
-
       const response = await fetch(`${API_URL}/api/remittance/send`, {
         method: 'POST',
-        headers,
+        headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify(payload),
       });
 
@@ -332,7 +296,6 @@ export function SendForm() {
           sendAmount: responseData.sendAmount,
           // PL_Genesis: capture integration fields
           litSignature: data.litSignature,
-          worldIdVerified: data.worldIdVerified,
           agentLog: data.agentLog,
         });
       } else {
@@ -374,14 +337,6 @@ export function SendForm() {
 
         {/* PL_Genesis: Show integration status */}
         <div className="bg-slate-900 rounded-lg p-4 space-y-3">
-          {result.worldIdVerified && (
-            <div className="flex items-center gap-2 text-sm text-cyan-400">
-              <svg className="w-4 h-4" fill="currentColor" viewBox="0 0 20 20">
-                <path fillRule="evenodd" d="M2.166 4.999A11.954 11.954 0 0010 1.944 11.954 11.954 0 0017.834 5c.11.65.166 1.32.166 2.001 0 5.225-3.34 9.67-8 11.317C5.34 16.67 2 12.225 2 7c0-.682.057-1.35.166-2.001zm11.541 3.708a1 1 0 00-1.414-1.414L9 10.586 7.707 9.293a1 1 0 00-1.414 1.414l2 2a1 1 0 001.414 0l4-4z" clipRule="evenodd" />
-              </svg>
-              <span>World ID: Humanity verified</span>
-            </div>
-          )}
           {result.litSignature && (
             <div className="text-xs">
               <p className="text-gray-500 mb-1">Lit Signature (agent receipt):</p>
@@ -470,7 +425,7 @@ export function SendForm() {
           ) : (
             // Service wallet mode: show verification status + test mode
             <div className="flex items-center gap-2">
-              {selfVerified && !worldIdVerified && (
+              {selfVerified && (
                 <div className="flex items-center gap-2">
                   <ShieldCheckIcon className="w-4 h-4 text-emerald-400" />
                   <span className="px-3 py-1.5 rounded-lg text-xs font-semibold bg-emerald-500/20 text-emerald-400 border border-emerald-500/30">
@@ -479,50 +434,13 @@ export function SendForm() {
                   </span>
                   {/* Test-Verification reset – for dev/debug */}
                   <button
-                    onClick={() => { setForceVerification(true); setSelfVerified(false); setShowSelfQR(true); }}
+                    onClick={() => { setSelfVerified(false); setShowSelfQR(true); }}
                     className="px-2 py-1 text-[10px] border border-gray-600 rounded hover:bg-slate-700 text-gray-300"
                     title="Test Verification (forces new verification)"
                   >
                     Test
                   </button>
                 </div>
-              )}
-              {worldIdVerified && (
-                <div className="flex items-center gap-2">
-                  <ShieldCheckIcon className="w-4 h-4 text-emerald-400" />
-                  <span className="px-3 py-1.5 rounded-lg text-xs font-semibold bg-emerald-500/20 text-emerald-400 border border-emerald-500/30">
-                    ✓ Humanity Verified (World ID)
-                  </span>
-                  {/* Test-Verification reset */}
-                  <button
-                    onClick={() => { setForceVerification(true); setWorldIdVerified(false); localStorage.removeItem('worldProof'); verifyWorldId(); }}
-                    className="px-2 py-1 text-[10px] border border-gray-600 rounded hover:bg-slate-700 text-gray-300"
-                    title="Test Verification (forces new verification)"
-                  >
-                    Test
-                  </button>
-                </div>
-              )}
-              {!selfVerified && !worldIdVerified && (
-                <button
-                  onClick={verifyWorldId}
-                  disabled={verifyingWorldId}
-                  className="flex items-center gap-2 px-3 py-1.5 rounded-lg text-xs font-semibold bg-amber-500/20 text-amber-400 border border-amber-500/30 hover:bg-amber-500/30 transition-colors disabled:opacity-50"
-                >
-                  {verifyingWorldId ? (
-                    <>
-                      <div className="w-3 h-3 border-2 border-amber-400/30 border-t-amber-400 rounded-full animate-spin" />
-                      Verifying...
-                    </>
-                  ) : (
-                    <>
-                      <svg className="w-4 h-4" fill="currentColor" viewBox="0 0 20 20">
-                        <path d="M9.049 2.927c.3-.921 1.603-.921 1.902 0l1.07 3.292a1 1 0 00.95.69h3.462c.969 0 1.371 1.24.588 1.81l-2.8 2.034a1 1 0 00-.364 1.118l1.07 3.292c.3.921-.755 1.688-1.54 1.118l-2.8-2.034a1 1 0 00-1.175 0l-2.8 2.034c-.784.57-1.838-.197-1.539-1.118l1.07-3.292a1 1 0 00-.364-1.118L2.98 8.72c-.783-.57-.38-1.81.588-1.81h3.461a1 1 0 00.951-.69l1.07-3.292z" />
-                      </svg>
-                      Verify via World ID
-                    </>
-                  )}
-                </button>
               )}
             </div>
           )}
@@ -768,8 +686,6 @@ export function SendForm() {
         />
         <p className="text-xs text-gray-600 text-right">{recipientNote.length}/500</p>
       </div>
-
-      <AuthToggle requireAuth={requireAuth} onToggle={setRequireAuth} />
 
       {result?.error && (
         <div className="p-3 bg-red-500/10 border border-red-500/30 rounded-lg text-red-400 text-sm">

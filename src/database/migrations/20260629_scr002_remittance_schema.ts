@@ -42,6 +42,10 @@ export async function up() {
         expires_at TIMESTAMPTZ NOT NULL,
         claimed_at TIMESTAMPTZ,
         tx_hash VARCHAR(66),
+        require_auth INTEGER DEFAULT 0,
+        verification_method VARCHAR(10) NOT NULL DEFAULT 'NONE'
+            CHECK (verification_method IN ('NONE', 'SELF', 'WORLDID')),
+        funding_entity VARCHAR(42),
         created_at TIMESTAMPTZ DEFAULT NOW(),
         updated_at TIMESTAMPTZ DEFAULT NOW()
       );
