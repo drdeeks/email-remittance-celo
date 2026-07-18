@@ -1,8 +1,5 @@
 # Email Remittance Pro
 
-[![DrDeeks Project](https://img.shields.io/badge/DrDeeks%20Project-171718?style=flat-square&labelColor=b84d32)](https://github.com/drdeeks)
-
-
 ![License](https://img.shields.io/badge/license-MIT-green)
 ![Chains](https://img.shields.io/badge/chains-Celo%20%7C%20Base%20%7C%20Monad-6f42c1)
 ![Contracts](https://img.shields.io/badge/contracts-deployed%20%2B%20verified-success)
